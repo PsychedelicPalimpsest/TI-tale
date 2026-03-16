@@ -1,4 +1,4 @@
-defc interupt_vector = 8A8Ah
+defc interupt_vector = 8181h
 
 __interupt:
     di
@@ -7,7 +7,19 @@ __interupt:
     push	de
     push	hl
 
-    ; Todo interupt
+    ; Interupt status
+    in a, (4)
+    out (2), a
+
+    ; Exit if on button is pressed
+    bit 0, a
+    jr z, __after_exit
+
+    ld a, (first_rom_page)
+    out (6), a ; Set first page to be loaded
+
+    jp __Exit ; Nope out (exists on first page)
+__after_exit:
 
     pop	hl
     pop	de
@@ -15,6 +27,9 @@ __interupt:
     pop	af
     ei
     ret
+
+
+
 __end_of_interupts:
 
 
@@ -25,17 +40,26 @@ __setup_interrupts:
     ld bc, __end_of_interupts - __interupt
     ldir
 
-; Vector table is based at $8B00
-    ld a, $8b
+; Vector table is based at $8000
+    ld a, $80
     ld i, a
-; Fill the vector table with $8A so interrupts always jump to $8A8A,
+; Fill the vector table with $81 so interrupts always jump to $8181,
 ; no matter the value of the low byte.
-    ld hl, $8b00
-    ld (hl), $8a
-    ld de, $8b01
+    ld hl, $8000
+    ld (hl), $81
+    ld de, $8001
     ld bc, 256
     ldir
 
+    ; Set interupt mask
+    ; Bit 0: On button press
+    ; Bit 1: Hardware time 1
+    ; Bit 2: Hardware time 2
+    ld a, %111
+    out (3), a
+
+
+    ; Enable interrupts
     im 2
     ei
 

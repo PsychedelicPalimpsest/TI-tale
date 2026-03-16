@@ -23,6 +23,9 @@
     defc    crt0 = 1
     INCLUDE	"zcc_opt.def"	; Receive all compiler-defines
 
+
+    INCLUDE "asm_globals.def"
+
     defc	CONSOLE_ROWS = 8
     defc    TAR__clib_exit_stack_size = 3
     defc    TAR__register_sp = -1
@@ -30,7 +33,7 @@
 
 
     PUBLIC  __crt_org_bss
-    defc __crt_org_bss = $C000
+    defc __crt_org_bss = $D000
 
 
     ; Header data
@@ -185,12 +188,12 @@ start:
     ld a, $1 ; Set 15Mz
     out (20h), a
 
-
-
     ; Give us more ram. After this point NO BCALLS SHOULD BE MADE
     ld a, $83
     out (7), a
 
+    in a, (6)
+    ld (first_rom_page), a
 
 
      EXTERN __setup_interrupts

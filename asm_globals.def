@@ -1,0 +1,5 @@
+defc asm_globals_start = $C000
+
+
+defc first_rom_page = asm_globals_start ; 1 byte, first page
+defc foo = first_rom_page+1
