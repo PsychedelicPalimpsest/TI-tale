@@ -34,7 +34,7 @@
 
 
     PUBLIC  __crt_org_bss
-    defc __crt_org_bss = $D000
+    defc __crt_org_bss = c_bss
 
 
     ; Header data
@@ -193,7 +193,7 @@ start:
     out (7), a
 
     in a, (6)
-    ld (first_rom_page), a
+    ld (_first_rom_page), a
 
     ; Printf stuff
     INCLUDE "crt/classic/crt_init_sp.inc"

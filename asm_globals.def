@@ -1,5 +1,36 @@
-defc asm_globals_start = $C000
+PUBLIC _first_rom_page
+PUBLIC _current_light_buff
+PUBLIC _current_dark_buff
+PUBLIC _aux_light_buff
+PUBLIC _aux_dark_buff
+PUBLIC _light_buff_1
+PUBLIC _grey_buff_1
+PUBLIC _light_buff_2
+PUBLIC _grey_buff_2
+
+defc _globals_start = $C000
+
+defc _first_rom_page = _globals_start               ; 1 byte, first page
+
+; Whichever is currently being displayed
+defc _current_light_buff = _first_rom_page + 1      ; 2 bytes, ptr to current light buffer
+defc _current_dark_buff = _current_light_buff + 2   ; 2 bytes, ptr to current dark buffer
+
+; Whichever will be written too
+defc _aux_light_buff = _current_dark_buff + 2        ; 2 bytes, ptr to aux light buffer
+defc _aux_dark_buff = _aux_light_buff + 2            ; 2 bytes, ptr to aux dark buffer
 
 
-defc first_rom_page = asm_globals_start ; 1 byte, first page
-defc foo = first_rom_page+1
+
+; Set where z88dk puts static variables, note that only the first page is allowed them
+defc c_bss = $C100
+
+defc screen_size = 768    ; 96 * 64/8
+
+defc buffer_start  = $C500
+
+defc _light_buff_1 = buffer_start
+defc _grey_buff_1  = _light_buff_1 + screen_size
+
+defc _light_buff_2 = _grey_buff_1 + screen_size
+defc _grey_buff_2  = _light_buff_2 + screen_size

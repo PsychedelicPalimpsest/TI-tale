@@ -1,6 +1,7 @@
 all: out.8xk
 
 
+CFLAGS = "-pragma-define:CRT_ENABLE_STDIO=0"
 out.8xk: first_page.c  Makefile
 	zcc +ti83p -o out first_page.c  -crt0=custom_ti83papp_crt0.asm $(CFLAGS)
 
