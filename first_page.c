@@ -4,8 +4,15 @@
 #pragma string name UNDRTALE
 
 
+#include <stdio.h>
+
+extern void reset_pen();
 
 int main(){
+    reset_pen();
+    fputc_cons_native('!');
+    fputc_cons_native('a');
+    fputc_cons_native('p');
 
     while (1);
 }

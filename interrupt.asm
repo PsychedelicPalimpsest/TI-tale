@@ -9,7 +9,10 @@ __interupt:
 
     ; Interupt status
     in a, (4)
+
+    ; Acknowledge interrupt
     out (2), a
+
 
     ; Exit if on button is pressed
     bit 0, a
@@ -20,6 +23,9 @@ __interupt:
 
     jp __Exit ; Nope out (exists on first page)
 __after_exit:
+
+
+
 
     pop	hl
     pop	de

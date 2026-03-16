@@ -4,6 +4,7 @@
 ;
     MODULE  Ti83plus_App_crt0
 
+    DEFINE DEFINED_basegraphics
     DEFINE TI83PLUSAPP  ;Used by grayscale interrupt and the such
 
 
@@ -43,7 +44,6 @@
     org $4000
 
 
-
 ; No header or main is needed for anything other than the first page. (Or a single page apps)
 IF (startup=0 || startup=1)
 
@@ -61,7 +61,7 @@ IF (startup=0 || startup=1)
     ENDIF
 
 
-    ; INCLUDE "crt/classic/crt_rules.inc"
+    INCLUDE "crt/classic/crt_rules.inc"
 
 HEADER_START:
 
@@ -195,9 +195,14 @@ start:
     in a, (6)
     ld (first_rom_page), a
 
+    ; Printf stuff
+    INCLUDE "crt/classic/crt_init_sp.inc"
+    call    crt0_init
+
 
      EXTERN __setup_interrupts
      call __setup_interrupts
+
 
 
     call    _main		; call main()
@@ -256,3 +261,11 @@ ENDIF
     ENDIF
 
     #include "interrupt.asm"
+
+
+    ; Needed for printf
+
+    INCLUDE "crt/classic/crt_runtime_selection.inc"
+    INCLUDE	"crt/classic/crt_section.inc"
+
+base_graphics: DEFW $8800
