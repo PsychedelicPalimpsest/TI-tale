@@ -13,46 +13,56 @@ defc ymax = 64d
 
     ld   a, (grey_mask)
     rla   ; grey_carry goes to lsb, and msb goes to carry
-    
     ld (grey_mask), a
 
     ld a, $0
     rla ; Set carry to a
 
     ld (grey_carry), a
+    rra
 
-    dec a ; 1=>0, 0=>0xff
+    jp c, dark_gray
 
-    ld b, a ; Save to b
+    ld hl, (_current_light_buff)
+    jp after_dark
+dark_gray:
+    ld hl, (_current_dark_buff)
+after_dark:
 
+    ld a, $1 ; 8bit mode
+    out (10h), a
 
-    ld a, 1h ; 8bit mode
+    ld a, $7 ; Move right
     out (10h), a
 
 
-    ld a, 25h
+    ld c, 80h
+row_loop:
+    ld a, c ; Set col
+    out (10h), a ;
+
+
+    ld a, 20h ; Got to beginning of col
     out (10h), a
 
+    ld b, xmax/8
+cell_loop:
+    ld a, (hl)
+    out (11h), a
+    inc hl
+    djnz cell_loop
 
-    ld a, 85h
-    out (10h), a
-
-    ld a, b ; restore a from b
-    out (11h), a
-    out (11h), a
-    out (11h), a
-    out (11h), a
-    out (11h), a
-    out (11h), a
-    out (11h), a
-    out (11h), a
-
-    ld hl, (_grey_timing)
+    
 
 
-    out (11h), a
-    out (11h), a
-    out (11h), a
+    inc c
+    ld a, 80h + ymax -1
+    sub a, c
+    jp nc, row_loop
+
+
+
+
 
 
     jp after_masks
