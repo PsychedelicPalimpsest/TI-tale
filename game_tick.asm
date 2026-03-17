@@ -28,6 +28,7 @@
     ld a, $FB ;Select group 2.
     out (1), a
     in a, (1)
+    push af
 
     ld (_keymap + 2h), a
 
@@ -79,6 +80,18 @@
     in a, (1)
 
     ld (_keymap + 3h), a
+
+
+    pop bc
+; Temp grey tuning
+    ; hl is still the counter
+    ld a, l
+    
+    ld (_grey_timing), a
+
+after_tuning:
+
+    
 
 
 

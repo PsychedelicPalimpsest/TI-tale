@@ -212,6 +212,14 @@ start:
 __Exit:     ; exit() jumps to this point
     di
 
+    xor a, a
+    out ($30), a        ; turn off timer
+    out ($31), a        ; clear loop control
+
+    out ($33), a        ; turn off timer
+    out ($34), a        ; clear loop control
+
+
     ld      iy,_IY_TABLE	; Restore flag pointer
     im      1		;
 
@@ -222,8 +230,6 @@ __Exit:     ; exit() jumps to this point
 
     xor	    a		; Switch to 6MHz (normal speed)
     out (20h), a
-
-    defw	SetExSpeed	;
 
 __restore_sp_onexit:
     ;ld	sp,0		; Restore SP

@@ -42,7 +42,7 @@ defc ymax = 64d
     out (11h), a
     out (11h), a
 
-    ld a, (_keymap)
+    ld a, (_grey_timing)
     out (11h), a
     out (11h), a
     out (11h), a

@@ -16,10 +16,13 @@ defc _first_rom_page = _globals_start               ; 1 byte, first page
 defc _gray_count = _first_rom_page + 1              ; 2 byte, a count of the times the greyscale routine has fired
 defc _game_count = _gray_count +2                   ; 2 bytes
 
+defc _grey_timing = _game_count + 2                  ; 1 byte
+defc _grey_contrast = _grey_timing + 1                  ; 1 byte
+
 
 
 ; Whichever is currently being displayed
-defc _current_light_buff = _game_count + 2      ; 2 bytes, ptr to current light buffer
+defc _current_light_buff = _grey_contrast + 1      ; 2 bytes, ptr to current light buffer
 defc _current_dark_buff = _current_light_buff + 2   ; 2 bytes, ptr to current dark buffer
 
 ; Whichever will be written too

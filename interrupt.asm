@@ -1,5 +1,8 @@
 defc interupt_vector = 8181h
 
+defc interupt_mask = %00001011
+
+
 __interupt:
 PHASE interupt_vector
     di
@@ -8,40 +11,33 @@ PHASE interupt_vector
     push	de
     push	hl
 
-    ; Interupt status
-    in a, (4)
 
-    ; Acknowledge interrupt
-    out (2), a
-
-    push af
-
-    ; Exit if on button is pressed
-    bit 0, a
-    jp z, __after_exit
-
-    ld a, (_first_rom_page)
-    out (6), a ; Set first page to be loaded
-
-    jp __Exit ; Nope out (exists on first page)
-__after_exit:
-    pop af
-    push af
-
-    bit 1, a
-    jp z, __after_gray
-
-    INCLUDE "greyscale.asm"
-__after_gray:
-    pop af
-
-    bit 2, a
-    jp z, __after_game_tick
     
-    INCLUDE "game_tick.asm"
-__after_game_tick:
+    in a, (4) ; Get interrupt cause 
+    ld b, a   ; Save cause to b
+
+    xor a, a ; Ack interrupts
+    out	(03), a
 
 
+    bit 0, b ; Test if on button is pressed
+    jp z, _after_exit ; If so, exit
+
+
+    ; Load in the first rom page of app
+    ld a, (_first_rom_page)
+    out (6), a
+
+    ; Ensure TiOS has interrupts
+    ld a, interupt_mask
+    out (3), a
+
+    ; Note: TiOS fixes the stack for us
+    jp __Exit
+_after_exit:
+
+    ld a, interupt_mask
+    out (3), a
 
     pop	hl
     pop	de
@@ -70,39 +66,15 @@ __setup_interrupts:
     ld bc, 256
     ldir
 
-    ; Set interupt mask
-    ; Bit 0: On button press
-    ; Bit 1: Hardware time 1
-    ; Bit 2: Hardware time 2
-    ld a, %111
-    out (3), a
+    xor a, a
+    out	(03), a
 
+    ld a, interupt_mask
+    out (3),a
 
     ; Enable interrupts
     im 2
     ei
 
-
-set_timers:
-  ; Greyscale timers
-    ld	a, $40
-    out	($30), a	;10922 Hz
-
-    ld	a, 2
-    out	($31), 	a ; Interupt
-
-    ld	a, $B6 	;<- this is the number you change for delay.
-    out	($32), a
-
-  ; Game timer
-    ld a, $46    ; 128 Hz
-    out ($33), a
-
-    ld a, $2
-    out	($34), 	a ; Interupt
-
-    ld a, $64
-    out ($35), a ; 128/4 = 32Hz
-
-
     ret
+
