@@ -31,7 +31,11 @@ defc _aux_dark_buff = _aux_light_buff + 2            ; 2 bytes, ptr to aux dark 
 
 
 ; Map of user keys, see: https://web.archive.org/web/20240225131330/https://wikiti.brandonw.net/index.php?title=83Plus:Ports:01
-defc _keymap = _aux_dark_buff + 2                    ; size 8 bytes
+defc _current_keymap = _aux_dark_buff + 2                 ; size 8 bytes
+defc _last_keymap = _current_keymap + 8                   ; size 8 bytes
+
+; Down, left, right, up
+defc _nav_key_change = _last_keymap + 8                   ; size 1 byte
 
 
 ; Set where z88dk puts static variables, note that only the first page is allowed them

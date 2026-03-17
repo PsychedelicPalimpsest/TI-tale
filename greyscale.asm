@@ -41,8 +41,15 @@ defc ymax = 64d
     out (11h), a
     out (11h), a
     out (11h), a
+    out (11h), a
+    out (11h), a
+    out (11h), a
+    out (11h), a
+    out (11h), a
 
-    ld a, (_grey_timing)
+    ld hl, (_grey_timing)
+
+
     out (11h), a
     out (11h), a
     out (11h), a
