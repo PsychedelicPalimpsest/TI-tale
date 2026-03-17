@@ -2,7 +2,6 @@ defc interupt_vector = 8181h
 
 __interupt:
 PHASE interupt_vector
-
     di
     push	af
     push	bc
@@ -12,13 +11,12 @@ PHASE interupt_vector
     ; Interupt status
     in a, (4)
 
-    xor a, a
     ; Acknowledge interrupt
     out (2), a
 
     ; Exit if on button is pressed
     bit 0, a
-    jr z, __after_exit
+    jp z, __after_exit
 
     ld a, (_first_rom_page)
     out (6), a ; Set first page to be loaded
@@ -45,6 +43,14 @@ __end_of_interupts:
 
 
 __setup_interrupts:
+    ; Greyscale init (should be somewhere else)
+    ld hl, _light_buff_1
+    ld (_current_light_buff), hl
+
+    ld hl, _grey_buff_1
+    ld (_current_dark_buff), hl
+
+
     ld hl, __interupt
     ld de, interupt_vector
     ld bc, __end_of_interupts - __interupt
@@ -81,8 +87,7 @@ set_timers:
 	ld	a, 2
 	out	($31), 	a ; Interupt
 
-    ; TODO: Should this be 183?
-	ld	a, 178	;<- this is the number you change for delay.  10922 / 178 = 61.359550561797754
+	ld	a, $A0	;<- this is the number you change for delay.
 	out	($32), a
 
     ret

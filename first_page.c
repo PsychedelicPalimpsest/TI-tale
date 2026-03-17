@@ -8,7 +8,7 @@ int main(){
     *current_dark_buff = grey_buff_1;
 
     for (int i = 0; i < 64; ++i) {
-        int base = i * (64/8) + 1;
+        int base = i * (96/8) + 1;
         light_buff_1[base] = 0xFF;
 
         grey_buff_1[base +1] = 0xFF;
@@ -19,5 +19,5 @@ int main(){
 
 
 
-    while (1) __asm__("HALT");
+    while (1) ;
 }
