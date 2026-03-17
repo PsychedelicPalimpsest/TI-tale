@@ -45,14 +45,54 @@ row_loop:
     ld a, 20h ; Got to beginning of col
     out (10h), a
 
-    ld b, xmax/8
-cell_loop:
+; Unrolled write loop (12 entries)
     ld a, (hl)
     out (11h), a
     inc hl
-    djnz cell_loop
 
+    ld a, (hl)
+    out (11h), a
+    inc hl
+
+    ld a, (hl)
+    out (11h), a
+    inc hl
+
+    ld a, (hl)
+    out (11h), a
+    inc hl
+
+    ld a, (hl)
+    out (11h), a
+    inc hl
+
+    ld a, (hl)
+    out (11h), a
+    inc hl
+
+    ld a, (hl)
+    out (11h), a
+    inc hl
+
+    ld a, (hl)
+    out (11h), a
+    inc hl
     
+    ld a, (hl)
+    out (11h), a
+    inc hl
+
+    ld a, (hl)
+    out (11h), a
+    inc hl
+
+    ld a, (hl)
+    out (11h), a
+    inc hl
+
+    ld a, (hl)
+    out (11h), a
+    inc hl
 
 
     inc c
