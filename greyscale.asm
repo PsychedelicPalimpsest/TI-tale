@@ -36,68 +36,39 @@ after_dark:
     out (10h), a
 
 
-    ld c, 80h
+    
+    ld d, 80h  ; d = row + 80h
+
+    ld c, 11h  ; Port to write to (for outi),  
 row_loop:
-    ld a, c ; Set col
+    ld a, d ; Set col
     out (10h), a ;
 
 
-    ld a, 20h ; Got to beginning of col
+    ld a, 20h ; Go to beginning of col
     out (10h), a
 
 ; Unrolled write loop (12 entries)
-    ld a, (hl)
-    out (11h), a
-    inc hl
-
-    ld a, (hl)
-    out (11h), a
-    inc hl
-
-    ld a, (hl)
-    out (11h), a
-    inc hl
-
-    ld a, (hl)
-    out (11h), a
-    inc hl
-
-    ld a, (hl)
-    out (11h), a
-    inc hl
-
-    ld a, (hl)
-    out (11h), a
-    inc hl
-
-    ld a, (hl)
-    out (11h), a
-    inc hl
-
-    ld a, (hl)
-    out (11h), a
-    inc hl
-    
-    ld a, (hl)
-    out (11h), a
-    inc hl
-
-    ld a, (hl)
-    out (11h), a
-    inc hl
-
-    ld a, (hl)
-    out (11h), a
-    inc hl
-
-    ld a, (hl)
-    out (11h), a
-    inc hl
+    outi
+    outi ; out (c), (hl) \ inc (hl)
+    outi
+    outi
 
 
-    inc c
+    outi
+    outi
+    outi
+    outi
+
+    outi
+    outi
+    outi
+    outi
+
+
+    inc d
     ld a, 80h + ymax -1
-    sub a, c
+    sub a, d
     jp nc, row_loop
 
 
