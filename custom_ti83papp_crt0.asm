@@ -192,16 +192,19 @@ start:
     ld a, $83
     out (7), a
 
-    in a, (6)
-    ld (_first_rom_page), a
+
 
     ; Printf stuff
     INCLUDE "crt/classic/crt_init_sp.inc"
     call    crt0_init
 
+    INCLUDE "game_init.asm"
 
-     EXTERN __setup_interrupts
-     call __setup_interrupts
+    in a, (6)
+    ld (_first_rom_page), a
+
+    EXTERN __setup_interrupts
+    call __setup_interrupts
 
 
 

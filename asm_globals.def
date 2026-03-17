@@ -12,11 +12,14 @@ PUBLIC _grey_buff_2
 defc _globals_start = $C000
 
 defc _first_rom_page = _globals_start               ; 1 byte, first page
-defc _gray_count = _first_rom_page + 1              ; 1 byte, a count of the times the greyscale routine has fired
+
+defc _gray_count = _first_rom_page + 1              ; 2 byte, a count of the times the greyscale routine has fired
+defc _game_count = _gray_count +2                   ; 2 bytes
+
 
 
 ; Whichever is currently being displayed
-defc _current_light_buff = _gray_count + 1      ; 2 bytes, ptr to current light buffer
+defc _current_light_buff = _game_count + 2      ; 2 bytes, ptr to current light buffer
 defc _current_dark_buff = _current_light_buff + 2   ; 2 bytes, ptr to current dark buffer
 
 ; Whichever will be written too
@@ -24,11 +27,15 @@ defc _aux_light_buff = _current_dark_buff + 2        ; 2 bytes, ptr to aux light
 defc _aux_dark_buff = _aux_light_buff + 2            ; 2 bytes, ptr to aux dark buffer
 
 
+; Map of user keys, see: https://web.archive.org/web/20240225131330/https://wikiti.brandonw.net/index.php?title=83Plus:Ports:01
+defc _keymap = _aux_dark_buff + 2                    ; size 8 bytes
+
 
 ; Set where z88dk puts static variables, note that only the first page is allowed them
 defc c_bss = $C100
 
 defc screen_size = 768    ; 96 * 64/8
+
 
 defc buffer_start  = $C500
 

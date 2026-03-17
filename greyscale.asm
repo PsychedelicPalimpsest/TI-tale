@@ -1,5 +1,12 @@
+; Greyscale system. This code runs from interrupt.asm at approx 60 Hz, but
+; is adjustable by the user to adjust flickering issues. 
+
 defc xmax = 96d
 defc ymax = 64d
+    ld hl, (_gray_count)
+    inc hl
+    ld (_gray_count), hl
+
 
     ld   a, (grey_carry)    ; load stored carry bit (0 or 1)
     rra                     ; shift bit 0 into CF
@@ -10,12 +17,11 @@ defc ymax = 64d
     ld (grey_mask), a
 
     ld a, $0
-    rla ; Set cary to a
+    rla ; Set carry to a
 
     ld (grey_carry), a
 
     dec a ; 1=>0, 0=>0xff
-    cpl a
 
     ld b, a ; Save to b
 
@@ -34,22 +40,16 @@ defc ymax = 64d
     ld a, b ; restore a from b
     out (11h), a
     out (11h), a
+    out (11h), a
+
+    ld a, (_keymap)
+    out (11h), a
+    out (11h), a
+    out (11h), a
 
 
     jp after_masks
 
-
-
-
-
-
-
-  
-
-  
-
-
 grey_mask: defb %01101101;1
 grey_carry: defb 1
-
 after_masks:
