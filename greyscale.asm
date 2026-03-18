@@ -8,31 +8,38 @@ defc ymax = 64d
     ld (_gray_count), hl
 
 
+    ld a, (phase)
+    and a, a ; Test if a a=0
+    jp z, phase0
+
+    dec a
+    jp z, phase1
+
+    ; a=2
+    xor a, a
+    ld (phase), a
+    ld hl, grey_phase3_buff
+    jp after_phases
+phase1:
+    ; a=1
+    ld a, $2
+    ld (phase), a
+    ld hl, grey_phase2_buff
+    jp after_phases
+phase0:
+    ; a=0
+    inc a
+    ld (phase), a
+    ld hl, grey_phase1_buff
+    ; Fall through
+  
+after_phases:
     
-    ld   a, (grey_carry) 
-    rra                 ; Put carry in carry bit
-    ld   a, (grey_mask)
-    rla
-    ld   (grey_mask), a
-
-    jp   c, use_dark ; If carry is set, we know it is a dark pixel
-
-    xor  a
-    ld   (grey_carry), a
-    ld   hl, _working_light
-    jp  after_dark
-
-use_dark:
-    ld   a, 1 ; Since carry is set, just save a one
-    ld   (grey_carry), a
-    ld   hl, _working_dark
-after_dark:
     ld a, $1 ; 8bit mode
     out (10h), a
 
     ld a, $7 ; Move right
     out (10h), a
-
 
     
     ld d, 80h  ; d = row + 80h
@@ -76,6 +83,5 @@ row_loop:
 
     jp after_masks
 
-grey_mask: defb %01101101;1
-grey_carry: defb 1
+phase: DEFB 0
 after_masks:

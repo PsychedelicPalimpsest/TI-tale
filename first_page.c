@@ -1,6 +1,7 @@
 #pragma string name UNDRTALE
 
 #include "globalc.h"
+extern void greyscale_swap();
 
 
 int main(){
@@ -14,6 +15,7 @@ int main(){
         working_light[base +2] = 0xFF;
         working_dark[base +2] = 0xFF;
     }
+    greyscale_swap();
 
 
 
