@@ -8,27 +8,25 @@ defc ymax = 64d
     ld (_gray_count), hl
 
 
-    ld   a, (grey_carry)    ; load stored carry bit (0 or 1)
-    rra                     ; shift bit 0 into CF
-
+    
+    ld   a, (grey_carry) 
+    rra                 ; Put carry in carry bit
     ld   a, (grey_mask)
-    rla   ; grey_carry goes to lsb, and msb goes to carry
-    ld (grey_mask), a
+    rla
+    ld   (grey_mask), a
 
-    ld a, $0
-    rla ; Set carry to a
+    jp   c, use_dark ; If carry is set, we know it is a dark pixel
 
-    ld (grey_carry), a
-    rra
+    xor  a
+    ld   (grey_carry), a
+    ld   hl, (_current_light_buff)
+    jp  after_dark
 
-    jp c, dark_gray
-
-    ld hl, (_current_light_buff)
-    jp after_dark
-dark_gray:
-    ld hl, (_current_dark_buff)
+use_dark:
+    ld   a, 1 ; Since carry is set, just save a one
+    ld   (grey_carry), a
+    ld   hl, (_current_dark_buff)
 after_dark:
-
     ld a, $1 ; 8bit mode
     out (10h), a
 
@@ -41,8 +39,8 @@ after_dark:
 
     ld c, 11h  ; Port to write to (for outi),  
 row_loop:
-    ld a, d ; Set col
-    out (10h), a ;
+    ld a, d ; Set col (saved in d)
+    out (10h), a
 
 
     ld a, 20h ; Go to beginning of col
@@ -50,7 +48,7 @@ row_loop:
 
 ; Unrolled write loop (12 entries)
     outi
-    outi ; out (c), (hl) \ inc (hl)
+    outi ; out (c), (hl) \ inc (hl), dec b
     outi
     outi
 
