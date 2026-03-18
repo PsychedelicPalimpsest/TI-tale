@@ -65,7 +65,9 @@ _after_exit:
     push bc
 
     SETUP_GREY_TIMER
+    push ix
     INCLUDE "greyscale.asm"
+    pop ix
 
     pop bc
 _after_grey:
