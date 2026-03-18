@@ -21,15 +21,15 @@ defc ymax = 64d
 
 ; phase_3
     xor a, a
-    ld hl, _grey_phase3_buffer
+    ld hl, _working_light_buff
     jp after_phases 
 phase_2:
     ld a, $2
-    ld hl, _grey_phase2_buffer
+    ld hl, _working_dark_buff
     jp after_phases
 phase_1:
     inc a
-    ld hl, _grey_phase1_buffer
+    ld hl, _working_dark_buff
     ; Fall through
 after_phases:
     ld (phase), a
