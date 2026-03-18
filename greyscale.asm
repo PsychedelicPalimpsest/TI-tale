@@ -19,13 +19,13 @@ defc ymax = 64d
 
     xor  a
     ld   (grey_carry), a
-    ld   hl, (_current_light_buff)
+    ld   hl, _working_light
     jp  after_dark
 
 use_dark:
     ld   a, 1 ; Since carry is set, just save a one
     ld   (grey_carry), a
-    ld   hl, (_current_dark_buff)
+    ld   hl, _working_dark
 after_dark:
     ld a, $1 ; 8bit mode
     out (10h), a
