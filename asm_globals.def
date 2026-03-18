@@ -1,13 +1,11 @@
 PUBLIC _first_rom_page
 PUBLIC _gray_count
-PUBLIC _current_light_buff
-PUBLIC _current_dark_buff
-PUBLIC _aux_light_buff
-PUBLIC _aux_dark_buff
-PUBLIC _light_buff_1
-PUBLIC _grey_buff_1
-PUBLIC _light_buff_2
-PUBLIC _grey_buff_2
+PUBLIC _grey_phase3_buffer
+PUBLIC _grey_phase2_buffer
+PUBLIC _grey_phase1_buffer
+PUBLIC _working_light_buff
+PUBLIC _working_dark_buff
+
 
 defc _globals_start = $C000
 
@@ -20,18 +18,8 @@ defc _grey_timing = _game_count + 2                  ; 1 byte
 defc _grey_contrast = _grey_timing + 1                  ; 1 byte
 
 
-
-; Whichever is currently being displayed
-defc _current_light_buff = _grey_contrast + 1      ; 2 bytes, ptr to current light buffer
-defc _current_dark_buff = _current_light_buff + 2   ; 2 bytes, ptr to current dark buffer
-
-; Whichever will be written too
-defc _aux_light_buff = _current_dark_buff + 2        ; 2 bytes, ptr to aux light buffer
-defc _aux_dark_buff = _aux_light_buff + 2            ; 2 bytes, ptr to aux dark buffer
-
-
 ; Map of user keys, see: https://web.archive.org/web/20240225131330/https://wikiti.brandonw.net/index.php?title=83Plus:Ports:01
-defc _current_keymap = _aux_dark_buff + 2                 ; size 8 bytes
+defc _current_keymap = _grey_contrast + 2                 ; size 8 bytes
 defc _last_keymap = _current_keymap + 8                   ; size 8 bytes
 
 ; Down, left, right, up
@@ -44,10 +32,12 @@ defc c_bss = $C100
 defc screen_size = 768    ; 96 * 64/8
 
 
-defc buffer_start  = $C500
+defc buffer_start = $C500
 
-defc _light_buff_1 = buffer_start
-defc _grey_buff_1  = _light_buff_1 + screen_size
+defc _grey_phase1_buffer = buffer_start
+defc _grey_phase2_buffer = _grey_phase1_buffer + screen_size
+defc _grey_phase3_buffer = _grey_phase2_buffer + screen_size
 
-defc _light_buff_2 = _grey_buff_1 + screen_size
-defc _grey_buff_2  = _light_buff_2 + screen_size
+defc _working_light_buff = _grey_phase3_buffer + screen_size
+defc _working_dark_buff  = _working_light_buff + screen_size
+

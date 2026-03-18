@@ -8,11 +8,6 @@
     ld a, $A0
     ld (_grey_timing), a
 
-; Init buffers
-    ld hl, _light_buff_1
-    ld (_current_light_buff), hl
 
-    ld hl, _grey_buff_1
-    ld (_current_dark_buff), hl
 
  
