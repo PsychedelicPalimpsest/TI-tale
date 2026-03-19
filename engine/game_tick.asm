@@ -1,5 +1,4 @@
 ; This code runs at 32 Hz, and is run by interrupt.asm
-    
 
 ; Copy current keymap to last keymap
     ld hl, (_current_keymap)

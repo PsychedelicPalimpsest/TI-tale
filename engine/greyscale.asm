@@ -1,5 +1,8 @@
 ; Greyscale system. This code runs from interrupt.asm at approx 60 Hz, but
 ; is adjustable by the user to adjust flickering issues. 
+; 
+; This code is highly optimized, and will only run on post 2007 calculators
+; due to the lack of delay between LCD writes. 
 
 defc xmax = 96d
 defc ymax = 64d

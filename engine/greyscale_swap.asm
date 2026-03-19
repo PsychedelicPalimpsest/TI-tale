@@ -1,3 +1,8 @@
+; Takes the greyscale working buffers, and converts them into optimized phased buffers
+; for the greyscale IRQ. Then, swaps the buffer used by the greyscale IRQ
+; ~122,999 t-states
+
+
 PUBLIC _greyscale_swap
 
 extern _working_dark
@@ -58,9 +63,6 @@ MACRO PRE_SINGLE_SWAP
   ld ixh, $7
 endm
 
-; Takes the greyscale working buffers, and converts them into optimized phased buffers
-; for the greyscale IRQ. Then, swaps the buffer used by the greyscale IRQ
-; ~122,999 t-states
 
 _greyscale_swap:
   push ix
@@ -144,6 +146,4 @@ grey_loop312:
 
   ret
   
-
-
 

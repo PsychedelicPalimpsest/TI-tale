@@ -1,5 +1,5 @@
-;	Stub for the TI 83+ calculator for building as an app. Required for appmake when using "+ti83papp"
-;   Modified for this project to remove bloat we do not need
+;  Statup code, init functions, and file format for the TI84p 
+;  Modified for this project to remove bloat we do not need
 ;
 ;
     MODULE  Ti83plus_App_crt0

@@ -1,3 +1,5 @@
+; Global variable allocations
+
 PUBLIC _first_rom_page
 PUBLIC _gray_count
 PUBLIC _working_light

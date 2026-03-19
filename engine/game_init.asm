@@ -1,3 +1,6 @@
+; Game engine init code
+;
+
 ; Zero out global vars for safety
     ld hl, _globals_start
     ld (hl), $00
