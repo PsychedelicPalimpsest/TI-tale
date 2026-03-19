@@ -18,19 +18,19 @@ defc ymax = 64d
     ; a=2
     xor a, a
     ld (phase), a
-    ld hl, grey_phase3_buff
+    ld hl, (current_phase1)
     jp after_phases
 phase1:
     ; a=1
     ld a, $2
     ld (phase), a
-    ld hl, grey_phase2_buff
+    ld hl, (current_phase2)
     jp after_phases
 phase0:
     ; a=0
     inc a
     ld (phase), a
-    ld hl, grey_phase1_buff
+    ld hl, (current_phase3)
     ; Fall through
   
 after_phases:

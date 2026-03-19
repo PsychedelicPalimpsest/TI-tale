@@ -3,24 +3,58 @@ PUBLIC _greyscale_swap
 extern _working_dark
 extern _working_light
 
-extern grey_phase1_buff
-extern grey_phase2_buff
-extern grey_phase3_buff
+extern current_phase1
+extern current_phase2
+extern current_phase3
+
+extern alt_phase1
+extern alt_phase2
+extern alt_phase3
+
+
+
+
+; Takes the greyscale working buffers, and converts them into optimized phased buffers
+; for the greyscale IRQ. Then, swaps the buffer used by the greyscale IRQ
 
 _greyscale_swap:
-  
-  
-  ld iy, grey_phase1_buff
+
+; Convert the individual buffers
+
+  ld iy, (alt_phase1)
   ld bc, phase_table
   call greyscale_swap_single
 
-  ld iy, grey_phase2_buff
+  ld iy, (alt_phase2)
   ld bc, phase_table + 1
   call greyscale_swap_single 
 
-  ld iy, grey_phase3_buff
+  ld iy, (alt_phase3)
   ld bc, phase_table + 2
-  jp greyscale_swap_single
+  call greyscale_swap_single
+
+; Swap the buffer ptrs
+  di ; Prevent potential race conditions
+  ld hl, (alt_phase1)
+  ld de, (current_phase1)
+  ex de, hl
+  ld (alt_phase1), hl
+  ld (current_phase1), de
+
+  ld hl, (alt_phase2)
+  ld de, (current_phase2)
+  ex de, hl
+  ld (alt_phase2), hl
+  ld (current_phase2), de
+
+  ld hl, (alt_phase3)
+  ld de, (current_phase3)
+  ex de, hl
+  ld (alt_phase3), hl
+  ld (current_phase3), de
+  ei
+
+  ret
 
 
 ; Inputs:
@@ -33,7 +67,10 @@ greyscale_swap_single:
   ld ixh, 24
 
 
+; phase = phase_byte * dark_byte + phase_byte' * light_byte
 MACRO PIXEL_8
+
+;ixl = phase_byte * dark_byte
   ld a, (bc)
   and (hl)
   ld ixl, a
@@ -41,14 +78,17 @@ MACRO PIXEL_8
   inc hl
   ex de, hl
 
+; a = phase_byte' * light_byte
   ld a, (bc)
   cpl a
   and (hl)
+; a += ixl
   or ixl
 
   inc hl
   ex de, hl
 
+; Save phased byte in iy
   ld (iy), a
 
   inc iy
