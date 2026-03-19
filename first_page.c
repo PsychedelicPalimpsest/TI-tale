@@ -1,8 +1,7 @@
 #pragma string name UNDRTALE
 
-#include "globalc.h"
+#include "engine/globalc.h"
 extern void greyscale_swap();
-
 
 int main(){
 
