@@ -1,19 +1,44 @@
 PUBLIC _first_rom_page
 PUBLIC _gray_count
-PUBLIC _working_light
-PUBLIC _working_dark
 
-PUBLIC grey_phase1_buff
-PUBLIC grey_phase2_buff
-PUBLIC grey_phase3_buff
+PUBLIC _current_keymap
 
 PUBLIC current_phase1
 PUBLIC current_phase2
 PUBLIC current_phase3
+PUBLIC current_phase4
+PUBLIC current_phase5
+PUBLIC current_phase6
+PUBLIC current_phase7
 
 PUBLIC alt_phase1
 PUBLIC alt_phase2
 PUBLIC alt_phase3
+PUBLIC alt_phase4
+PUBLIC alt_phase5
+PUBLIC alt_phase6
+PUBLIC alt_phase7
+
+PUBLIC _working_w1
+PUBLIC _working_w2
+PUBLIC _working_w4
+
+PUBLIC phase1_primary
+PUBLIC phase2_primary
+PUBLIC phase3_primary
+PUBLIC phase4_primary
+PUBLIC phase5_primary
+PUBLIC phase6_primary
+PUBLIC phase7_primary
+
+PUBLIC phase1_secondary
+PUBLIC phase2_secondary
+PUBLIC phase3_secondary
+PUBLIC phase4_secondary
+PUBLIC phase5_secondary
+PUBLIC phase6_secondary
+PUBLIC phase7_secondary
+
 
 defc _globals_start = $C000
 
@@ -28,13 +53,21 @@ defc _grey_contrast = _grey_timing + 1                  ; 1 byte
 defc current_phase1 = _grey_contrast + 1                ;  2 bytes
 defc current_phase2 = current_phase1 + 2                ;  2 bytes
 defc current_phase3 = current_phase2 + 2                ;  2 bytes
+defc current_phase4 = current_phase3 + 2                ;  2 bytes
+defc current_phase5 = current_phase4 + 2                ;  2 bytes
+defc current_phase6 = current_phase5 + 2                ;  2 bytes
+defc current_phase7 = current_phase6 + 2                ;  2 bytes
 
-defc alt_phase1 = current_phase3 + 1                ;  2 bytes
+defc alt_phase1 = current_phase7 + 2                ;  2 bytes
 defc alt_phase2 = alt_phase1 + 2                ;  2 bytes
 defc alt_phase3 = alt_phase2 + 2                ;  2 bytes
+defc alt_phase4 = alt_phase3 + 2                ;  2 bytes
+defc alt_phase5 = alt_phase4 + 2                ;  2 bytes
+defc alt_phase6 = alt_phase5 + 2                ;  2 bytes
+defc alt_phase7 = alt_phase6 + 2                ;  2 bytes
 
 ; Map of user keys, see: https://web.archive.org/web/20240225131330/https://wikiti.brandonw.net/index.php?title=83Plus:Ports:01
-defc _current_keymap = alt_phase3 + 2                 ; size 8 bytes
+defc _current_keymap = alt_phase7 + 2                 ; size 8 bytes
 defc _last_keymap = _current_keymap + 8                   ; size 8 bytes
 
 ; Down, left, right, up
@@ -49,13 +82,23 @@ defc screen_size = 768    ; 96 * 64/8
 
 defc buffer_start  = $C500
 
-defc _working_dark = buffer_start
-defc _working_light  = _working_dark +  screen_size
+defc _working_w4 = buffer_start
+defc _working_w2  = _working_w4 +  screen_size
+defc _working_w1  = _working_w2 +  screen_size
 
-defc grey_phase1_buff =  _working_light + screen_size
-defc grey_phase2_buff =  grey_phase1_buff + screen_size
-defc grey_phase3_buff =  grey_phase2_buff + screen_size
 
-defc grey_phase1_altbuff =  grey_phase2_buff + screen_size
-defc grey_phase2_altbuff =  grey_phase1_altbuff + screen_size
-defc grey_phase3_altbuff =  grey_phase2_altbuff + screen_size
+defc phase1_primary  = _working_w1 +  screen_size
+defc phase2_primary  = phase1_primary +  screen_size
+defc phase3_primary  = phase2_primary +  screen_size
+defc phase4_primary  = phase3_primary +  screen_size
+defc phase5_primary  = phase4_primary +  screen_size
+defc phase6_primary  = phase5_primary +  screen_size
+defc phase7_primary  = phase6_primary +  screen_size
+
+defc phase1_secondary = phase7_primary +  screen_size
+defc phase2_secondary = phase1_secondary +  screen_size
+defc phase3_secondary = phase2_secondary +  screen_size
+defc phase4_secondary = phase3_secondary +  screen_size
+defc phase5_secondary = phase4_secondary +  screen_size
+defc phase6_secondary = phase5_secondary +  screen_size
+defc phase7_secondary = phase6_secondary +  screen_size
