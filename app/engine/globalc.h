@@ -2,6 +2,8 @@
 
 #include <stdint.h>
 
+#define PACKED __attribute__((packed))
+
 /*
  * Symbols are defined in asm_globals.def and exported with PUBLIC.
  * They are fixed RAM addresses used by the app runtime.
