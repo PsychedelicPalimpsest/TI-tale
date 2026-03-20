@@ -186,6 +186,7 @@ class Sprite:
 class Object:
     name: str
     spriteName: str
+    depth: int = 0
 
     @classmethod
     def load_object(cls, name: str) -> Object:
@@ -195,12 +196,13 @@ class Object:
             if found:
                 obj_gmx = found[0]
             else:
-                return cls(name=name, spriteName="")
+                return cls(name=name, spriteName="", depth=0)
 
         with open(obj_gmx, "r") as f:
             et = ET.fromstring(f.read())
 
-        return cls(name=name, spriteName=et.findtext("spriteName", ""))
+        depth = int(get_val(et, "depth", "0"))
+        return cls(name=name, spriteName=et.findtext("spriteName", ""), depth=depth)
 
 @dataclass
 class View:

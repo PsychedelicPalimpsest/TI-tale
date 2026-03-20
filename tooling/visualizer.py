@@ -47,6 +47,7 @@ class Visualizer(arcade.Window):
         self.lock_viewport = True
         self.lock_zoom = True
         self.auto_generate_ti_textures = False
+        self.ti_scale = 0.5
         
         # TI-mode low-res rendering setup
         # Raw OpenGL texture for the framebuffer
@@ -145,6 +146,7 @@ class Visualizer(arcade.Window):
         if cache_key in self.tile_textures: return self.tile_textures[cache_key]
             
         tex = None
+        is_scaled_down = False
         if is_ti:
             local_png = self.get_local_path("tiles", f"{tile.bgName}.png")
             if not os.path.exists(local_png):
@@ -152,6 +154,7 @@ class Visualizer(arcade.Window):
             
             if os.path.exists(local_png):
                 tex = arcade.load_texture(local_png)
+                is_scaled_down = True
             elif self.auto_generate_ti_textures:
                 try:
                     bg_meta = Background.load_background(tile.bgName)
@@ -172,7 +175,10 @@ class Visualizer(arcade.Window):
 
         if not tex: return None
         try:
-            cropped = tex.crop(tile.xo, tile.yo, tile.w, tile.h)
+            if is_scaled_down:
+                cropped = tex.crop(int(tile.xo * 0.5), int(tile.yo * 0.5), int(tile.w * 0.5), int(tile.h * 0.5))
+            else:
+                cropped = tex.crop(tile.xo, tile.yo, tile.w, tile.h)
             self.tile_textures[cache_key] = cropped
             return cropped
         except: return None
@@ -190,18 +196,18 @@ class Visualizer(arcade.Window):
                 spr_name = obj_meta.spriteName or objName
                 local_png = self.get_local_path("sprites", f"{spr_name}.png")
                 
+                try:
+                    meta = Sprite.load_sprite(spr_name)
+                except:
+                    meta = None
+
                 if os.path.exists(local_png):
                     tex = arcade.load_texture(local_png)
-                    meta = Sprite(spr_name, local_png, 0, 0, tex.width, tex.height)
-                    try:
-                        real_meta = Sprite.load_sprite(spr_name)
-                        meta.xorig, meta.yorig = real_meta.xorig, real_meta.yorig
-                    except: pass
+                    if not meta:
+                        meta = Sprite(spr_name, local_png, 0, 0, tex.width * 2, tex.height * 2)
                 elif self.auto_generate_ti_textures:
-                    spr_meta = Sprite.load_sprite(obj_meta.spriteName)
-                    if os.path.exists(spr_meta.image_path):
-                        tex = self._convert_to_ti_palette(spr_meta.image_path)
-                        meta = spr_meta
+                    if meta and os.path.exists(meta.image_path):
+                        tex = self._convert_to_ti_palette(meta.image_path)
             except: pass
         else:
             try:
@@ -221,47 +227,70 @@ class Visualizer(arcade.Window):
         arcade.draw_lrbt_rectangle_outline(0, self.room.width, 0, self.room.height, arcade.color.WHITE, 1)
 
         sprite_list = arcade.SpriteList()
+        render_items = []
 
-        # Draw Tiles (sorted by depth)
-        sorted_tiles = sorted(self.room.tiles, key=lambda t: t.depth, reverse=True)
-        for tile in sorted_tiles:
-            tex = self.get_tile_texture(tile, force_ti=is_lowres)
-            
-            if is_lowres:
-                w = (tex.width if tex else tile.w) * tile.scaleX
-                h = (tex.height if tex else tile.h) * tile.scaleY
-                cx = tile.x * 0.5 + w/2
-                cy = (self.room.height * 0.5) - (tile.y * 0.5 + h/2)
-            else:
-                w, h = tile.w * tile.scaleX, tile.h * tile.scaleY
-                cx, cy = tile.x + w/2, self.room.height - (tile.y + h/2)
-            
-            if tex:
-                sprite = arcade.Sprite()
-                sprite.texture = tex
-                sprite.center_x, sprite.center_y = cx, cy
-                sprite.width, sprite.height = w, h
-                sprite_list.append(sprite)
-            elif not is_lowres:
-                color = get_color(tile.bgName)
-                arcade.draw_lrbt_rectangle_filled(tile.x, tile.x + w, self.room.height - (tile.y + h), self.room.height - tile.y, (*color, 100))
+        # Collect Tiles
+        for tile in self.room.tiles:
+            render_items.append((tile.depth, 'tile', tile))
 
-        # Draw Instances
+        # Collect Instances
         if self.instances_visible:
             for inst in self.room.instances:
+                try:
+                    obj_meta = Object.load_object(inst.objName)
+                    depth = obj_meta.depth
+                except:
+                    depth = 0
+                render_items.append((depth, 'inst', inst))
+
+        # Sort by depth descending (higher depth draws first/bottom)
+        render_items.sort(key=lambda item: item[0], reverse=True)
+
+        for depth, item_type, item in render_items:
+            if item_type == 'tile':
+                tile = item
+                tex = self.get_tile_texture(tile, force_ti=is_lowres)
+                
+                w_high = tile.w * tile.scaleX
+                h_high = tile.h * tile.scaleY
+                cx_high = tile.x + w_high / 2
+                cy_high = self.room.height - (tile.y + h_high / 2)
+                
+                if is_lowres:
+                    w, h = round(w_high * self.ti_scale), round(h_high * self.ti_scale)
+                    cx, cy = round(cx_high * self.ti_scale), round(cy_high * self.ti_scale)
+                else:
+                    w, h = w_high, h_high
+                    cx, cy = cx_high, cy_high
+                
+                if tex:
+                    sprite = arcade.Sprite()
+                    sprite.texture = tex
+                    sprite.center_x, sprite.center_y = cx, cy
+                    sprite.width, sprite.height = w, h
+                    sprite_list.append(sprite)
+                elif not is_lowres:
+                    color = get_color(tile.bgName)
+                    arcade.draw_lrbt_rectangle_filled(tile.x, tile.x + w, self.room.height - (tile.y + h), self.room.height - tile.y, (*color, 100))
+                    
+            elif item_type == 'inst':
+                inst = item
                 tex, spr_meta = self.get_instance_sprite(inst.objName, force_ti=is_lowres)
                 if tex and spr_meta:
+                    w_high = spr_meta.width * inst.scaleX
+                    h_high = spr_meta.height * inst.scaleY
+                    off_x_high = (spr_meta.width/2 - spr_meta.xorig) * inst.scaleX
+                    off_y_high = (spr_meta.height/2 - spr_meta.yorig) * inst.scaleY
+                    
+                    cx_high = inst.x + off_x_high
+                    cy_high = self.room.height - (inst.y + off_y_high)
+
                     if is_lowres:
-                        w, h = spr_meta.width * inst.scaleX, spr_meta.height * inst.scaleY
-                        off_x = (spr_meta.width/2 - spr_meta.xorig) * inst.scaleX
-                        off_y = (spr_meta.height/2 - spr_meta.yorig) * inst.scaleY
-                        cx = inst.x * 0.5 + off_x
-                        cy = (self.room.height * 0.5) - (inst.y * 0.5 + off_y)
+                        w, h = round(w_high * self.ti_scale), round(h_high * self.ti_scale)
+                        cx, cy = round(cx_high * self.ti_scale), round(cy_high * self.ti_scale)
                     else:
-                        w, h = spr_meta.width * inst.scaleX, spr_meta.height * inst.scaleY
-                        off_x = (spr_meta.width/2 - spr_meta.xorig) * inst.scaleX
-                        off_y = (spr_meta.height/2 - spr_meta.yorig) * inst.scaleY
-                        cx, cy = inst.x + off_x, self.room.height - (inst.y + off_y)
+                        w, h = w_high, h_high
+                        cx, cy = cx_high, cy_high
                     
                     sprite = arcade.Sprite()
                     sprite.texture = tex
@@ -292,8 +321,8 @@ class Visualizer(arcade.Window):
         # 1. Update TI low-res buffer
         self.ti_camera.use()
         self.ti_camera.render_target.clear()
-        # Viewport is at 0.5x scale in FBO space
-        self.ti_camera.position = (self.viewport_x * 0.5, self.viewport_y * 0.5)
+        # Viewport is at self.ti_scale scale in FBO space. Round to prevent sub-pixel distortion.
+        self.ti_camera.position = (round(self.viewport_x * self.ti_scale), round(self.viewport_y * self.ti_scale))
         self.ti_camera.zoom = 1.0 
         self.render_scene(is_lowres=True)
         
@@ -301,29 +330,26 @@ class Visualizer(arcade.Window):
         raw_data = self.ti_framebuffer.read(components=4)
         image = Image.frombytes("RGBA", (self.ti_width, self.ti_height), raw_data)
         image = image.transpose(Image.FLIP_TOP_BOTTOM)
-        self.ti_output_texture.image = image
+        self.ti_output_texture = arcade.Texture(image)
 
         # 2. Render final view
         if self.ti_mode and self.lock_zoom:
             # Full-screen TI view (upscaled)
             
             # Manually set up the main camera to be like the default
+            self.use()
             self.camera.position = (self.width / 2, self.height / 2)
             self.camera.zoom = 1.0
             self.camera.use()
             
             self.clear()
             
-            sprite = self.ti_fullscreen_sprite_list[0]
-            sprite.texture = self.ti_output_texture
-            sprite.center_x = self.width / 2
-            sprite.center_y = self.height / 2
-            sprite.width = self.width
-            sprite.height = self.height
-            self.ti_fullscreen_sprite_list.draw(filter=arcade.gl.NEAREST)
+            scale = min(self.width / self.ti_width, self.height / self.ti_height)
+            draw_w, draw_h = self.ti_width * scale, self.ti_height * scale
+            rect = arcade.Rect.from_kwargs(x=self.width / 2, y=self.height / 2, width=draw_w, height=draw_h)
+            arcade.draw_texture_rect(self.ti_output_texture, rect, pixelated=True)
 
-            out_rect = arcade.Rect.from_kwargs(x=self.width/2, y=self.height/2, width=self.width, height=self.height)
-            self.draw_pixel_grid(out_rect)
+            self.draw_pixel_grid(rect)
         else:
             # Editor or PIP view
             self.use()
@@ -335,23 +361,15 @@ class Visualizer(arcade.Window):
             
             # Viewport Overlay
             # Note: The viewport rectangle is always 96x64 TI pixels. 
-            # If assets are 0.5x, this represents 192x128 room pixels.
-            v_w, v_h = self.ti_width * 2, self.ti_height * 2
+            v_w, v_h = self.ti_width / self.ti_scale, self.ti_height / self.ti_scale
             v_rect = arcade.Rect.from_kwargs(x=self.viewport_x, y=self.viewport_y, width=v_w, height=v_h)
             
             if self.ti_mode:
                 # Dim background and show PIP
                 arcade.draw_lrbt_rectangle_filled(0, self.room.width, 0, self.room.height, (0, 0, 0, 100))
                 
-                sprite_list = arcade.SpriteList()
-                sprite = arcade.Sprite()
-                sprite.texture = self.ti_output_texture
-                sprite.center_x = v_rect.center_x
-                sprite.center_y = v_rect.center_y
-                sprite.width = v_rect.width
-                sprite.height = v_rect.height
-                sprite_list.append(sprite)
-                sprite_list.draw(filter=arcade.gl.NEAREST)
+                rect = arcade.Rect.from_kwargs(x=v_rect.center_x, y=v_rect.center_y, width=v_rect.width, height=v_rect.height)
+                arcade.draw_texture_rect(self.ti_output_texture, rect, pixelated=True)
 
                 self.draw_pixel_grid(v_rect)
             
@@ -361,11 +379,11 @@ class Visualizer(arcade.Window):
         self.gui_camera.use()
         mode_str = "TI-PIXEL-VIEW" if self.ti_mode else "EDITOR-VIEW"
         l_status = "LOCKED" if self.lock_viewport else "FREE"
-        z_status = "LOCKED (0.5x)" if self.lock_zoom else "FREE"
+        z_status = f"LOCKED ({self.ti_scale}x)" if self.lock_zoom else "FREE"
         
         arcade.draw_text(f"Mode: {mode_str} (T) | Viewport: {l_status} (L) | Zoom: {z_status} (Z)", 10, 70, arcade.color.WHITE, 12)
         arcade.draw_text(f"Auto-Generate TI Textures: {'ON' if self.auto_generate_ti_textures else 'OFF'} (G)", 10, 50, arcade.color.WHITE, 12)
-        arcade.draw_text(f"Camera: ({int(self.camera_x)}, {int(self.camera_y)}) | Viewport: ({int(self.viewport_x)}, {int(self.viewport_y)})", 10, 30, arcade.color.WHITE, 12)
+        arcade.draw_text(f"Camera: ({int(self.camera_x)}, {int(self.camera_y)}) | Viewport: ({int(self.viewport_x)}, {int(self.viewport_y)}) | TI Scale (-/=): {self.ti_scale}x", 10, 30, arcade.color.WHITE, 12)
         arcade.draw_text(f"Instances: {'ON' if self.instances_visible else 'OFF'} (I) | Editor Zoom: {self.zoom:.2f}", 10, 10, arcade.color.WHITE, 12)
 
     def on_update(self, delta_time):
@@ -383,12 +401,17 @@ class Visualizer(arcade.Window):
             if arcade.key.DOWN in self.keys_pressed: self.viewport_y -= self.move_speed
             if arcade.key.LEFT in self.keys_pressed: self.viewport_x -= self.move_speed
             if arcade.key.RIGHT in self.keys_pressed: self.viewport_x += self.move_speed
+            
+        if self.ti_mode:
+            snap_factor = 1.0 / self.ti_scale
+            self.viewport_x = round(self.viewport_x / snap_factor) * snap_factor
+            self.viewport_y = round(self.viewport_y / snap_factor) * snap_factor
+            if self.lock_viewport:
+                self.camera_x, self.camera_y = self.viewport_x, self.viewport_y
         
         # Zoom Lock logic
         if self.lock_zoom:
-            # 96x64 TI Pixels = 192x128 Room Pixels (at 0.5x)
-            # To fill 960x640 window, zoom must be 960 / 192 = 5.0
-            self.zoom = 5.0
+            self.zoom = (self.width * self.ti_scale) / self.ti_width
         else:
             if arcade.key.Q in self.keys_pressed: self.zoom *= 1.05
             if arcade.key.E in self.keys_pressed: self.zoom /= 1.05; self.zoom = max(0.001, self.zoom)
@@ -404,6 +427,8 @@ class Visualizer(arcade.Window):
         if key == arcade.key.L: self.lock_viewport = not self.lock_viewport
         if key == arcade.key.Z: self.lock_zoom = not self.lock_zoom
         if key == arcade.key.G: self.auto_generate_ti_textures = not self.auto_generate_ti_textures
+        if key == arcade.key.MINUS: self.ti_scale = max(0.125, self.ti_scale / 2.0)
+        if key == arcade.key.EQUAL: self.ti_scale = min(4.0, self.ti_scale * 2.0)
 
     def on_key_release(self, key, modifiers):
         if key in self.keys_pressed: self.keys_pressed.remove(key)
