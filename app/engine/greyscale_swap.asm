@@ -26,7 +26,7 @@ M3 EQU %10110110
 ; Output: (bc)
 ; 53 t-states
 ; 
-; P'*L + P * D = D ^ (P; & (L ^ D))
+; P'*L + P * D = D ^ (P' & (L ^ D))
 MACRO PIXEL mask 
   ld a, (de)      ; 7
   xor (hl)        ; 7

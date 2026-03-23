@@ -7,11 +7,12 @@ from pathlib import Path
 from PIL import Image
 
 from textual.app import App, ComposeResult
-from textual.containers import Horizontal, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Header, Footer, Tree, Select, Input, Label, Button
 from textual.reactive import reactive
 from textual.message import Message
 from textual.validation import Number, Integer
+from textual.events import Key, Event
 
 # Assuming tooling is in PYTHONPATH
 import sys
@@ -53,6 +54,42 @@ def save_state(state):
     with open(STATE_FILE, "w") as f:
         json.dump(state, f)
 
+class RoomTree(Tree):
+    def _on_key(self, event: Key) -> None:
+        # This is the correct event handling pattern.
+        # We check for the keys we want to handle for search.
+        if event.is_printable or event.key == "backspace" or (event.key == "escape" and self.app.search_query):
+            app = self.app
+            if event.is_printable:
+                app.search_query += event.character
+            elif event.key == "backspace":
+                app.search_query = app.search_query[:-1]
+            elif event.key == "escape":
+                app.search_query = ""
+
+            # Stop the event from propagating to the default Tree handler
+            event.stop()
+            event.prevent_default()
+
+            # Now, perform the filtering logic
+            query_display = app.query_one("#search_query_display", Label)
+            if app.search_query:
+                query_display.update(f"Search: {app.search_query}")
+                query_display.remove_class("hidden")
+                for node in self.root.children:
+                    if node.data and node.data.get("is_room"):
+                        node.display = app.search_query.lower() in node.label.plain.lower()
+            else:
+                # Reset and unhide all
+                query_display.update("")
+                query_display.add_class("hidden")
+                for node in self.root.children:
+                    if node.data and node.data.get("is_room"):
+                        node.display = True
+        else:
+            # If it's not a key we handle, pass it to the default Tree navigation
+            super()._on_key(event)
+
 class SpriteRemakerApp(App):
     CSS = """
     Screen {
@@ -75,6 +112,9 @@ class SpriteRemakerApp(App):
     .label {
         width: 25;
         content-align: left middle;
+    }
+    .hidden {
+        visibility: hidden;
     }
     Input {
         width: 20;
@@ -101,11 +141,14 @@ class SpriteRemakerApp(App):
         self.selected_type = None # 'sprite' or 'background'
         self.selected_node = None
         self.preview_proc = None
+        self.search_query = ""
 
     def compose(self) -> ComposeResult:
         yield Header()
         with Horizontal():
-            yield Tree("Rooms", id="sidebar")
+            with Vertical(id="sidebar"):
+                yield RoomTree("Rooms", id="room_tree")
+                yield Label("", id="search_query_display", classes="hidden")
             
             with VerticalScroll(id="settings"):
                 yield Label("Scale X:")
@@ -155,7 +198,7 @@ class SpriteRemakerApp(App):
         yield Footer()
 
     def on_mount(self) -> ComposeResult:
-        tree = self.query_one("#sidebar", Tree)
+        tree = self.query_one("#room_tree", RoomTree)
         tree.root.expand()
         
         # Populate tree root with rooms
@@ -279,7 +322,9 @@ class SpriteRemakerApp(App):
         return None
 
     def update_preview(self):
-        self.notify("Preview update triggered.")
+        if not self.selected_asset:
+            return
+
         img_path = self.get_image_path()
         if not img_path or not os.path.exists(img_path):
             self.notify("Image path not found. Aborting.", severity="error")
@@ -297,7 +342,6 @@ class SpriteRemakerApp(App):
             
             proc_img = process_image(img, config)
             proc_img.save(TMP_PROC, format="PNG")
-            self.notify("Preview image updated successfully.")
         except Exception as e:
             self.notify(f"Preview Error: {str(e)}", severity="error")
 

@@ -66,7 +66,7 @@ def _ordered_dither(img: Image.Image) -> Image.Image:
     
     # Map back to 0-255
     out = (dithered * (255 / 3)).astype(np.uint8)
-    return Image.fromarray(out, mode="L")
+    return Image.fromarray(out)
 
 def process_image(img: Image.Image, config: dict) -> Image.Image:
     """
@@ -100,7 +100,7 @@ def process_image(img: Image.Image, config: dict) -> Image.Image:
     alpha_thresh = config.get("alpha_threshold", 128)
     a_arr = np.array(a)
     a_arr = np.where(a_arr >= alpha_thresh, 255, 0).astype(np.uint8)
-    a_clean = Image.fromarray(a_arr, mode="L")
+    a_clean = Image.fromarray(a_arr)
 
     # Recombine to RGB for color processing
     rgb_img = Image.merge("RGB", (r, g, b))
@@ -118,7 +118,7 @@ def process_image(img: Image.Image, config: dict) -> Image.Image:
     if mode == "average":
         arr = np.array(rgb_img, dtype=np.uint16)
         avg = (arr[:,:,0] + arr[:,:,1] + arr[:,:,2]) // 3
-        gray_img = Image.fromarray(avg.astype(np.uint8), mode="L")
+        gray_img = Image.fromarray(avg.astype(np.uint8))
     else: # 'luminance' or 'gamma_only'
         gray_img = rgb_img.convert("L")
 
@@ -139,12 +139,12 @@ def process_image(img: Image.Image, config: dict) -> Image.Image:
     quant_alg = config.get("quantization", "threshold")
     
     if quant_alg == "floyd-steinberg":
-        gray_img = gray_img.quantize(palette=TI_PAL_IMG, dither=Image.Dither.FLOYDSTEINBERG)
+        gray_img = gray_img.convert("RGB").quantize(palette=TI_PAL_IMG, dither=Image.Dither.FLOYDSTEINBERG)
         gray_img = gray_img.convert("L")
     elif quant_alg == "ordered":
         gray_img = _ordered_dither(gray_img)
     elif quant_alg != "none": # threshold is the default
-        gray_img = gray_img.quantize(palette=TI_PAL_IMG, dither=Image.Dither.NONE)
+        gray_img = gray_img.convert("RGB").quantize(palette=TI_PAL_IMG, dither=Image.Dither.NONE)
         gray_img = gray_img.convert("L")
     
     # 7. Re-apply Transparency

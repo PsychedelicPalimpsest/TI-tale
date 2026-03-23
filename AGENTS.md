@@ -23,9 +23,24 @@ TI-tale is an ambitious port of *Undertale* to the Z80-based TI-84 Plus (non-CE)
 ## Current Tooling State
 - `gml.py`: Interprets GameMaker Studio 1.4 Room, Object, Sprite, and Background XML.
 - `visualizer.py`: An `arcade`-based tool to preview GMX rooms.
+- `remaker/`: A Textual-based UI for batch asset processing with E2E testing.
 - **TI-MODE:** A specialized preview mode that enforces the 4-color palette and only uses assets from the project's local `data/` directory.
 
 ## Development Mandates
 1. **Efficiency First:** Every byte and clock cycle counts.
 2. **Asset Integrity:** All final assets must reside in `data/` and adhere to the 4-color palette.
 3. **Viewport focus:** The TI screen is only 96x64. All designs must be legible at this resolution.
+
+
+## Testing of tooling
+For all tooling, it should be designed to be testable. You should do extensive testing, all functionality, everything. You are **NEVER** to return to the user unless you are confident (by testing).
+
+Just be sure not to 'mock yourself to death'
+When you are making tooling, it must be completely controllable BY YOU. End to end testing is essential.
+
+### Running Tests
+The test suite for the `remaker` tool can be run using `pytest`. This includes end-to-end tests for the Textual UI.
+
+```bash
+pytest tooling/remaker/
+```
