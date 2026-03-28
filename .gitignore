@@ -2,3 +2,5 @@
 out*
 .env
 **/__pycache__/
+.pytest_cache/
+tooling/remaker/state.json
