@@ -92,6 +92,7 @@ __end_of_interupts:
 
 
 __setup_interrupts:
+    di
     ld hl, __interupt
     ld de, interupt_vector
     ld bc, __end_of_interupts - __interupt

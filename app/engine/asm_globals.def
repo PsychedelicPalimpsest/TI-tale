@@ -2,8 +2,7 @@
 
 PUBLIC _first_rom_page
 PUBLIC _gray_count
-PUBLIC _working_light
-PUBLIC _working_dark
+PUBLIC _screen_buffer
 
 PUBLIC grey_phase1_buff
 PUBLIC grey_phase2_buff
@@ -51,10 +50,9 @@ defc screen_size = 768    ; 96 * 64/8
 
 defc buffer_start  = $C500
 
-defc _working_dark = buffer_start
-defc _working_light  = _working_dark +  screen_size
+defc _screen_buffer = buffer_start
 
-defc grey_phase1_buff =  _working_light + screen_size
+defc grey_phase1_buff =  _screen_buffer + screen_size*2
 defc grey_phase2_buff =  grey_phase1_buff + screen_size
 defc grey_phase3_buff =  grey_phase2_buff + screen_size
 

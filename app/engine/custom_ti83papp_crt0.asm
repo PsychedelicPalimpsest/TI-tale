@@ -269,7 +269,7 @@ ENDIF
         defc    __crt_model = 1
     ENDIF
 
-    #include "interrupt.asm"
+    include "interrupt.asm"
 
 
     ; Needed for printf

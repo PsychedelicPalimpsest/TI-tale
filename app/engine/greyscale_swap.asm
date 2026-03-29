@@ -1,12 +1,11 @@
-; Takes the greyscale working buffers, and converts them into optimized phased buffers
+; Takes the greyscale screen bufer, and converts them into optimized phased buffers
 ; for the greyscale IRQ. Then, swaps the buffer used by the greyscale IRQ
-; ~122,999 t-states
+; ~122,858 t-states
 
 
 PUBLIC _greyscale_swap
 
-extern _working_dark
-extern _working_light
+extern _screen_buffer
 
 extern current_phase1
 extern current_phase2
@@ -22,13 +21,15 @@ M2 EQU %11011011
 M3 EQU %10110110
 
 
-; Input: de = light, hl = dark
+; Input: hl = buffer with light, dark bytes inter leaved
 ; Output: (bc)
 ; 53 t-states
 ; 
-; P'*L + P * D = D ^ (P' & (L ^ D))
+; P'*L + P * D = D ^ (P; & (L ^ D))
 MACRO PIXEL mask 
-  ld a, (de)      ; 7
+  ld a, (hl)      ; 7
+  inc hl          ; 6
+
   xor (hl)        ; 7
   and 0xFF ^ mask ; 7
   xor (hl)        ; 7
@@ -37,7 +38,6 @@ MACRO PIXEL mask
 
 
   inc hl      ; 6
-  inc de      ; 6
   inc bc      ; 6
 endm
 
@@ -58,34 +58,31 @@ MACRO PIXELS_12 N1, N2, N3
 endm
 
 MACRO PRE_SINGLE_SWAP
-  ld hl, _working_dark
-  ld de, _working_light
-  ld ixh, $7
+  ld hl, _screen_buffer ; 10
+  ld d, $7              ; 7
 endm
 
 
 _greyscale_swap:
-  push ix
-
   ; Convert the individual buffers
 
-  ; Phase 1: 40,908 t-states
+  ; Phase 1: 40,866 t-states
   ld bc, (alt_phase1) ; 20
-  PRE_SINGLE_SWAP     ; 31
-  call grey_loop      ; 17 + 40,840
+  PRE_SINGLE_SWAP     ; 17
+  call grey_loop      ; 17 + 40,812
 
 
-  ; Phase 2: 40,908 t-states
+  ; Phase 2: 40,866 t-states
   ld bc, (alt_phase2) ; 20
-  PRE_SINGLE_SWAP     ; 31
-  call grey_loop231   ; 17 + 40,204
+  PRE_SINGLE_SWAP     ; 17
+  call grey_loop231   ; 17 + 40,176
   PIXELS_12 M2, M3, M1; 636
 
-; Phase 3: 40,908 t-states
+; Phase 3: 40,866 t-states
   ld bc, (alt_phase3) ; 20
-  PRE_SINGLE_SWAP     ; 31
+  PRE_SINGLE_SWAP     ; 17
 
-  call grey_loop312   ; 17 + 39,568
+  call grey_loop312   ; 17 + 39,540
   PIXELS_12 M2, M3, M1; 636
   PIXELS_12 M3, M1, M2; 636
 
@@ -113,7 +110,6 @@ _greyscale_swap:
   ld (current_phase3), de
   ei
 
-  pop ix
   ret
 
 
@@ -121,7 +117,7 @@ _greyscale_swap:
 ; Expects PRE_SINGLE_SWAP to be set
 ; Caller is expected to do one PIXELS_12
 ;
-; T-states: 40205
+; T-states: 40,812 (including ret)
 
   ; 
 grey_loop:
@@ -139,11 +135,8 @@ grey_loop312:
   PIXELS_12 M2, M3, M1
   PIXELS_12 M3, M1, M2
  
-  dec ixh              ; 8 t-states
+  dec d              ; 4 t-states
   jp nz, grey_loop   ; 10 t-states
 
   PIXELS_12 M1, M2, M3
-
   ret
-  
-

@@ -9,11 +9,10 @@
  * They are fixed RAM addresses used by the app runtime.
  */
 
-/* Current display buffers (pointers stored in RAM) */
+/* Current display buffer */
 
 /* Backing buffer memory regions */
-extern uint8_t working_light[768];
-extern uint8_t working_dark[768];
+extern uint8_t screen_buffer[768*2];
 
 /* Optional: first ROM page byte captured at startup */
 extern uint8_t first_rom_page;
