@@ -16,6 +16,15 @@ PUBLIC alt_phase1
 PUBLIC alt_phase2
 PUBLIC alt_phase3
 
+PUBLIC fast_copy_sp_restore
+
+; 8101h - 8181h are free (middle of interupts)
+defc fast_copy_sp_restore = $8101 ; 2 bytes
+defc fast_copy_counter = fast_copy_sp_restore+2 ; 1 byte
+
+
+
+
 defc _globals_start = $C000
 
 defc _first_rom_page = _globals_start               ; 1 byte, first page
@@ -50,12 +59,13 @@ defc screen_size = 768    ; 96 * 64/8
 
 defc buffer_start  = $C500
 
-defc _screen_buffer = buffer_start
-
-defc grey_phase1_buff =  _screen_buffer + screen_size*2
+defc grey_phase1_buff =  buffer_start
 defc grey_phase2_buff =  grey_phase1_buff + screen_size
 defc grey_phase3_buff =  grey_phase2_buff + screen_size
 
 defc grey_phase1_altbuff =  grey_phase2_buff + screen_size
 defc grey_phase2_altbuff =  grey_phase1_altbuff + screen_size
 defc grey_phase3_altbuff =  grey_phase2_altbuff + screen_size
+
+; Note: KEEP THIS LAST! This allows for some evil hacks 
+defc _screen_buffer = grey_phase3_altbuff + screen_size ; Size: screen_size*2 due to interlaced light-dark
