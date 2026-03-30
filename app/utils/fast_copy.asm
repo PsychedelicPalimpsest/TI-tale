@@ -1,5 +1,5 @@
 PUBLIC fastcpy_16
-PUBLIC fast_copy_counter
+EXTERN fast_copy_counter
 EXTERN fast_copy_sp_restore
 
 

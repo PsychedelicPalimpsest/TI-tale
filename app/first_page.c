@@ -26,10 +26,6 @@ int main(){
     greyscale_swap();
 
   #asm
-  EXTERN fastcpy_16
-  ld ix, _screen_buffer
-  ld iy, 8500h + 16
-  call fastcpy_16
 
   #endasm
 
