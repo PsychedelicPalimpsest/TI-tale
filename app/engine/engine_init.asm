@@ -1,10 +1,21 @@
 ; Game engine init code
-;
+SECTION code_engine
 
-; Zero out global vars for safety
-    ld hl, _globals_start
+PUBLIC engine_init
+EXTERN install_hooks
+
+INCLUDE "core/asm_globals.def"
+
+
+
+
+engine_init:
+    call install_hooks
+
+; Zero out global vars for safety (first byte is already being used)
+    ld hl, _globals_start + 1
     ld (hl), $00
-    ld de, _globals_start + 1
+    ld de, _globals_start + 2
     ld bc, $1000 ; 4kb
     ldir
 
@@ -30,3 +41,5 @@
 
     ld hl, grey_phase3_altbuff
     ld (alt_phase3), hl
+
+    ret

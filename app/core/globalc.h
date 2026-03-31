@@ -16,3 +16,10 @@ extern uint8_t screen_buffer[768*2];
 
 /* Optional: first ROM page byte captured at startup */
 extern uint8_t first_rom_page;
+
+#asm
+
+  ; EVIL EVIL HACK
+include "core/asm_globals.def"
+
+#endasm

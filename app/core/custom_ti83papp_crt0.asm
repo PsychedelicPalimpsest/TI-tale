@@ -1,18 +1,13 @@
 ;  Statup code, init functions, and file format for the TI84p 
 ;  Modified for this project to remove bloat we do not need
-;
-;
     MODULE  Ti83plus_App_crt0
 
     DEFINE DEFINED_basegraphics
     DEFINE TI83PLUSAPP  ;Used by grayscale interrupt and the such
 
-
     EXTERN  _main		; No matter what set up we have, main is
                         ;  always, always external to this file.
     GLOBAL  __Exit
-
-
 
 
 
@@ -21,34 +16,15 @@
 ;-------------------------
 
     INCLUDE "Ti83p.def"	; ROM / RAM adresses on Ti83+[SE]
-    defc    crt0 = 1
     INCLUDE	"zcc_opt.def"	; Receive all compiler-defines
-
 
     INCLUDE "asm_globals.def"
 
-    defc	CONSOLE_ROWS = 8
-    defc    TAR__clib_exit_stack_size = 3
-    defc    TAR__register_sp = -1
-    defc	__CPU_CLOCK = 6000000
 
-
-    PUBLIC  __crt_org_bss
-    defc __crt_org_bss = c_bss
-
-
-    ; Header data
-    DEFINE ASM
-    DEFINE NOT_DEFAULT_SHELL
-
+SECTION CODE ; Put header as low as can be
     org $4000
-
-
 ; No header or main is needed for anything other than the first page. (Or a single page apps)
 IF (startup=0 || startup=1)
-
-
- ;   PUBLIC	crt0_exit		; used by exit()
 
 
     PUBLIC	tidi		;
@@ -113,8 +89,6 @@ IF NameLength < 8
     ENDIF
 endname_true:
 
-
-
     DEFB $80,$81		;Field: App Pages
     DEFB $01		;App Pages = 1
 
@@ -177,6 +151,7 @@ ENDIF
     ; End of branch table, begin of startup stuff
     ;--------------------------------------------
 
+SECTION code_crt_init
 start:
     rst     0x28 ; bcall(_ForceFullScreen)
     DEFW    0x508F
@@ -188,27 +163,26 @@ start:
     ld a, $1 ; Set 15Mz
     out (20h), a
 
-    ; Give us more ram. After this point NO BCALLS SHOULD BE MADE
+    ; Give us more ram. After this point NO BCALLS SHOULD BE MADE (except cleanup)
     ld a, $83
     out (7), a
 
-
-
-    ; Printf stuff
-    INCLUDE "crt/classic/crt_init_sp.inc"
-    call    crt0_init
-
-    INCLUDE "game_init.asm"
-
+    ; Save the old rom of 4000h
     in a, (6)
     ld (_first_rom_page), a
 
-    EXTERN __setup_interrupts
-    call __setup_interrupts
+    EXTERN setup_interrupts
+    call setup_interrupts
+    ; Note: Interupts are currently disabled
 
+    EXTERN engine_init
+    call engine_init
 
+    ; Now it _should_ be safe to enable interupts
+    ei
 
     call    _main		; call main()
+
 __Exit:     ; exit() jumps to this point
     di
 
@@ -230,7 +204,6 @@ __Exit:     ; exit() jumps to this point
 
     xor	    a		; Switch to 6MHz (normal speed)
     out (20h), a
-
 __restore_sp_onexit:
     ;ld	sp,0		; Restore SP
     di
@@ -253,28 +226,16 @@ ENDIF
 
 
 
-
-
-
-
     defc ansipixels = 96
     IF !DEFINED_ansicolumns
         defc DEFINED_ansicolumns = 1
         defc ansicolumns = 32
     ENDIF
 
-    IF DEFINED_CRT_MODEL
-        defc    __crt_model = CRT_MODEL
-    ELSE
-        defc    __crt_model = 1
-    ENDIF
-
-    include "interrupt.asm"
+    
+    SECTION code_engine
+    ; INCLUDE "crt/classic/crt_section_standard.inc"
 
 
     ; Needed for printf
 
-    INCLUDE "crt/classic/crt_runtime_selection.inc"
-    INCLUDE	"crt/classic/crt_section.inc"
-
-base_graphics: DEFW $8800

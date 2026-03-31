@@ -1,0 +1,59 @@
+; Global variable allocations
+IFNDEF ASM_GLOBALS 
+DEFINE ASM_GLOBALS
+
+MACRO pdefc key, val
+  defc key = val
+  LOCAL key
+ENDM
+
+; 8101h - 8181h are free (middle of interupts)
+pdefc fast_copy_sp_restore, $8101 ; 2 bytes
+pdefc fast_copy_counter, fast_copy_sp_restore+2 ; 1 byte
+
+pdefc _globals_start, $C000
+pdefc _first_rom_page, $C000               ; 1 byte, first page
+
+pdefc _gray_count, _first_rom_page + 1              ; 2 byte, a count of the times the greyscale routine has fired
+
+pdefc _game_count, _gray_count +2                   ; 2 bytes
+
+pdefc _grey_timing, _game_count + 2                  ; 1 byte
+pdefc _grey_contrast, _grey_timing + 1                  ; 1 byte
+
+pdefc current_phase1, _grey_contrast + 1                ;  2 bytes
+pdefc current_phase2, current_phase1 + 2                ;  2 bytes
+pdefc current_phase3, current_phase2 + 2                ;  2 bytes
+
+pdefc alt_phase1, current_phase3 + 1                ;  2 bytes
+pdefc alt_phase2, alt_phase1 + 2                ;  2 bytes
+pdefc alt_phase3, alt_phase2 + 2                ;  2 bytes
+
+; Map of user keys, see: https://web.archive.org/web/20240225131330/https://wikiti.brandonw.net/index.php?title=83Plus:Ports:01
+pdefc _current_keymap, alt_phase3 + 2                 ; size 8 bytes
+pdefc _last_keymap, _current_keymap + 8                   ; size 8 bytes
+
+; Down, left, right, up
+pdefc _nav_key_change, _last_keymap + 8                   ; size 1 byte
+
+
+; Set where z88dk puts static variables, note that only the first page is allowed them
+pdefc c_bss, $C100
+
+pdefc screen_size, 768    ; 96 * 64/8
+
+
+pdefc buffer_start,  $C500
+
+pdefc grey_phase1_buff, buffer_start
+pdefc grey_phase2_buff, grey_phase1_buff + screen_size
+pdefc grey_phase3_buff, grey_phase2_buff + screen_size
+
+pdefc grey_phase1_altbuff, grey_phase2_buff + screen_size
+pdefc grey_phase2_altbuff, grey_phase1_altbuff + screen_size
+pdefc grey_phase3_altbuff, grey_phase2_altbuff + screen_size
+
+; Note: KEEP THIS LAST! This allows for some evil hacks 
+pdefc _screen_buffer, grey_phase3_altbuff + screen_size ; Size: screen_size*2 due to interlaced light-dark
+
+ENDIF

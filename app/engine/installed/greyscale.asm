@@ -4,6 +4,8 @@
 ; This code is highly optimized, and will only run on post 2007 calculators
 ; due to the lack of delay between LCD writes. 
 
+greyscale_tick:
+
 defc xmax = 96d
 defc ymax = 64d
     ld hl, (_gray_count)
@@ -79,12 +81,8 @@ row_loop:
     sub a, d
     jp nc, row_loop
 
+    ret
 
 
-
-
-
-    jp after_masks
 
 phase: DEFB 0
-after_masks:

@@ -1,3 +1,4 @@
+EXTERN fast_copy_counter
 EXTERN fast_copy_sp_restore
 
 
@@ -25,23 +26,22 @@ screenbg_blit:
   ; Now de` is the stride 
   exx
   ld de, 12 ; de = dst len
-  exx
 
   ; Now:
-  ; de  = stride
-  ; de` = 12
+  ; de`  = stride
+  ; de = 12
   
   MACRO fastcpy_12
     ld sp, iy
-    add iy, de ; src += stride
 
     pop af
     pop bc
     pop hl
     
-    exx
-    ex af, af'
+    ex af, af' ; flags free to clobber 
     add ix, de ; dst += 12
+    exx
+    add iy, de ; src += stride
 
     pop af
     pop bc

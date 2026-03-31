@@ -1,7 +1,9 @@
 *.8xk
+*.o
 out*
 .env
 **/__pycache__/
 *.lis
 .pytest_cache/
 tooling/remaker/state.json
+*.lib

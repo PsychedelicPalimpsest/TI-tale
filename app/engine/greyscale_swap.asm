@@ -4,17 +4,9 @@
 
 
 PUBLIC _greyscale_swap
+SECTION code_engine
 
-extern _screen_buffer
-
-extern current_phase1
-extern current_phase2
-extern current_phase3
-
-extern alt_phase1
-extern alt_phase2
-extern alt_phase3
-
+INCLUDE "core/asm_globals.def"
 
 M1 EQU %01101101
 M2 EQU %11011011

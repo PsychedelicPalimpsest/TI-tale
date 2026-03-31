@@ -1,5 +1,8 @@
 ; This code runs at 32 Hz, and is run by interrupt.asm
+PUBLIC engine_tick
 
+
+engine_tick:
 ; Copy current keymap to last keymap
     ld hl, (_current_keymap)
     ld (_last_keymap), hl
@@ -133,3 +136,4 @@ DOWN:
     ; Fall through
 
 after_tuning:
+  ret

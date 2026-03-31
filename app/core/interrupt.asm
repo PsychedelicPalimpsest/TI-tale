@@ -1,6 +1,19 @@
-defc interupt_vector = 8181h
+SECTION code_core
 
+PUBLIC setup_interrupts
+PUBLIC greyscale_addr
+PUBLIC gametick_addr
+
+INCLUDE "asm_globals.def"
+EXTERN __Exit
+
+
+defc interupt_vector = 8181h
 defc interupt_mask = %00001001
+
+; Adresses of greyscale and gametick hooks
+defc greyscale_addr = _greyscale_call + 1
+defc gametick_addr =  _gametick_call + 1
 
 
 MACRO SETUP_GREY_TIMER
@@ -27,7 +40,7 @@ ENDM
 
 
 
-__interupt:
+interupt:
 PHASE interupt_vector
     di
     push	af
@@ -45,7 +58,7 @@ PHASE interupt_vector
 
 
     bit 0, b ; Test if on button is pressed
-    jp z, _after_exit 
+    jp z, after_exit 
 
 ; If so, exit
     ; Load in the first rom page of app
@@ -58,24 +71,27 @@ PHASE interupt_vector
 
     ; Note: TiOS fixes the stack for us
     jp __Exit
-_after_exit:
+after_exit:
     bit 5, b
-    jp z, _after_grey
+    jp z, after_grey
 
     push bc
 
     SETUP_GREY_TIMER
-    INCLUDE "greyscale.asm"
+
+    ; Note: Self modifying code!
+    _greyscale_call: call 0000h
 
     pop bc
-_after_grey:
+after_grey:
     bit 6, b
-    jp z, _after_game_tick
+    jp z, after_game_tick
 
     SETUP_GAME_TIMER
-    INCLUDE "game_tick.asm"
 
-_after_game_tick:
+    ; Note: Self modifying code!
+    _gametick_call: call 0000h
+after_game_tick:
 
 
     ld a, interupt_mask
@@ -87,15 +103,15 @@ _after_game_tick:
     pop	af
     ei
     ret
+after_interrupt_code:
 DEPHASE
-__end_of_interupts:
+end_of_interupts:
 
 
-__setup_interrupts:
-    di
-    ld hl, __interupt
+setup_interrupts:
+    ld hl, interupt
     ld de, interupt_vector
-    ld bc, __end_of_interupts - __interupt
+    ld bc, end_of_interupts - interupt
     ldir
 
 ; Vector table is based at $8000
@@ -118,10 +134,10 @@ __setup_interrupts:
 
     ; Enable interrupts
     im 2
-    ei
+    ; It is NOT safe to enable interupts until greyscale_addr and gametick_addr have been set!
 
+    ; Note here the race condition :<
     SETUP_GREY_TIMER
     SETUP_GAME_TIMER
 
     ret
-

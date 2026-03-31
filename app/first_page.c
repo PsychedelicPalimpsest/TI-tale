@@ -1,7 +1,6 @@
-#pragma string name UNDRTALE
+#pragma string name UNDRTAL2
 
-#include "engine/globalc.h"
-#include "engine/scene_tiller.h"
+#include "core/globalc.h"
 extern void greyscale_swap();
 
 int main(){
@@ -24,11 +23,6 @@ int main(){
     
     }
     greyscale_swap();
-
-  #asm
-
-  #endasm
-
 
     while (1) ;
 }
