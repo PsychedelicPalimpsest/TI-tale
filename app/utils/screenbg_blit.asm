@@ -1,4 +1,3 @@
-EXTERN fast_copy_counter
 EXTERN fast_copy_sp_restore
 
 
@@ -20,7 +19,7 @@ _screenbg_blit:
 ; de=stride src diff
 screenbg_blit:
   ld (fast_copy_sp_restore), sp
-  ld a, -12 ; 96/16*2=12
+  ld a, 12 ; 96/16*2=12
   ld (fast_copy_counter), a
 
   ; Now de` is the stride 
@@ -69,6 +68,7 @@ loop:
   fastcpy_12 \ fastcpy_12 \ fastcpy_12 \ fastcpy_12
   ld hl, fast_copy_counter
   dec (hl)
+
   jp nz, loop
 
 
