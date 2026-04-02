@@ -3,26 +3,27 @@
 #include "core/globalc.h"
 extern void greyscale_swap();
 
+extern void screenbg_blit(char* dst_plus_12, char* src, int stride) __z88dk_callee;
+extern char test_bg[]; 
+
+
+
 int main(){
-
-    for (int i = 0; i < (768*2); i += (96/8*2)) {
-        // byte 1=light, byte 2=dark buffer
-        screen_buffer[i+2] = 0xFF;
-
-        screen_buffer[i+5] = 0xFF;
-
-        screen_buffer[i+6] = 0xFF;
-        screen_buffer[i+7] = 0xFF;
-
-        screen_buffer[i+8] = 0xFF;
-        screen_buffer[i+9] = 0xFF;
-
-        screen_buffer[i+11] = 0xFF;
-
-        screen_buffer[i+12] = 0xFF;
-    
-    }
+    // First swap call enables interupts
     greyscale_swap();
+
+    screenbg_blit(&screen_buffer[12], test_bg, 0);
+    greyscale_swap();
+
 
     while (1) ;
 }
+
+#asm
+_test_bg:
+REPT 96
+DEFW $00FF, $FFFF, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+ENDR
+#endasm
+
+

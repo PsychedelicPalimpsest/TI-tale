@@ -22,15 +22,29 @@ engine_init:
     ld a, $A0
     ld (_grey_timing), a
 
+; Clear all the screen buffers
+    xor a, a
+
+    ld hl, buffers_start
+    ld (hl), a
+
+    ld de, buffers_start+1
+    ld bc, buffers_end-buffers_start ; TODO: Should I clear the screen buffer?
+    ldir
+
+
 ; Greyscale current buffs
     ld hl, grey_phase1_buff
     ld (current_phase1), hl 
 
+
+; Back to setting 
     ld hl, grey_phase2_buff
     ld (current_phase2), hl
 
     ld hl, grey_phase3_buff
     ld (current_phase3), hl
+
 
 ; Greyscale alt buffs
     ld hl, grey_phase1_altbuff

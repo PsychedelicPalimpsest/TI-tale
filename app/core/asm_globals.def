@@ -25,7 +25,7 @@ pdefc current_phase1, _grey_contrast + 1                ;  2 bytes
 pdefc current_phase2, current_phase1 + 2                ;  2 bytes
 pdefc current_phase3, current_phase2 + 2                ;  2 bytes
 
-pdefc alt_phase1, current_phase3 + 1                ;  2 bytes
+pdefc alt_phase1, current_phase3 + 2                ;  2 bytes
 pdefc alt_phase2, alt_phase1 + 2                ;  2 bytes
 pdefc alt_phase3, alt_phase2 + 2                ;  2 bytes
 
@@ -43,17 +43,18 @@ pdefc c_bss, $C100
 pdefc screen_size, 768    ; 96 * 64/8
 
 
-pdefc buffer_start,  $C500
+pdefc buffers_start,  $C500
 
-pdefc grey_phase1_buff, buffer_start
+pdefc grey_phase1_buff, buffers_start
 pdefc grey_phase2_buff, grey_phase1_buff + screen_size
 pdefc grey_phase3_buff, grey_phase2_buff + screen_size
 
-pdefc grey_phase1_altbuff, grey_phase2_buff + screen_size
+pdefc grey_phase1_altbuff, grey_phase3_buff + screen_size
 pdefc grey_phase2_altbuff, grey_phase1_altbuff + screen_size
 pdefc grey_phase3_altbuff, grey_phase2_altbuff + screen_size
 
 ; Note: KEEP THIS LAST! This allows for some evil hacks 
 pdefc _screen_buffer, grey_phase3_altbuff + screen_size ; Size: screen_size*2 due to interlaced light-dark
+pdefc buffers_end, _screen_buffer + screen_size*2
 
 ENDIF

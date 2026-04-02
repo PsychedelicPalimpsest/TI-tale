@@ -173,14 +173,11 @@ start:
 
     EXTERN setup_interrupts
     call setup_interrupts
-    ; Note: Interupts are currently disabled
 
     EXTERN engine_init
     call engine_init
 
-    ; Now it _should_ be safe to enable interupts
-    ei
-
+    ; Note: Interupts are currently disabled
     call    _main		; call main()
 
 __Exit:     ; exit() jumps to this point

@@ -1,5 +1,8 @@
-EXTERN fast_copy_counter
-EXTERN fast_copy_sp_restore
+PUBLIC _screenbg_blit
+PUBLIC screenbg_blit
+
+SECTION code_engine
+INCLUDE "core/asm_globals.def"
 
 
 ; C entry point for screenbg_blit. It is:

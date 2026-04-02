@@ -134,6 +134,7 @@ setup_interrupts:
 
     ; Enable interrupts
     im 2
+    di
     ; It is NOT safe to enable interupts until greyscale_addr and gametick_addr have been set!
 
     ; Note here the race condition :<
