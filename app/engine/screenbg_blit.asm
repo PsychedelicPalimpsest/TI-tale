@@ -6,7 +6,7 @@ INCLUDE "core/asm_globals.def"
 
 
 ; C entry point for screenbg_blit. It is:
-; screenbg_blit(char* dst_plus_12, char* src, int stride) __z88dk_callee;
+; void screenbg_blit(char* dst_plus_12, char* src, int stride) __z88dk_callee;
 _screenbg_blit:
   pop af ; ret ptr
   pop de ; stride
