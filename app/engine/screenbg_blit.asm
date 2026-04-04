@@ -6,19 +6,19 @@ INCLUDE "core/asm_globals.def"
 
 
 ; C entry point for screenbg_blit. It is:
-; void screenbg_blit(char* dst_plus_12, char* src, int stride) __z88dk_callee;
+; void screenbg_blit(char* dst, char* src, int stride) __z88dk_callee;
 _screenbg_blit:
   pop af ; ret ptr
   pop de ; stride
   pop iy ; src
-  pop ix ; dst+12
+  pop ix ; dst
   push af
 
   ; Fall through
 
 ; Copies the background to the screen buffer.
 ; Screen buffer is defined as a 768*2 size buffer
-; ix=dst+12
+; ix=dst
 ; iy=src
 ; de=stride src diff
 screenbg_blit:

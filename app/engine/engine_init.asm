@@ -38,7 +38,6 @@ engine_init:
     ld (current_phase1), hl 
 
 
-; Back to setting 
     ld hl, grey_phase2_buff
     ld (current_phase2), hl
 

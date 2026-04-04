@@ -1,5 +1,6 @@
 ; Takes the greyscale screen bufer, and converts them into optimized phased buffers
 ; for the greyscale IRQ. Then, swaps the buffer used by the greyscale IRQ
+;
 ; ~122,858 t-states
 
 
@@ -33,51 +34,52 @@ MACRO PIXEL mask
   inc bc      ; 6
 endm
 
-; 159 t-states
 MACRO PIXELS_3 N1, N2, N3
   PIXEL N1
   PIXEL N2
   PIXEL N3
 endm
 
-; 636 t-states
-MACRO PIXELS_12 N1, N2, N3
-  PIXELS_3 N1, N2, N3
-  PIXELS_3 N1, N2, N3
-
-  PIXELS_3 N1, N2, N3
-  PIXELS_3 N1, N2, N3
+MACRO PIXELS_63 N1, N2, N3
+  REPT 63/3
+    PIXELS_3 N1, N2, N3
+  ENDR
 endm
 
 MACRO PRE_SINGLE_SWAP
   ld hl, _screen_buffer ; 10
-  ld d, $7              ; 7
+  ld d, 12              ; 7
 endm
 
 
 _greyscale_swap:
   ; Convert the individual buffers
 
-  ; Phase 1: 40,866 t-states
+  ; Phase 1: 
   ld bc, (alt_phase1) ; 20
   PRE_SINGLE_SWAP     ; 17
-  call grey_loop      ; 17 + 40,812
+
+  PIXELS_3 M1, M2, M3
+  call do_grey      ; 17 + 40,812
 
 
-  ; Phase 2: 40,866 t-states
+  ; Phase 2: 
   ld bc, (alt_phase2) ; 20
   PRE_SINGLE_SWAP     ; 17
-  call grey_loop231   ; 17 + 40,176
-  PIXELS_12 M2, M3, M1; 636
+  PIXEL M2
+  PIXEL M3
+  call do_grey   ; 17 + 40,176
+  PIXEL M1
 
-; Phase 3: 40,866 t-states
+
+; Phase 3:
   ld bc, (alt_phase3) ; 20
+  
   PRE_SINGLE_SWAP     ; 17
-
-  call grey_loop312   ; 17 + 39,540
-  PIXELS_12 M2, M3, M1; 636
-  PIXELS_12 M3, M1, M2; 636
-
+  PIXEL M3
+  call do_grey
+  PIXEL M1
+  PIXEL M2
 
 
   ; Swap the buffer ptrs
@@ -107,28 +109,16 @@ _greyscale_swap:
 
 ; Inputs:
 ; Expects PRE_SINGLE_SWAP to be set
-; Caller is expected to do one PIXELS_12
+; Caller is expected to do draw 3 pixels
 ;
 ; T-states: 40,812 (including ret)
-
-  ; 
+do_grey:
+  PIXELS_3 M1, M2, M3
+  PIXELS_3 M1, M2, M3
+  PIXELS_3 M1, M2, M3
 grey_loop:
-  PIXELS_12 M1, M2, M3
-grey_loop231:
-  PIXELS_12 M2, M3, M1
-grey_loop312:
-  PIXELS_12 M3, M1, M2
+  PIXELS_63 M1, M2, M3
 
-  PIXELS_12 M1, M2, M3
-  PIXELS_12 M2, M3, M1
-  PIXELS_12 M3, M1, M2
-
-  PIXELS_12 M1, M2, M3
-  PIXELS_12 M2, M3, M1
-  PIXELS_12 M3, M1, M2
- 
   dec d              ; 4 t-states
   jp nz, grey_loop   ; 10 t-states
-
-  PIXELS_12 M1, M2, M3
   ret

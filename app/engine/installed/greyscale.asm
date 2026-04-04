@@ -43,11 +43,11 @@ after_phases:
     ld a, $1 ; 8bit mode
     out (10h), a
 
-    ld a, $7 ; Move right
+    ld a, $5 ; Move up to down 
     out (10h), a
 
     
-    ld d, 80h  ; d = row + 80h
+    ld d, 20h  ; d = row + 20h
 
     ld c, 11h  ; Port to write to (for outi),  
 row_loop:
@@ -55,29 +55,18 @@ row_loop:
     out (10h), a
 
 
-    ld a, 20h ; Go to beginning of col
+    ld a, 80h ; Go to beginning of row
     out (10h), a
 
-; Unrolled write loop (12 entries)
-    outi
+; Unrolled write loop (64 entries)
+REPT ymax
     outi ; out (c), (hl) \ inc (hl), dec b
-    outi
-    outi
+endr
 
-
-    outi
-    outi
-    outi
-    outi
-
-    outi
-    outi
-    outi
-    outi
 
 
     inc d
-    ld a, 80h + ymax -1
+    ld a, 20h + 12 -1
     sub a, d
     jp nc, row_loop
 

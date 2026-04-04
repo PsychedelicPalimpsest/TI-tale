@@ -17,7 +17,7 @@ sprite_loop:
   add hl, bc
 
   dec ixl
-  jp nz sprite_loop
+  jp nz, sprite_loop
   ret
 
 
