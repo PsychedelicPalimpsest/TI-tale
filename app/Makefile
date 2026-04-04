@@ -1,7 +1,7 @@
 all: out.8xk
 
 
-CFLAGS = "-pragma-define:CRT_ENABLE_STDIO=0" -m
+CFLAGS = "-pragma-define:CRT_ENABLE_STDIO=0" -m --list
 SFLAGS = 
 
 CORE_LIB_FILES = core/interrupt.asm

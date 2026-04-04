@@ -5,11 +5,13 @@ extern void greyscale_swap();
 
 extern void screenbg_blit(char* dst, char* src, int stride) __z88dk_callee;
 extern char test_bg[]; 
+extern char test_sprite[]; 
 
-
+extern void blit_solid(void* dst, void* src, char width, char height_times2) __z88dk_sdccdecl __z88dk_callee;
 
 int main(){
-  screenbg_blit(screen_buffer, test_bg, 12);
+  blit_solid(screen_buffer, test_sprite, 2, 2*(2*4 + 1));
+
   greyscale_swap();
 
     
@@ -19,30 +21,27 @@ int main(){
 }
 
 #asm
-_test_bg:
-rept 64
-defw $00ff
-endr
 
-REPT 64
-DEFW $ff00
+
+_test_sprite:
+
+REPT 4
+  DEFW $ff00
+  DEFW $00ff
 ENDR
-
-REPT 64
 DEFW $ffff
-ENDR
 
-REPT 64
+REPT 4
+  DEFW $00ff
+  DEFW $ff00
+ENDR
+DEFW $ffff
+
+
+
+_test_bg:
+REPT 768
 DEFW $ff00
-ENDR
-
-rept 64
-defw $00ff
-endr
-
-
-REPT 768 - 64*5
-DEFW $0000
 ENDR
 #endasm
 
