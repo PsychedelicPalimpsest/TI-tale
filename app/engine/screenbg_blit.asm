@@ -3,6 +3,8 @@ PUBLIC screenbg_blit
 
 SECTION code_engine
 INCLUDE "core/asm_globals.def"
+INCLUDE "core/fastcpy_macros.def"
+
 
 
 ; C entry point for screenbg_blit. It is:
@@ -18,6 +20,13 @@ _screenbg_blit:
 
 ; Copies the background to the screen buffer.
 ; Screen buffer is defined as a 768*2 size buffer
+;
+; NOTE:  Although designed for mode 7 lcd drawing (left to right), mode 5
+;        works perfectly fine!
+; NOTE2: The screen buffer has amble space after is, so this stack trickery
+;        is not horrible. 
+;
+; Inputs:
 ; ix=dst
 ; iy=src
 ; de=stride src diff
@@ -34,35 +43,7 @@ screenbg_blit:
   ; de`  = stride
   ; de = 12
   
-  MACRO fastcpy_12
-    ld sp, iy
 
-    pop af
-    pop bc
-    pop hl
-    
-    ex af, af' ; flags free to clobber 
-    add ix, de ; dst += 12
-    exx
-    add iy, de ; src += stride
-
-    pop af
-    pop bc
-    pop hl
-
-    ld sp, ix
-
-    push hl
-    push bc
-    push af
-
-    exx
-    ex af, af'
-
-    push hl
-    push bc
-    push af
-  ENDM
 
 loop:
   fastcpy_12 \ fastcpy_12 \ fastcpy_12 \ fastcpy_12
