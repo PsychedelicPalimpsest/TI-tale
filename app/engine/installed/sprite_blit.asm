@@ -59,99 +59,94 @@ loop:
   
 ; extern void blit_sprite(void* dst, void* src, char width, char height) __z88dk_sdccdecl __z88dk_callee;
 _blit_sprite:
-  pop af
-  pop hl ; screen
-  pop de ; sprite
-  pop iy ; high byte goes to height, low byte goes width. Little endianness is fun
-  push af
-  ; fall through to blit_sprite
+  pop af        ; Save return address
+  pop hl        ; dst: pointer into screen buffer
+  pop de        ; src: sprite data (format per row: trans_byte, light_byte, dark_byte)
+  pop iy        ; iyl = width (columns), iyh = height (rows) — packed via little-endian push
+  push af       ; Restore return address
+  ; Fall through to blit_sprite
 
+; Blits a masked sprite onto a light/dark interleaved screen buffer.
+; Each screen row occupies 2 bytes: one light byte followed by one dark byte.
+; Each sprite row occupies 3 bytes: trans_byte, light_byte, dark_byte.
+;
 ; Inputs:
-; hl  = screen 
-; de  = sprite (format: transparent_byte light_byte dark_byte)
-; iyl = Width
-; iyh = height
+;   hl  = screen pointer (dst)
+;   de  = sprite pointer (src)
+;   iyl = width  (columns)
+;   iyh = height (rows)
 blit_sprite:
-; Set width restore point
+  ; Save the initial height into the self-modifying reset instruction below,
+  ; so iyh can be restored after each column is drawn.
   ld a, iyh
-  ld (_iyh_reset + 2), a ; Self modifying code: ld iyh, 00h => FD 26 00
+  ld (_iyh_reset + 2), a  ; Patch operand of: ld iyh, 00h  (encoding: FD 26 XX)
 
-; a = 2*(64-height)
-; push the height diff onto the stack
-; this is the amount needed to advance
-; to the next col. 
+  ; Compute the byte stride needed to advance hl to the next column after
+  ; drawing. Each row is 2 bytes (light + dark), screen is 64 rows tall,
+  ; so the remaining rows after the sprite = 64 - height, giving a stride
+  ; of 2*(64 - height).
   ld a, 64
   sub iyh
-  add a, a
+  add a, a      ; a = 2 * (64 - height)
 
   ld b, $0
   ld c, a
-  push bc
+  push bc       ; Push stride onto stack for reuse each column
 
-; Loop point for both x and y
+; Shared loop entry for both the inner (row) and outer (column) loops.
 sprite_col_loop:
-  ld a, (hl) ; Load a from light screen byte
-  
-  ex de, hl
-  ld c, (hl) ; c is the sprite trans byte
-  inc hl     
+  ; --- Blend light plane ---
+  ld a, (hl)    ; a = light screen byte (I)
 
-  ld b, (hl)   ; b is the sprite light byte
-  inc hl 
+  ex de, hl
+  ld c, (hl)    ; c = sprite trans byte (T)
+  inc hl
+  ld b, (hl)    ; b = sprite light byte (S)
+  inc hl
   ex de, hl
 
-; a = Dark screen byte
-; c = trans byte
-; b = Dark sprite byte
-  
-; Select the screen byte if transparent bit is set
-; TI + T'S = S ^ (T & (I ^ S))
+  ; Transparent blit: keep screen pixel where T=1, use sprite pixel where T=0
+  ; Formula: TI + T'S  ==>  S ^ (T & (I ^ S))
   xor b
   and c
   xor b
 
-  ld (hl), a ; Write to screen
+  ld (hl), a    ; Write blended light byte to screen
   inc hl
-  ld a, (hl) ; a is the dark screen byte
 
+  ; --- Blend dark plane ---
+  ld a, (hl)    ; a = dark screen byte (I)
 
   ex de, hl
-  ld b, (hl) ; b is the dark sprite byte
-  inc hl 
+  ld b, (hl)    ; b = sprite dark byte (S)  [trans byte already consumed above]
+  inc hl
   ex de, hl
 
-; a = Dark screen byte
-; c = trans byte
-; b = Dark sprite byte
-
-; Select the screen byte if transparent bit is set
-; TI + T'S = S ^ (T & (I ^ S))
+  ; Same transparent blit formula (reuses c = trans byte from above)
   xor b
   and c
   xor b
 
-  ld (hl), a
+  ld (hl), a    ; Write blended dark byte to screen
   inc hl
 
+  ; Inner loop: iterate over all rows of this column
   dec iyh
   jp nz, sprite_col_loop
-  
 
-; screen_ptr += 2*(64-height)
+  ; Advance screen pointer past the undrawn rows to reach the next column
   pop bc
   add hl, bc
   push bc
 
-; EVIL: Self modifying code
-  _iyh_reset: ld iyh, 00h
+  ; Restore iyh for the next column (self-modifying: patches the immediate above)
+_iyh_reset: ld iyh, 00h
 
-; width--
+  ; Outer loop: iterate over all columns
   dec iyl
   jp nz, sprite_col_loop
 
-; Pop the screen ptr diff
+  ; Clean up stride from stack
   pop af
 
-
   ret
-
