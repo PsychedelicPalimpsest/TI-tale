@@ -9,8 +9,10 @@ extern char test_sprite[];
 
 extern void blit_solid(void* dst, void* src, char width, char height_times2) __z88dk_sdccdecl __z88dk_callee;
 
+extern void blit_sprite(void* dst, void* src, char width, char height) __z88dk_sdccdecl __z88dk_callee;
+
 int main(){
-  blit_solid(screen_buffer, test_sprite, 2, 2*(2*4 + 1));
+  blit_sprite(screen_buffer, test_sprite, 2, 3);
 
   greyscale_swap();
 
@@ -25,24 +27,14 @@ int main(){
 
 _test_sprite:
 
-REPT 4
+REPT 3
+  db $0
   DEFW $ff00
+
+  db $0
   DEFW $00ff
 ENDR
-DEFW $ffff
 
-REPT 4
-  DEFW $00ff
-  DEFW $ff00
-ENDR
-DEFW $ffff
-
-
-
-_test_bg:
-REPT 768
-DEFW $ff00
-ENDR
 #endasm
 
 

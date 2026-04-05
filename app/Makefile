@@ -2,7 +2,7 @@ all: out.8xk
 
 
 CFLAGS = "-pragma-define:CRT_ENABLE_STDIO=0" -m --list
-SFLAGS = 
+SFLAGS = -l
 
 CORE_LIB_FILES = core/interrupt.asm
 core.lib: $(CORE_LIB_FILES)

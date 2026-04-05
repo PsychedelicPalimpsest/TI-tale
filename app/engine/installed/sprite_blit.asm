@@ -12,6 +12,7 @@ SECTION code_engine
 
 
 ; extern void blit_solid(void* dst, void* src, char width, char height_times2) __z88dk_sdccdecl __z88dk_callee;
+; T-states: 120WH + 61W + 137
 _blit_solid:
   pop af
   pop de ; dst
@@ -27,6 +28,8 @@ _blit_solid:
 ;  de = Destination addr
 ;  ixl = width
 ;  ixh = height 
+;
+; T-states: 120WH + 61W + 82
 blit_solid:
 ; a is the amount needed to go to the next col in dst
   ld a, 64*2 
@@ -76,8 +79,7 @@ _blit_sprite:
 ;   iyl = width  (columns)
 ;   iyh = height (rows)
 blit_sprite:
-  ; Save the initial height into the self-modifying reset instruction below,
-  ; so iyh can be restored after each column is drawn.
+  ; Set the iyh (height) restore point via EVIL self modifying code 
   ld a, iyh
   ld (_iyh_reset + 2), a  ; Patch operand of: ld iyh, 00h  (encoding: FD 26 XX)
 
@@ -135,6 +137,7 @@ sprite_col_loop:
   jp nz, sprite_col_loop
 
   ; Advance screen pointer past the undrawn rows to reach the next column
+  ; Note: Stack is slow, but this is _as_ hot as the inner loop
   pop bc
   add hl, bc
   push bc
