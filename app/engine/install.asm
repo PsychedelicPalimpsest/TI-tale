@@ -35,6 +35,7 @@ start_of_install:
 
 INCLUDE "installed/game_tick.asm"
 INCLUDE "installed/greyscale.asm"
+INCLUDE "installed/sprite_blit.asm"
 
 end_of_install:
 DEPHASE
