@@ -18,7 +18,24 @@ extern char write_ti_large(void* screen_loc, int font_code, unsigned int copy_mo
 
 
 int main(){
-  write_ti_small(screen_buffer, ('H'), 4*3);
+  #asm
+  INCLUDE "core/Ti83p.def"
+
+  ld hl, 'A'*8
+  bcall _Load_SFont
+
+  EXTERN solid_rot_screen_blit
+  ld a, (hl)
+  ld c, a
+  inc hl 
+
+  ld ixh, 7
+
+  ld iy, _screen_buffer 
+  call solid_rot_screen_blit
+
+  #endasm
+  // write_ti_small(screen_buffer, ('H'), 4*3);
 
   // #asm
   //

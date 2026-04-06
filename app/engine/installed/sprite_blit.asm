@@ -152,65 +152,56 @@ _iyh_reset: ld iyh, 00h
 
 
 
+MACRO sprite_component jp_label, offset, do_inc_hl
+  ld a, (hl)
 
+  IF do_inc_hl
+    inc hl
+  endif
 
-; Expects de to be rotation amount
-MACRO patch_jump jp_instr, end_of_adds
-  ; hl = end_of_adds - rotation_amount
-  ld hl, end_of_adds
-  sub hl, de
+  push hl
 
-  ld (jp_instr +1), hl
-endm
-
-MACRO hl_rot_block end_label
-  REPT 7
-    add hl, hl ; 1 byte, acts as a left rot
-  endr
-end_label:
-endm
-
-
-MACRO sprite_component jp_label, rot_block offset
-  ld a, (iy)
-
+  
   ld h, $0
   ld l, a
 
-; hl = hl << hl' (rotation)
-  jp_label: jp 0000h
-  hl_rot_block rot_block
+  ; Self modifying code: the jr is replaced before this is run
+  jp_label: jr $
+  REPT 7
+    add hl, hl ; 1 byte, acts as a left rot
+  endr
 
   ld a, l
   or (iy)
-  ld (iy), a
+  ld (iy), a 
 
   ld a, h
-  or (iy-offset)
-  ld (iy-offset), a
+  or (iy-128)
+  ld (iy-128), a 
 
   inc iy
+  pop hl
 endm
 
 
-PUBLIC solid_rot_blit
+PUBLIC solid_rot_screen_blit
 ; Inputs:
 ; iy=screen buffer
 ; hl=sprite
-; hl'=rotation (0-7)
+; c=rotation (0-7)
 ; ixh=height
-solid_rot_blit:
-  exx
-  ex de, hl
-  patch_jump light_patched_jump, light_rot_block
-  patch_jump dark_patched_jump, dark_rot_block
-  ; We do not need to restore de'
-  exx
+solid_rot_screen_blit:
+  ld a, 8  ; 8 rots 
+  sub c
+
+  ld (light_patched_jump + 1), a
+  ld (dark_patched_jump + 1), a
+
   
 solid_blit_loop:
 ; Light byte component
-  sprite_component light_patched_jump, light_rot_block, 2
-  sprite_component dark_patched_jump, dark_rot_block, 2
+  sprite_component light_patched_jump, 2, 0
+  sprite_component dark_patched_jump, 2, 1
 
   dec ixh
   jp nz, solid_blit_loop
@@ -225,7 +216,6 @@ solid_blit_loop:
   
 
 
-hl_storage  DEFW 
 
 
 
