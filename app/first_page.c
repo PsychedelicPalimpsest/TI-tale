@@ -12,7 +12,18 @@ extern void blit_solid(void* dst, void* src, char width, char height_times2) __z
 extern void blit_sprite(void* dst, void* src, char width, char height) __z88dk_sdccdecl __z88dk_callee;
 
 int main(){
-  blit_sprite(screen_buffer, test_sprite, 2, 3);
+  // blit_sprite(screen_buffer, test_sprite, 2, 3);
+  #asm
+
+    ld de, _screen_buffer
+  REPT 3
+    ld hl, $E7
+    EXTERN write_ti_small
+    call write_ti_small
+    inc de
+    inc de
+  endr
+  #endasm
 
   greyscale_swap();
 

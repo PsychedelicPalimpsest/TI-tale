@@ -2,6 +2,13 @@
 IFNDEF ASM_GLOBALS 
 DEFINE ASM_GLOBALS
 
+MACRO bcall nn
+  rst 28h
+  DEFW nn
+endm
+
+
+
 
 ; 8101h - 8181h are free (middle of interupts)
 defc fast_copy_sp_restore = $8101 ; 2 bytes

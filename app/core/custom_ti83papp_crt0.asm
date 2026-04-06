@@ -153,19 +153,20 @@ ENDIF
 
 SECTION code_crt_init
 start:
-    rst     0x28 ; bcall(_ForceFullScreen)
-    DEFW    0x508F
-    rst     0x28 ; bcall(_ClrLCDFull)
-    DEFW    0x4540
+    bcall    _ForceFullScreen 
+    bcall    _ClrLCDFull
 
     di ; Disable interupts to prevent any issues during setup
 
     ld a, $1 ; Set 15Mz
     out (20h), a
 
-    ; Give us more ram. After this point NO BCALLS SHOULD BE MADE (except cleanup)
+    ; Give us more ram. After this point bcalls are not safe
     ld a, $83
     out (7), a
+
+    EXTERN engine_prepage_init
+    call engine_prepage_init
 
     ; Save the old rom of 4000h
     in a, (6)
@@ -205,9 +206,9 @@ __restore_sp_onexit:
     ;ld	sp,0		; Restore SP
     di
     im 1
-    ei      ;
+    ei    
     call    $50		; B_JUMP(_jforcecmdnochar)
-    DEFW    4027h;
+    DEFW    _JForceCmdNoChar;
     ret     ;
 
 tiei:   ei

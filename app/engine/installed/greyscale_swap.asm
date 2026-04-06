@@ -7,7 +7,6 @@
 
 
 PUBLIC _greyscale_swap
-SECTION code_engine
 
 INCLUDE "core/asm_globals.def"
 

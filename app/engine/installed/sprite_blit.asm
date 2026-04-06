@@ -7,7 +7,6 @@ PUBLIC _blit_solid
 PUBLIC _blit_sprite
 PUBLIC blit_sprite
 
-SECTION code_engine
 
 
 

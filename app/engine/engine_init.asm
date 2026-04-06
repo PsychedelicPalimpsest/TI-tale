@@ -1,13 +1,16 @@
 ; Game engine init code
 SECTION code_engine
 
+PUBLIC engine_prepage_init
 PUBLIC engine_init
+
 EXTERN install_hooks
 
 INCLUDE "core/asm_globals.def"
 
 
-
+engine_prepage_init:
+  ret
 
 engine_init:
     call install_hooks
