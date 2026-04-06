@@ -11,19 +11,26 @@ extern void blit_solid(void* dst, void* src, char width, char height_times2) __z
 
 extern void blit_sprite(void* dst, void* src, char width, char height) __z88dk_sdccdecl __z88dk_callee;
 
-int main(){
-  // blit_sprite(screen_buffer, test_sprite, 2, 3);
-  #asm
 
-    ld de, _screen_buffer
-  REPT 3
-    ld hl, $E7
-    EXTERN write_ti_small
-    call write_ti_small
-    inc de
-    inc de
-  endr
-  #endasm
+extern char write_ti_small(void* screen_loc, int font_code, unsigned int copy_mode) __z88dk_sdccdecl __z88dk_callee;
+extern char write_ti_large(void* screen_loc, int font_code, unsigned int copy_mode) __z88dk_sdccdecl __z88dk_callee;
+
+
+
+int main(){
+  write_ti_small(screen_buffer, ('H'), 4*3);
+
+  // #asm
+  //
+  //   ld de, _screen_buffer
+  // REPT 3
+  //   ld hl, $E7
+  //   EXTERN write_ti_small
+  //   call write_ti_small
+  //   inc de
+  //   inc de
+  // endr
+  // #endasm
 
   greyscale_swap();
 
@@ -39,10 +46,10 @@ int main(){
 _test_sprite:
 
 REPT 3
-  db $0
+  db $ff
   DEFW $ff00
 
-  db $0
+  db $ff
   DEFW $00ff
 ENDR
 

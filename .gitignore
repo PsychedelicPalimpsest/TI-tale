@@ -2,6 +2,7 @@
 *.o
 out*
 .env
+!.env.example
 **/__pycache__/
 *.lis
 .pytest_cache/

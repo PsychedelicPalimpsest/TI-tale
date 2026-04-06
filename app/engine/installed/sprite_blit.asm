@@ -7,9 +7,6 @@ PUBLIC _blit_solid
 PUBLIC _blit_sprite
 PUBLIC blit_sprite
 
-
-
-
 ; extern void blit_solid(void* dst, void* src, char width, char height_times2) __z88dk_sdccdecl __z88dk_callee;
 ; T-states: 120WH + 61W + 137
 _blit_solid:
@@ -97,12 +94,12 @@ blit_sprite:
 ; Shared loop entry for both the inner (row) and outer (column) loops.
 sprite_col_loop:
   ; --- Blend light plane ---
-  ld a, (hl)    ; a = light screen byte (I)
+  ld b, (hl)    ; b = light screen byte (I)
 
   ex de, hl
   ld c, (hl)    ; c = sprite trans byte (T)
   inc hl
-  ld b, (hl)    ; b = sprite light byte (S)
+  ld a, (hl)    ; a = sprite light byte (S)
   inc hl
   ex de, hl
 
@@ -116,10 +113,10 @@ sprite_col_loop:
   inc hl
 
   ; --- Blend dark plane ---
-  ld a, (hl)    ; a = dark screen byte (I)
+  ld b, (hl)    ; b = dark screen byte (I)
 
   ex de, hl
-  ld b, (hl)    ; b = sprite dark byte (S)  [trans byte already consumed above]
+  ld a, (hl)    ; a = sprite dark byte (S)  [trans byte already consumed above]
   inc hl
   ex de, hl
 
@@ -152,3 +149,88 @@ _iyh_reset: ld iyh, 00h
   pop af
 
   ret
+
+
+
+
+
+; Expects de to be rotation amount
+MACRO patch_jump jp_instr, end_of_adds
+  ; hl = end_of_adds - rotation_amount
+  ld hl, end_of_adds
+  sub hl, de
+
+  ld (jp_instr +1), hl
+endm
+
+MACRO hl_rot_block end_label
+  REPT 7
+    add hl, hl ; 1 byte, acts as a left rot
+  endr
+end_label:
+endm
+
+
+MACRO sprite_component jp_label, rot_block offset
+  ld a, (iy)
+
+  ld h, $0
+  ld l, a
+
+; hl = hl << hl' (rotation)
+  jp_label: jp 0000h
+  hl_rot_block rot_block
+
+  ld a, l
+  or (iy)
+  ld (iy), a
+
+  ld a, h
+  or (iy-offset)
+  ld (iy-offset), a
+
+  inc iy
+endm
+
+
+PUBLIC solid_rot_blit
+; Inputs:
+; iy=screen buffer
+; hl=sprite
+; hl'=rotation (0-7)
+; ixh=height
+solid_rot_blit:
+  exx
+  ex de, hl
+  patch_jump light_patched_jump, light_rot_block
+  patch_jump dark_patched_jump, dark_rot_block
+  ; We do not need to restore de'
+  exx
+  
+solid_blit_loop:
+; Light byte component
+  sprite_component light_patched_jump, light_rot_block, 2
+  sprite_component dark_patched_jump, dark_rot_block, 2
+
+  dec ixh
+  jp nz, solid_blit_loop
+  ret
+
+
+  
+
+
+
+
+  
+
+
+hl_storage  DEFW 
+
+
+
+
+
+
+
+
