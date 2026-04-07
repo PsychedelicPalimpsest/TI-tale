@@ -151,8 +151,8 @@ _iyh_reset: ld iyh, 00h
   ret
 
 
-
-MACRO sprite_component jp_label, offset, do_inc_hl
+; 26 bytes
+MACRO sprite_component jp_label, do_inc_hl, do_cpl, method
   ld a, (hl)
 
   IF do_inc_hl
@@ -161,7 +161,6 @@ MACRO sprite_component jp_label, offset, do_inc_hl
 
   push hl
 
-  
   ld h, $0
   ld l, a
 
@@ -172,11 +171,21 @@ MACRO sprite_component jp_label, offset, do_inc_hl
   endr
 
   ld a, l
-  or (iy)
+
+  IF do_cpl
+    cpl
+  endif
+
+  method (iy)
   ld (iy), a 
 
   ld a, h
-  or (iy-128)
+
+  IF do_cpl
+    cpl
+  endif
+
+  method (iy-128)
   ld (iy-128), a 
 
   inc iy
@@ -184,43 +193,59 @@ MACRO sprite_component jp_label, offset, do_inc_hl
 endm
 
 
-PUBLIC solid_rot_screen_blit
+
+
+MACRO components_x2 lp_label, l_label, d_label, linc_hl, dinc_hl, do_cpl, method
+  ld a, 8  ; 8 rots 
+  sub c
+
+  ld (l_label + 1), a
+  ld (d_label + 1), a
+
+lp_label:
+  ;                component jump    do inc hl, do cpl, patch method
+  sprite_component l_label, linc_hl, do_cpl, method
+  sprite_component d_label, dinc_hl, do_cpl, method
+
+  dec ixh
+  jp nz, lp_label
+  ret
+endm
+
+
+
+; Take a monochrome sprite column, and blit it to the screen buffer
+; with a rotation
 ; Inputs:
 ; iy=screen buffer
 ; hl=sprite
 ; c=rotation (0-7)
 ; ixh=height
-solid_rot_screen_blit:
-  ld a, 8  ; 8 rots 
-  sub c
+PUBLIC mono_screen_rot_blit
+mono_screen_rot_blit:
+  components_x2 __1, __2, __3, 0, 1, 0, or
 
-  ld (light_patched_jump + 1), a
-  ld (dark_patched_jump + 1), a
-
-  
-solid_blit_loop:
-; Light byte component
-  sprite_component light_patched_jump, 2, 0
-  sprite_component dark_patched_jump, 2, 1
-
-  dec ixh
-  jp nz, solid_blit_loop
-  ret
+; Take a monochrome sprite column, and blit it to the screen buffer
+; inverting all color
+; Inputs:
+; iy=screen buffer
+; hl=sprite
+; c=rotation (0-7)
+; ixh=height
+PUBLIC mono_screen_cplrot_blit
+mono_screen_cplrot_blit:
+  components_x2 __c1, __c2, __c3, 0, 1, 1,and 
 
 
-  
-
-
-
-
-  
-
-
-
-
-
-
-
-
+; Take a greyscale sprite column WITHOUT TRANSPARENCY and  
+; rotate it to a sprite buffer WITHOUT TRANSPARENCY
+; Inputs:
+; iy=output sprite buffer
+; hl=sprite
+; c=rotation (0-7)
+; ixh=height
+PUBLIC grey_screen_rot_blit
+grey_screen_rot_blit:
+  components_x2 __a1, __a2, __a3, 1, 1, 0, or
 
 
