@@ -8,8 +8,6 @@ MACRO bcall nn
 endm
 
 
-
-
 ; 8101h - 8181h are free (middle of interupts)
 defc fast_copy_sp_restore = $8101 ; 2 bytes
 defc fast_copy_counter = fast_copy_sp_restore+2 ; 1 byte

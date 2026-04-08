@@ -196,8 +196,7 @@ endm
 
 
 MACRO components_x2 lp_label, l_label, d_label, linc_hl, dinc_hl, do_cpl, method
-  ld a, 8  ; 8 rots 
-  sub c
+  ld a, c
 
   ld (l_label + 1), a
   ld (d_label + 1), a
@@ -219,7 +218,7 @@ endm
 ; Inputs:
 ; iy=screen buffer
 ; hl=sprite
-; c=rotation (0-7)
+; c=8-rotation (0-7)
 ; ixh=height
 PUBLIC mono_screen_rot_blit
 mono_screen_rot_blit:
@@ -230,7 +229,7 @@ mono_screen_rot_blit:
 ; Inputs:
 ; iy=screen buffer
 ; hl=sprite
-; c=rotation (0-7)
+; c=8-rotation (0-7)
 ; ixh=height
 PUBLIC mono_screen_cplrot_blit
 mono_screen_cplrot_blit:
@@ -242,10 +241,11 @@ mono_screen_cplrot_blit:
 ; Inputs:
 ; iy=output sprite buffer
 ; hl=sprite
-; c=rotation (0-7)
+; c=8-rotation (0-7)
 ; ixh=height
 PUBLIC grey_screen_rot_blit
 grey_screen_rot_blit:
   components_x2 __a1, __a2, __a3, 1, 1, 0, or
+
 
 

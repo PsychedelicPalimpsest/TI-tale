@@ -1,195 +1,164 @@
 SECTION code_engine
-;
-; INCLUDE "core/asm_globals.def"
-; INCLUDE "core/Ti83p.def"
-;
-; PUBLIC write_ti_large
-; PUBLIC write_ti_small
-;
-; PUBLIC _write_ti_large
-; PUBLIC _write_ti_small
-;
-;
-;
-; ; ----======================----
-; ;   Assorted font copy routines
-; ; ----======================----
-;
-; ; Inputs:
-; ; hl = source
-; ; de = destination on screen
-; ; hl' = variable shift amount (shift_var is enabled)
-; MACRO text8x do_3x, do_cpl 
-;   ld c, a
-;
-;   ; First byte is the width
-;   ld a, (hl)
-;   ex af, af'
-;   ld a, (hl)
-;   inc hl
-;
-;   IF shift_var
-;     ; we need to shift by: 8-c-w = -c-w + 8
-;     cpl
-;     sub c
-;     add $8
-;     ld c, a
-;   ENDIF
-;
-;
-;   REPT 7
-;     ld a, (hl)
-;     inc hl
-;
-;
-;     rlca
-;     rlca
-;     rlca
-;     rlca
-;     rlca
-;     rlca
-;     rlca
-;
-;     IF 1==do_3x
-;       ld (de), a
-;       inc de
-;     endif
-;
-;     ; Done after the trans byte, this way it is unmolested
-;     IF 1==do_cpl
-;       cpl
-;     endif
-;
-;     ld (de), a
-;     inc de
-;     ld (de), a
-;     inc de
-;   endr
-; endm
-;
-;
-;
-; copy_8x2_bytes:
-;   ld a, c
-;   exx
-;   text8x 0, 0, 0
-;   ret
-; copy_8x2_bytes_cpl:
-;   ld a, c
-;   exx
-;   text8x 0, 1, 0
-;   ret
-;
-; copy_8x3_bytes:
-;   ld a, c
-;   exx
-;   text8x 1, 0, 0
-;   ret
-; copy_8x3_bytes_cpl:
-;   ld a, c
-;   exx
-;   text8x 1, 1, 0
-;   ret
-;
-; copy_8x2_bytes_shifted:
-;   ld a, c
-;   exx
-;   text8x 0, 0, 1
-;   ret
-; copy_8x2_bytes_cpl_shifted:
-;   ld a, c
-;   exx
-;   text8x 0, 1, 1
-;   ret
-;
-; copy_8x3_bytes_shifted:
-;   ld a, c
-;   exx
-;   text8x 1, 0, 1
-;   ret
-; copy_8x3_bytes_cpl_shifted:
-;   ld a, c
-;   exx
-;   text8x 1, 1, 1
-;   ret
-;
-;
-;
-; copy_8x_table: 
-;   jp copy_8x2_bytes \ jp copy_8x2_bytes_cpl \ jp copy_8x3_bytes \ jp copy_8x3_bytes_cpl
-;   jp copy_8x2_bytes_shifted \ jp copy_8x2_bytes_cpl_shifted \ jp copy_8x3_bytes_shifted \ jp copy_8x3_bytes_cpl_shifted
-;
-;
-; MACRO load_font_viahl call_routine
-; ; hl *= 8
-;   add hl, hl
-;   add hl, hl
-;   add hl, hl
-;
-;   push de
-;   bcall call_routine ; input=hl, output=hl
-;   pop de
-; endm
-;
-;
-; ; extern char write_ti_small(void* screen_loc, int font_code, int copy_mode) __z88dk_sdccdecl __z88dk_callee;
-; _write_ti_small:
-;   pop af
-;   pop de ; screen loc
-;   pop hl ; font code 
-;
-;   exx \ pop hl \ ld c, h \ ld h, $0 \ exx ; copy mode
-;   push af
-;
-;
-; ; Write a small font char to the screen at location de
-; ; Inputs:
-; ;  hl  = input font code (see appendix of https://dn710703.ca.archive.org/0/items/83psdk/sdk83pguide.pdf)
-; ;  de  = output location in screen buffer
-; ;  hl` = copy mode, index*3 into copy_8x_table
-; ; Output:
-; ;  de = location on screen after the char
-; ;  l = char width
-; ; Destroys: Bc
-; write_ti_small:
-;   load_font_viahl _Load_SFont
-;
-;   exx
-;
-;   ld de, copy_8x_table
-;   add hl, de
-;
-;   jp (hl) ; tail call
-;
-; DEFC _Load_LFontV2	=		806Ch
-; DEFC _Load_LFontV		=  	806Fh
-;
-;
-;
-; ; extern char write_ti_large(void* screen_loc, int font_code, int copy_mode) __z88dk_sdccdecl __z88dk_callee;
-; _write_ti_large:
-;   pop af
-;   pop de ; screen loc
-;   pop hl ; font code 
-;
-;   exx \ pop hl \ ld c, h \ ld h, $0 \ exx ; copy mode
-;   push af
-; ; Write a large font char to the screen at location de, inverting the color
-; ; Inputs:
-; ;  hl = input font code (see appendix of https://dn710703.ca.archive.org/0/items/83psdk/sdk83pguide.pdf)
-; ;  de = output location in screen buffer
-; ;  hl` = copy mode, index*2 into copy_8x_table
-; ; Output:
-; ;  de = location on screen after the char
-; ;  l = char width
-; ; Destroys: Bc
-; write_ti_large:
-;   load_font_viahl _Load_LFontV
-;
-;   exx
-;   ld de, copy_8x_table
-;   add hl, de
-;
-;   jp (hl) ; tail call
-;
+
+INCLUDE "core/asm_globals.def"
+INCLUDE "core/Ti83p.def"
+
+EXTERN mono_screen_rot_blit
+
+; Inputs:
+; ixl  = x
+; ixh  = y
+; a = char
+; Outputs:
+; a = next bit pos
+blit_char_small_:
+  exx
+; hl = idx * 8
+  ld h, $0
+  ld l, a
+
+  add hl, hl
+  add hl, hl
+  add hl, hl
+
+  ; Does NOT change shadow registers >:}
+  bcall _Load_SFont
+  ld a, (hl)
+  inc hl
+
+; Apply the offset to the x
+  add ixl
+  ld ixl, a
+
+; store sprite for later
+  push hl
+  exx
+
+  ld l, $0
+; Byte offset
+  ld a, %11111000 
+  and ixl
+
+  ; Get byte offset, reset carry
+  rrca \ rrca \ rrca
+
+  ; hl = x * 128
+  rra
+  rr l
+  ld h, a
+
+; iy = screen buffer ptr
+  ld de, _screen_buffer
+  add hl, de
+  
+  ; Apply height
+  ld d, $0
+
+  ld a, ixh
+  ld e, a
+
+  add hl, de
+  ld iy, hl ; Beware: z88dk pseudo instruction
+
+  ld a, 7
+  and ixl
+
+  ld c, a
+  pop hl
+
+  push ix
+  ld ixh, 7
+
+  ; iy=screen buffer
+  ; hl=sprite
+  ; c=rotation (0-7)
+  ; ixh=height
+  call mono_screen_rot_blit
+  pop ix
+  
+
+  ret
+
+
+PUBLIC blit_char_small
+; Inputs:
+; hl= screen_buffer
+; c = bit position (init with 8)
+; a = char
+; Outputs:
+; c = next bit position
+; hl = next screen position
+blit_char_small:
+  exx
+; hl = idx * 8
+  ld h, $0
+  ld l, a
+
+  add hl, hl
+  add hl, hl
+  add hl, hl
+
+  ; Does NOT change shadow registers >:}
+  bcall _Load_SFont
+  ld a, (hl)
+  inc hl
+
+  push hl
+  exx
+
+  add a, c
+  cp 8
+
+  jp c, after_next_row
+  sub a, 8
+
+; Go to next col
+  ld de, 128
+  add hl, de
+
+; hl -= _screen_buffer + 768*2
+  ld de, -( _screen_buffer + 768*2)
+  add hl, de
+
+; If there is a carry out, sign change occured,
+; meaning hl >  _screen_buffer + 768
+  jp nc, no_overflow
+
+; Handle overflow
+  ld de, _screen_buffer
+  add hl, de
+  jp after_next_row
+
+no_overflow:
+
+  ld de,  _screen_buffer + 768*2
+  add hl, de
+after_next_row:
+  ld c, a
+
+  ld iy, hl ; Beware: z88dk pseudo instruction
+  exx
+  ld c, a
+
+  pop hl ; Restore sprite buffer
+  ; iy=screen buffer
+  ; hl=sprite
+  ; c=rotation (0-7)
+  ; ixh=height
+  ld ixh, 7
+  call mono_screen_rot_blit
+  exx
+
+  ret
+
+
+
+
+
+
+  
+
+
+
+
 

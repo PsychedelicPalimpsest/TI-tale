@@ -21,18 +21,21 @@ int main(){
   #asm
   INCLUDE "core/Ti83p.def"
 
-  ld hl, 'A'*8
-  bcall _Load_SFont
+ EXTERN blit_char_small
 
-  EXTERN solid_rot_screen_blit
-  ld a, (hl)
-  ld c, a
-  inc hl 
+  ld hl, _screen_buffer 
+  ld c, -1
+  ld a, 'A'
+  call blit_char_small
+  ld a, 'A'
+  call blit_char_small
+  ld a, 'A'
+  call blit_char_small
+  ld a, 'A'
+  call blit_char_small
+  ld a, 'A'
+  call blit_char_small
 
-  ld ixh, 7
-
-  ld iy, _screen_buffer 
-  call solid_rot_screen_blit
 
   #endasm
   // write_ti_small(screen_buffer, ('H'), 4*3);
