@@ -195,7 +195,7 @@ endm
 
 
 
-MACRO components_x2 lp_label, l_label, d_label, linc_hl, dinc_hl, do_cpl, method
+MACRO components_x2 lp_label, l_label, d_label, linc_hl, dinc_hl, ldo_cpl, lmethod, ddo_cpl, dmethod
   ld a, c
 
   ld (l_label + 1), a
@@ -203,8 +203,8 @@ MACRO components_x2 lp_label, l_label, d_label, linc_hl, dinc_hl, do_cpl, method
 
 lp_label:
   ;                component jump    do inc hl, do cpl, patch method
-  sprite_component l_label, linc_hl, do_cpl, method
-  sprite_component d_label, dinc_hl, do_cpl, method
+  sprite_component l_label, linc_hl, ldo_cpl, lmethod
+  sprite_component d_label, dinc_hl, ddo_cpl, dmethod
 
   dec ixh
   jp nz, lp_label
@@ -222,20 +222,55 @@ endm
 ; ixh=height
 PUBLIC mono_screen_rot_blit
 mono_screen_rot_blit:
-  components_x2 __1, __2, __3, 0, 1, 0, or
+  components_x2 __1, __2, __3, 0, 1, 0, or, 0, or
 
-; Take a monochrome sprite column, and blit it to the screen buffer
-; inverting all color
-; Inputs:
-; iy=screen buffer
-; hl=sprite
-; c=8-rotation (0-7)
-; ixh=height
+; Dito, but inverting
 PUBLIC mono_screen_cplrot_blit
 mono_screen_cplrot_blit:
-  components_x2 __c1, __c2, __c3, 0, 1, 1,and 
+  components_x2 __c1, __c2, __c3, 0, 1, 1, and, 1, and
 
 
+; Dito, byt invert dark
+PUBLIC mono_screen_01rot_blit
+mono_screen_01rot_blit:
+  components_x2 __cc1, __cc2, __cc3, 0, 1, 0, or, 1, and
+; Dito, byt invert light
+PUBLIC mono_screen_10rot_blit
+mono_screen_10rot_blit:
+  components_x2 __dc1, __dc2, __dc3, 0, 1, 1, and, 1, and
+
+mono_rot_table: 
+  jp mono_screen_rot_blit \ nop
+  jp mono_screen_01rot_blit \ nop
+  jp mono_screen_10rot_blit \ nop
+  jp mono_screen_cplrot_blit \ nop
+
+
+; Take a monochrome sprite column, and blit it to the screen buffer
+; invert mode is determined by a
+PUBLIC mono_screen_NNrot_blit
+mono_screen_NNrot_blit:
+  push hl
+  push bc
+
+  and $3
+; a *= 4
+  add a, a
+  add a, a
+
+  ld b, $0
+  ld c, a
+
+  ld hl, mono_rot_table
+  add hl, bc
+  ld (end_jp+1), hl
+
+  pop bc
+  pop hl
+
+
+  end_jp: jp 0000h
+  
 ; Take a greyscale sprite column WITHOUT TRANSPARENCY and  
 ; rotate it to a sprite buffer WITHOUT TRANSPARENCY
 ; Inputs:
@@ -245,7 +280,14 @@ mono_screen_cplrot_blit:
 ; ixh=height
 PUBLIC grey_screen_rot_blit
 grey_screen_rot_blit:
-  components_x2 __a1, __a2, __a3, 1, 1, 0, or
+  components_x2 __a1, __a2, __a3, 1, 1, 0, or, 0, or
+
+
+
+
+
+
+
 
 
 

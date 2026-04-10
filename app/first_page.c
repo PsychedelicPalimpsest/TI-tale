@@ -19,22 +19,24 @@ extern char write_ti_large(void* screen_loc, int font_code, unsigned int copy_mo
 
 int main(){
   #asm
+  ld hl, _screen_buffer
+  ld de, _screen_buffer+1
+  ld bc, 768*2
+  ld a, $ff
+  ld (hl), a
+  ldir
+
   INCLUDE "core/Ti83p.def"
+   EXTERN blit_char_small
 
- EXTERN blit_char_small
 
-  ld hl, _screen_buffer 
+  ld hl, _screen_buffer + 10*128
   ld c, -1
+  ld b, %11
+
   ld a, 'A'
   call blit_char_small
-  ld a, 'A'
-  call blit_char_small
-  ld a, 'A'
-  call blit_char_small
-  ld a, 'A'
-  call blit_char_small
-  ld a, 'A'
-  call blit_char_small
+
 
 
   #endasm
