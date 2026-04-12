@@ -8,7 +8,7 @@ PUBLIC install_hooks
 
 ; Todo: Figure out more percise location AFTER interupts
 DEFC install_location =  $8500
-INCLUDE "core/asm_globals.def"
+INCLUDE "core/common.inc"
 
 
 install_hooks:
@@ -35,8 +35,8 @@ start_of_install:
 
 INCLUDE "installed/game_tick.asm"
 INCLUDE "installed/greyscale.asm"
-INCLUDE "installed/greyscale_swap.asm"
 INCLUDE "installed/sprite_blit.asm"
+INCLUDE "installed/greyscale_swap.asm"
 
 end_of_install:
 DEPHASE

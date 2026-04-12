@@ -8,8 +8,6 @@
 
 PUBLIC _greyscale_swap
 
-INCLUDE "core/asm_globals.def"
-
 M1 EQU %01101101
 M2 EQU %11011011
 M3 EQU %10110110

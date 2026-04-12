@@ -14,12 +14,9 @@
 ;-------------------------
 ; Begin of (shell) headers
 ;-------------------------
-
-    INCLUDE "Ti83p.def"	; ROM / RAM adresses on Ti83+[SE]
     INCLUDE	"zcc_opt.def"	; Receive all compiler-defines
 
-    INCLUDE "asm_globals.def"
-
+    INCLUDE "common.inc"
 
 SECTION CODE ; Put header as low as can be
     org $4000

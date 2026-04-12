@@ -4,7 +4,7 @@ PUBLIC setup_interrupts
 PUBLIC greyscale_addr
 PUBLIC gametick_addr
 
-INCLUDE "asm_globals.def"
+INCLUDE "common.inc"
 EXTERN __Exit
 
 

@@ -6,7 +6,7 @@ PUBLIC engine_init
 
 EXTERN install_hooks
 
-INCLUDE "core/asm_globals.def"
+INCLUDE "core/common.inc"
 
 
 engine_prepage_init:

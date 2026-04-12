@@ -1,7 +1,6 @@
 SECTION code_engine
 
-INCLUDE "core/asm_globals.def"
-INCLUDE "core/Ti83p.def"
+INCLUDE "core/common.inc"
 
 EXTERN mono_screen_NNrot_blit
 PUBLIC blit_char_small

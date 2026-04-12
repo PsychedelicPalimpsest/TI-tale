@@ -282,6 +282,24 @@ PUBLIC grey_screen_rot_blit
 grey_screen_rot_blit:
   components_x2 __a1, __a2, __a3, 1, 1, 0, or, 0, or
 
+mask_table: DEFB %1, %11, %111, %1111, %11111,  %111111 , %1111111 , %11111111
+
+; iy=output sprite buffer
+; hl'=sprite
+; c=8-rotation (0-7)
+; a=size
+; ixh=height
+masked_blit:
+
+; Get mask
+  exx 
+  add_nn_a_hl mask_table ; get mask address in hl
+  ld a, (hl)
+
+  
+
+  
+  
 
 
 

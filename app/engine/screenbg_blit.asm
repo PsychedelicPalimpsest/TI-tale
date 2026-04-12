@@ -2,8 +2,7 @@ PUBLIC _screenbg_blit
 PUBLIC screenbg_blit
 
 SECTION code_engine
-INCLUDE "core/asm_globals.def"
-INCLUDE "core/fastcpy_macros.def"
+INCLUDE "core/common.inc"
 
 
 

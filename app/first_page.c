@@ -26,16 +26,15 @@ int main(){
   ld (hl), a
   ldir
 
-  INCLUDE "core/Ti83p.def"
    EXTERN blit_char_small
 
-
-  ld hl, _screen_buffer + 10*128
-  ld c, -1
-  ld b, %11
-
-  ld a, 'A'
-  call blit_char_small
+  //
+  // ld hl, _screen_buffer + 10*128
+  // ld c, -1
+  // ld b, %11
+  //
+  // ld a, 'A'
+  // call blit_char_small
 
 
 

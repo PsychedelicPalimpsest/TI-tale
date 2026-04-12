@@ -20,6 +20,6 @@ extern uint8_t first_rom_page;
 #asm
 
   ; EVIL EVIL HACK
-include "core/asm_globals.def"
+INCLUDE "core/common.inc"
 
 #endasm
