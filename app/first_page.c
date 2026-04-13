@@ -11,7 +11,6 @@ extern void blit_solid(void* dst, void* src, char width, char height_times2) __z
 
 extern void blit_sprite(void* dst, void* src, char width, char height) __z88dk_sdccdecl __z88dk_callee;
 
-
 extern char write_ti_small(void* screen_loc, int font_code, unsigned int copy_mode) __z88dk_sdccdecl __z88dk_callee;
 extern char write_ti_large(void* screen_loc, int font_code, unsigned int copy_mode) __z88dk_sdccdecl __z88dk_callee;
 
@@ -19,46 +18,45 @@ extern char write_ti_large(void* screen_loc, int font_code, unsigned int copy_mo
 
 int main(){
   #asm
-  ld hl, _screen_buffer
-  ld de, _screen_buffer+1
-  ld bc, 768*2
-  ld a, $ff
-  ld (hl), a
-  ldir
+  
+  ld iy, $ffff
+  ld hl, 'A'*8
+  bcall _Load_SFont
+  inc hl
+  push hl
 
-   EXTERN blit_char_small
+  ld a, 3
+  ld iy, _screen_buffer + 256 + 128
+  ld ixh, 7
+  ld b, %10
+  ld c, %00
 
-  //
-  // ld hl, _screen_buffer + 10*128
-  // ld c, -1
-  // ld b, %11
-  //
-  // ld a, 'A'
-  // call blit_char_small
+  EXTERN text_screen_rot_blit
+  call text_screen_rot_blit
 
+  pop hl
 
+  ld a, 8
+  ld iy, _screen_buffer + 256 + 128 
+  ld ixh, 7
+  ld b, %01
+  ld c, %00
 
+  call text_screen_rot_blit
   #endasm
-  // write_ti_small(screen_buffer, ('H'), 4*3);
 
-  // #asm
-  //
-  //   ld de, _screen_buffer
-  // REPT 3
-  //   ld hl, $E7
-  //   EXTERN write_ti_small
-  //   call write_ti_small
-  //   inc de
-  //   inc de
-  // endr
-  // #endasm
+  for (char i = 64; i--;) screen_buffer[2*i] = 0xFF;
+  for (char i = 64; i--;) screen_buffer[128 + 2*i+1] = 0xFF;
+  for (char i = 64; i--;) screen_buffer[256 + 2*i] = screen_buffer[256 + 2*i+1] = 0xFF;
+
+
 
   greyscale_swap();
 
     
 
 
-    while (1) ;
+  while (1);
 }
 
 #asm

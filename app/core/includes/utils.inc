@@ -39,6 +39,28 @@ macro max p1            ; Get max of p1 and a in a
 @s1:
 endm
 
+
+; Takes the highest bits set, and cascades it down
+macro msb_maska
+    ld   b,a
+    srl  b
+    or   b
+
+    ld   b,a
+    srl  b
+    srl  b
+    or   b
+
+    ld   b,a
+    srl  b
+    srl  b
+    srl  b
+    srl  b
+    or   b
+endm
+
+
+
 macro ld_bc_a
     ld c, a             ; Turn a into 16 bit number
     add a, a            ; Push sign into carry

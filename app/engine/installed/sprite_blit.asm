@@ -52,7 +52,6 @@ loop:
 ; Use the width as the loop counter
   dec ixl
   jp nz, loop
-
   ret
 
   
@@ -64,6 +63,8 @@ _blit_sprite:
   pop iy        ; iyl = width (columns), iyh = height (rows) — packed via little-endian push
   push af       ; Restore return address
   ; Fall through to blit_sprite
+
+
 
 ; Blits a masked sprite onto a light/dark interleaved screen buffer.
 ; Each screen row occupies 2 bytes: one light byte followed by one dark byte.
@@ -151,21 +152,19 @@ _iyh_reset: ld iyh, 00h
   ret
 
 
-; 26 bytes
-MACRO sprite_component jp_label, do_inc_hl, do_cpl, method
-  ld a, (hl)
 
-  IF do_inc_hl
-    inc hl
-  endif
-
-  push hl
-
-  ld h, $0
-  ld l, a
-
+; Self modifying code note: 
+; This is intended to be modified by the callee. 
+; @rot_instr should be set to 8-rotation_amount
+;
+; Clobbers: a, hl
+;
+; Inputs:
+; hl = byte to rot and blit
+; iy = screen buffer
+MACRO apply_hl_to_sprite has_mod, default_method
   ; Self modifying code: the jr is replaced before this is run
-  jp_label: jr $
+  @rot_instr: jr $
   REPT 7
     add hl, hl ; 1 byte, acts as a left rot
   endr
@@ -175,40 +174,22 @@ MACRO sprite_component jp_label, do_inc_hl, do_cpl, method
   IF do_cpl
     cpl
   endif
+  
+  @apply_iy1: default_method (iy)
+  IF has_mod
+   @mod_a1: nop
+  endif
 
-  method (iy)
   ld (iy), a 
 
   ld a, h
 
-  IF do_cpl
-    cpl
+  @apply_iy2: default_method (iy-128)
+
+  IF has_mod
+    @mod_a2: nop
   endif
-
-  method (iy-128)
   ld (iy-128), a 
-
-  inc iy
-  pop hl
-endm
-
-
-
-
-MACRO components_x2 lp_label, l_label, d_label, linc_hl, dinc_hl, ldo_cpl, lmethod, ddo_cpl, dmethod
-  ld a, c
-
-  ld (l_label + 1), a
-  ld (d_label + 1), a
-
-lp_label:
-  ;                component jump    do inc hl, do cpl, patch method
-  sprite_component l_label, linc_hl, ldo_cpl, lmethod
-  sprite_component d_label, dinc_hl, ddo_cpl, dmethod
-
-  dec ixh
-  jp nz, lp_label
-  ret
 endm
 
 
@@ -217,95 +198,115 @@ endm
 ; with a rotation
 ; Inputs:
 ; iy=screen buffer
-; hl=sprite
-; c=8-rotation (0-7)
+; de=sprite
+; a=8-rotation (0-7)
 ; ixh=height
 PUBLIC mono_screen_rot_blit
 mono_screen_rot_blit:
-  components_x2 __1, __2, __3, 0, 1, 0, or, 0, or
+  ld (light@rot_instr+1), a
+  ld (dark@rot_instr+1), a
+  ; Does not modify anything else
+  ld b, $0 ; Set b to zero for later
 
-; Dito, but inverting
-PUBLIC mono_screen_cplrot_blit
-mono_screen_cplrot_blit:
-  components_x2 __c1, __c2, __c3, 0, 1, 1, and, 1, and
+rot_loop:
+  ld a, (de)
+  ld (restore_a+1), a
+  inc de 
+
+  ld h, b
+  ld l, a
+
+  light: apply_hl_to_sprite 0, or
+
+; Evil micro optimization: Alignment means no carry across bytes is possible >:}
+  inc iyl
+
+  restore_a: ld a, 0
+
+  ld h, b
+  ld l, a
+
+  dark: apply_hl_to_sprite 0, or
+  inc iyl 
 
 
-; Dito, byt invert dark
-PUBLIC mono_screen_01rot_blit
-mono_screen_01rot_blit:
-  components_x2 __cc1, __cc2, __cc3, 0, 1, 0, or, 1, and
-; Dito, byt invert light
-PUBLIC mono_screen_10rot_blit
-mono_screen_10rot_blit:
-  components_x2 __dc1, __dc2, __dc3, 0, 1, 1, and, 1, and
-
-mono_rot_table: 
-  jp mono_screen_rot_blit \ nop
-  jp mono_screen_01rot_blit \ nop
-  jp mono_screen_10rot_blit \ nop
-  jp mono_screen_cplrot_blit \ nop
+  dec ixh
+  jp nz, rot_loop 
+  ret
 
 
-; Take a monochrome sprite column, and blit it to the screen buffer
-; invert mode is determined by a
-PUBLIC mono_screen_NNrot_blit
-mono_screen_NNrot_blit:
-  push hl
-  push bc
 
-  and $3
-; a *= 4
-  add a, a
-  add a, a
+; Specific routine for drawing text. 
+; Inputs:
+; iy=screen buffer
+; a=8-rotation (0-7)
+; hl=text (AFTER THE WIDTH PREFIX)
+; ixh=height
+; b=Text color: 00, 01, 10, 11
+; c=Background assumption: 00 for white bg, etc
+PUBLIC text_screen_rot_blit
+text_screen_rot_blit:
+; Patch rotation jr
+  ld (light_loop@rot_instr+1), a
+  ld (dark_loop@rot_instr+1), a
 
-  ld b, $0
+; c = text color XOR background color
+  ld a, b
+  xor c
   ld c, a
 
-  ld hl, mono_rot_table
-  add hl, bc
-  ld (end_jp+1), hl
+; Set b=0 for the rest of routine
+  ld b, $0 
 
-  pop bc
-  pop hl
+; ixl=ixh=height
+  ld ixl, ixh
 
+; Now de is the text sprite
+  ex de, hl
+  push de 
+  push iy
 
-  end_jp: jp 0000h
+; If the bit in c is *reset*, the bg is the same as the sprite. 
+  bit 0, c
+; If they are the same, there is nothing to do! (for this color)
+  jp z, dark_setup 
+
+light_loop:
+  ld a, (de)
+  inc de 
+
+; hl = 00 + color
+  ld h, b
+  ld l, a
+
+  apply_hl_to_sprite 0, xor
+  inc iyl
+  inc iyl
+
+  dec ixl
+  jp nz, light_loop
+
+dark_setup:
+  pop iy
+  pop de
+
+; Return if there is nothing to do
+  bit 1, c
+  ret z
+
+  inc iyl
+dark_loop: 
+  ld a, (de)
+  inc de 
+
+  ld h, b
+  ld l, a
+
+  apply_hl_to_sprite 0, xor
+  inc iyl
+  inc iyl
+
+  dec ixh
+  jp nz, dark_loop
+  ret
   
-; Take a greyscale sprite column WITHOUT TRANSPARENCY and  
-; rotate it to a sprite buffer WITHOUT TRANSPARENCY
-; Inputs:
-; iy=output sprite buffer
-; hl=sprite
-; c=8-rotation (0-7)
-; ixh=height
-PUBLIC grey_screen_rot_blit
-grey_screen_rot_blit:
-  components_x2 __a1, __a2, __a3, 1, 1, 0, or, 0, or
-
-mask_table: DEFB %1, %11, %111, %1111, %11111,  %111111 , %1111111 , %11111111
-
-; iy=output sprite buffer
-; hl'=sprite
-; c=8-rotation (0-7)
-; a=size
-; ixh=height
-masked_blit:
-
-; Get mask
-  exx 
-  add_nn_a_hl mask_table ; get mask address in hl
-  ld a, (hl)
-
-  
-
-  
-  
-
-
-
-
-
-
-
-
-
