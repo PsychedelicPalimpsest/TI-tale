@@ -1,10 +1,6 @@
 PUBLIC _screenbg_blit
 PUBLIC screenbg_blit
 
-SECTION code_engine
-INCLUDE "core/common.inc"
-
-
 
 ; C entry point for screenbg_blit. It is:
 ; void screenbg_blit(char* dst, char* src, int stride) __z88dk_callee;
@@ -44,7 +40,7 @@ screenbg_blit:
   
 
 
-loop:
+@loop:
   fastcpy_12 \ fastcpy_12 \ fastcpy_12 \ fastcpy_12
   fastcpy_12 \ fastcpy_12 \ fastcpy_12 \ fastcpy_12
   fastcpy_12 \ fastcpy_12 \ fastcpy_12 \ fastcpy_12
@@ -52,7 +48,7 @@ loop:
   ld hl, fast_copy_counter
   dec (hl)
 
-  jp nz, loop
+  jp nz, @loop
 
 
   ld sp, (fast_copy_sp_restore)
