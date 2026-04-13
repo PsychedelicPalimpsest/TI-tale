@@ -16,6 +16,8 @@ _screenbg_blit:
 ; Copies the background to the screen buffer.
 ; Screen buffer is defined as a 768*2 size buffer
 ;
+; T-states: 37320
+;
 ; NOTE:  Although designed for mode 7 lcd drawing (left to right), mode 5
 ;        works perfectly fine!
 ; NOTE2: The screen buffer has amble space after is, so this stack trickery
@@ -26,9 +28,10 @@ _screenbg_blit:
 ; iy=src
 ; de=stride src diff
 screenbg_blit:
-  ld (fast_copy_sp_restore), sp
+  ld (@sp_restore + 1), sp
+
   ld a, 12 ; 96/16*2=12
-  ld (fast_copy_counter), a
+  ld (@counter), a
 
   ; Now de` is the stride 
   exx
@@ -45,11 +48,14 @@ screenbg_blit:
   fastcpy_12 \ fastcpy_12 \ fastcpy_12 \ fastcpy_12
   fastcpy_12 \ fastcpy_12 \ fastcpy_12 \ fastcpy_12
   fastcpy_12 \ fastcpy_12 \ fastcpy_12 \ fastcpy_12
-  ld hl, fast_copy_counter
+
+  ld hl, @counter
   dec (hl)
 
   jp nz, @loop
 
-
-  ld sp, (fast_copy_sp_restore)
+  ; Self modifying code, saves a few cycles (not much)
+  @sp_restore: ld sp, 0000h
   ret
+
+@counter: defb 0h

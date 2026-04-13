@@ -3,8 +3,7 @@
 
 defl interupt_area = $8101
 
-RDEF interupt_area, fast_copy_sp_restore, 2
-RDEF interupt_area, fast_copy_counter,    1
+RDEF interupt_area, free_trash_byte,    1
 
 IF interupt_area > $8181
   ; cause a syntax error

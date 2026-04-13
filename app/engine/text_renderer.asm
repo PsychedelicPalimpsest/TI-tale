@@ -16,7 +16,7 @@ font_select:
 ; HACK: The os uses iy+$35 for temp state. This ensures is has a byte to write to. 
 ;       This is only 'safe' because I have verified that whith *this* TI-OS version
 ;       *this* routine only uses this flag
-  ld iy, fast_copy_sp_restore - $35
+  ld iy, free_trash_byte - $35
 
   jp z, Load_SFont
   bcall _Load_LFontV 

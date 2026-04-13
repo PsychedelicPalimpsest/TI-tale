@@ -17,9 +17,8 @@ extern char write_ti_large(void* screen_loc, int font_code, unsigned int copy_mo
 
 
 int main(){
-  for (int i=768*2; i-=2;) screen_buffer[i] = 0xFF; 
+  for (int i=768*2; i>=0; i-=2) screen_buffer[i] = 0xFF; 
   #asm
-
   
 ; Inputs:
 ; hl= screen_buffer
