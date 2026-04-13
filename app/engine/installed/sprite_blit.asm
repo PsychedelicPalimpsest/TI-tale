@@ -237,23 +237,21 @@ rot_loop:
 
 
 ; Specific routine for drawing text. 
+; Clobbers: iy, a, ix*, hl, de, b
+;
 ; Inputs:
 ; iy=screen buffer
 ; a=8-rotation (0-7)
 ; hl=text (AFTER THE WIDTH PREFIX)
 ; ixh=height
-; b=Text color: 00, 01, 10, 11
-; c=Background assumption: 00 for white bg, etc
+; c=Text mode. 0-3. You should calculate this by XORing a the desired color by the
+;                   assumed background. Ex: %00 ^ %10 = %10
 PUBLIC text_screen_rot_blit
 text_screen_rot_blit:
 ; Patch rotation jr
   ld (light_loop@rot_instr+1), a
   ld (dark_loop@rot_instr+1), a
 
-; c = text color XOR background color
-  ld a, b
-  xor c
-  ld c, a
 
 ; Set b=0 for the rest of routine
   ld b, $0 

@@ -17,38 +17,31 @@ extern char write_ti_large(void* screen_loc, int font_code, unsigned int copy_mo
 
 
 int main(){
+  for (int i=768*2; i-=2;) screen_buffer[i] = 0xFF; 
   #asm
+
   
-  ld iy, $ffff
-  ld hl, 'A'*8
-  bcall _Load_SFont
-  inc hl
-  push hl
+; Inputs:
+; hl= screen_buffer
+; b = bit position (init with 0)
+; a = char
+; c = bit 3 is the color font select, bits 1 and 2 are the color modes. See: text_screen_rot_blit
+;     bit 3 is set if large font is used
+; Outputs:
+; b = next bit position
+; hl = next screen position
+EXTERN blit_char
 
-  ld a, 3
-  ld iy, _screen_buffer + 256 + 128
-  ld ixh, 7
-  ld b, %10
-  ld c, %00
+  ld hl, _screen_buffer
+  ld b, 0
+  ld c, %011
 
-  EXTERN text_screen_rot_blit
-  call text_screen_rot_blit
+  REPTC c, "Hello  world!"
+    ld a, c
+    call blit_char
+  endr
 
-  pop hl
-
-  ld a, 8
-  ld iy, _screen_buffer + 256 + 128 
-  ld ixh, 7
-  ld b, %01
-  ld c, %00
-
-  call text_screen_rot_blit
   #endasm
-
-  for (char i = 64; i--;) screen_buffer[2*i] = 0xFF;
-  for (char i = 64; i--;) screen_buffer[128 + 2*i+1] = 0xFF;
-  for (char i = 64; i--;) screen_buffer[256 + 2*i] = screen_buffer[256 + 2*i+1] = 0xFF;
-
 
 
   greyscale_swap();

@@ -2,34 +2,41 @@ SECTION code_engine
 
 INCLUDE "core/common.inc"
 
-EXTERN mono_screen_NNrot_blit
-PUBLIC blit_char_small
+EXTERN text_screen_rot_blit
+PUBLIC blit_char
 
 
 DEFC _Load_LFontV = 806Fh
-
-
-Load_LFontV: bcall _Load_LFontV \ ret
-Load_SFont: bcall _Load_SFont \ ret
-
 font_select:
   exx
-  bit 2, b
+  bit 2, c
   exx
 
+
+; HACK: The os uses iy+$35 for temp state. This ensures is has a byte to write to. 
+;       This is only 'safe' because I have verified that whith *this* TI-OS version
+;       *this* routine only uses this flag
+  ld iy, fast_copy_sp_restore - $35
+
   jp z, Load_SFont
-  jp Load_LFontV
+  bcall _Load_LFontV 
+  ret
+
+
+Load_SFont: bcall _Load_SFont \ ret
+
 
 ; Inputs:
 ; hl= screen_buffer
-; c = bit position (init with 8)
+; b = bit position (init with 8)
 ; a = char
-; b = bit 3 is the color font select, bits 1 and 2 are color select. 
+; c = bit 3 is the color font select, bits 1 and 2 are the color modes. See: text_screen_rot_blit
 ;     bit 3 is set if large font is used
 ; Outputs:
-; c = next bit position
+; b = next bit position
+; c = same as input
 ; hl = next screen position
-blit_char_small:
+blit_char:
   exx
 ; hl = idx * 8
   ld h, $0
@@ -39,7 +46,8 @@ blit_char_small:
   add hl, hl
   add hl, hl
 
-  ; _Load_*Font does NOT change shadow registers >:}
+; hl=sprite data, prefixed with width
+; _Load_*Font does NOT change shadow registers >:}
   call font_select
 
   ld a, (hl)
@@ -48,7 +56,7 @@ blit_char_small:
   push hl
   exx
 
-  add a, c
+  add a, b
   cp 8
 
   jp c, after_next_row
@@ -74,27 +82,33 @@ no_overflow:
   ld de,  _screen_buffer + 768*2
   add hl, de
 after_next_row:
-  ld c, a
+  ld b, a
 
-  ld iy, hl ; Beware: z88dk pseudo instruction
+  pop de ; Restore sprite buffer
 
-  exx
-  ld c, a
-  exx
-  ld a, b
-  exx
+  push bc
+  push hl
+  push hl
 
+  pop iy ; iy = screen buffer
 
-  pop hl ; Restore sprite buffer
+  ex de, hl ; Sprite buffer in hl
 
-  ; iy=screen buffer
-  ; hl=sprite
-  ; c=rotation (0-7)
-  ; a=color select
-  ; ixh=height
+; Clobbers: iy, a, ix*, hl, de, b
+;
+; Inputs:
+; iy=screen buffer
+; a=8-rotation (0-7)
+; hl=text (AFTER THE WIDTH PREFIX)
+; ixh=height
+; c=Text mode. 0-3. You should calculate this by XORing a the desired color by the
+;                   assumed background. Ex: %00 ^ %10 = %10
+
   ld ixh, 7
-  call mono_screen_NNrot_blit
-  exx
+  call text_screen_rot_blit
+
+  pop hl
+  pop bc
 
   ret
 
