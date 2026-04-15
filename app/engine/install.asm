@@ -40,6 +40,12 @@ INCLUDE "installed/greyscale.asm"
 INCLUDE "installed/screenbg_blit.asm"
 INCLUDE "installed/greyscale_swap.asm"
 
+
+; ALIGN 256
+; popcnt_table:
+;     db 0, 1, 1, 2, 1, 2, 2, 3
+;     db 1, 2, 2, 3, 2, 3, 3, 4
+;
 end_of_install:
 DEPHASE
 

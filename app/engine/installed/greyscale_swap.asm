@@ -1,6 +1,5 @@
 ; Takes the greyscale screen bufer, and converts them into optimized phased buffers
 ; for the greyscale IRQ. Then, swaps the buffer used by the greyscale IRQ
-; ~122,858 t-states
 ;
 ; NOTE: Although designed for mode 7 lcd drawing (left to right), mode 5
 ;       works perfectly fine! (Although the dirty col system gets weird)
@@ -8,10 +7,16 @@
 
 PUBLIC _greyscale_swap
 
-; Xor'd to simplify bit shuffle logic
-M1 EQU 0xFF ^ %01101101
-M2 EQU 0xFF ^ %11011011
-M3 EQU 0xFF ^ %10110110
+; Old, simple pattern:
+; M1 EQU 0xFF ^ %01101101
+; M2 EQU 0xFF ^ %11011011
+; M3 EQU 0xFF ^ %10110110
+
+; More complex pattern:
+M1 EQU %10010100   ; bits 7, 4, 2
+M2 EQU %01001001   ; bits 6, 3, 0
+M3 EQU %00100010   ; bits 5, 1
+
 
 ; Input: hl = buffer with light, dark bytes inter leaved
 ; Output: (de)
@@ -80,6 +85,7 @@ endm
 ; Inputs:
 ; hl = input buffer
 ; de = alt phase buffer
+; a = pop count of dirty cols variable
 phase_component:
   ; Register allocation:
   ; hl' = dirty cols
@@ -103,7 +109,6 @@ endm
   ex de, hl
   ld hl, (dirty_cols)
 
-  ; todo: old dirty
   ld b, 12
 @col_loop:
 ; Advance the diry bitset, if the carry is set,
@@ -130,13 +135,15 @@ endm
 
   ; Self modifying code: Patches what offset is used into the phase pattern
   @pre_pixel_jp: jp 0000h
-; @pre_pix1:
-;  PIXEL M1 
+
+; We don't use M1 for prepixels
 @pre_pix2:
   PIXEL M2 
 @pre_pix3:
   PIXEL M3 
+
 @dirty_cell_loop:
+; Big code size, but this code is so hot it is needed
 REPT 4
   PIXEL M1 
   PIXEL M2 
@@ -158,16 +165,17 @@ endr
   end_loop ; handles dec and ret
 
 @non_diry_copy: 
-  push hl
 
 ; Advance last frame's dirty bitset
   ex de, hl
   add hl, hl
   ex de, hl
+  exx
 ; If the col is not dirty last frame, no need to copy it, as
 ; it is still in this buffer. 
   jp nc, @nondirty_end_of_loop
-
+  
+  push hl
 
 ; hl = current phase buffer (in use)
   ld a, d
@@ -187,36 +195,62 @@ endr
   jp pe, @nondirty_copy_loop
 
   pop hl
+
+; bc = 128
+  ld c, 128
+  add hl, bc
+  end_loop ; Handles jp and ret
+@nondirty_end_of_loop:
   ld bc, 128
   add hl, bc
 
-@nondirty_end_of_loop:
+  ex de, hl
+
+  ld bc, 64
+  add hl, bc
+
+  ex de, hl
   end_loop ; Handles jp and ret
 
 
 
-_greyscale_swap:
-  init_phase grey_phase1_buff, grey_phase1_altbuff, 1 
 
-  ; Convert the individual buffers
+
+
+_greyscale_swap:
+  push ix
+
+; =========Convert the individual buffers=========
+  init_phase grey_phase1_buff, grey_phase1_altbuff, 1 
   ld hl, _screen_buffer
   ld de, (alt_phase1)
-  p1: call phase_component
+  call phase_component
 
 
+  
   init_phase grey_phase2_buff, grey_phase2_altbuff, 2 
   ld hl, _screen_buffer
   ld de, (alt_phase2)
-  p2: call phase_component 
+  call phase_component 
+
 
 
   init_phase grey_phase3_buff, grey_phase3_altbuff, 3 
   ld hl, _screen_buffer
   ld de, (alt_phase3)
-  p3: call phase_component
+  call phase_component
 
 
-  ; Swap the buffer ptrs
+; Save old dirty cols
+  ld hl, (dirty_cols)
+  ld (previous_dirty_cols), hl
+
+; Mark entire frame non-dirty
+  ld hl, 0
+  ld (dirty_cols), hl
+
+
+; =========Swap the buffer ptrs=========
   ; Total Swap: 236 t-states
   di ; Prevent potential race conditions
   ld hl, (alt_phase1)
@@ -238,4 +272,5 @@ _greyscale_swap:
   ld (current_phase3), de
   ei
 
+  pop ix
   ret

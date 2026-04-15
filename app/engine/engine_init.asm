@@ -25,6 +25,13 @@ engine_init:
     ld a, $A0
     ld (_grey_timing), a
 
+; Set buffers as dirty, this tells the greyscale system to force redraw.
+  ld hl, $ffff
+  ld (dirty_cols), hl
+  ld (previous_dirty_cols), hl 
+
+
+
 ; Clear all the screen buffers
     xor a, a
 

@@ -13,9 +13,12 @@ endm
 ; An auto incrementing ram definition
 MACRO RDEF arena, name, size
   DEFC name = arena
-  DEFL arena = arena + size
+  DEFL arena = (arena) + size
 endm
 
+MACRO RALIGN arena, alignment
+  DEFL arena = (arena) + alignment - ((arena) % alignment)
+endm
 
 ; Taken from https://wikiti.brandonw.net/index.php?title=Z80_Routines:Optimized:CpHLDE
 ; (30 t-states)
@@ -58,6 +61,29 @@ macro msb_maska
     srl  b
     or   b
 endm
+
+
+EXTERN popcnt_table
+
+; a = amount of bits set in a
+; Clobbers: a, de, hl, c
+macro popcnt_a
+  ld c, a
+  and $F
+
+  ld d, popcnt_table >> 8
+  ld e, a
+
+  ld a, c
+  and $F0
+  rrca \ rrca \ rrca \ rrca
+  ld h, d
+  ld l, a
+
+  ld a, (de)
+  add (hl)
+endm
+
 
 
 

@@ -20,16 +20,19 @@ int main(){
   for (int i = 128; i-=2;) screen_buffer[i] = 0xFF;
   for (int i = 128; i-=2;) screen_buffer[128 + 1 + i] = 0xFF;
   for (int i = 128; i-=2;) screen_buffer[256 + i] = screen_buffer[256 + 1 + i] = 0xFF;
+
+  greyscale_swap();
   #asm
-  ld hl, $ffff
-  ld (dirty_cols), hl
-  ld (previous_dirty_cols), hl
+  ld a, $80
+  ld (dirty_cols+1), a
   #endasm
     
 
-  greyscale_swap();
-
+  for (int i = 64; i-=2;) screen_buffer[i] = 0xF;
     
+  greyscale_swap();
+  greyscale_swap();
+  greyscale_swap();
 
 
   while (1);

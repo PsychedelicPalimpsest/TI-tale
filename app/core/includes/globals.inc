@@ -55,23 +55,28 @@ defc c_bss = $C100
 
 defl screen_size = 768    ; 96 * 64/8
 
-defl buffers_start =  $C500
+defl buffers_start =  $C800
 defl buffers_area =  buffers_start
 
 
 RDEF buffers_area,              grey_phase1_buff, screen_size
-RDEF buffers_area,              grey_phase1_altbuff, screen_size
-
 RDEF buffers_area,              grey_phase2_buff, screen_size
-RDEF buffers_area,              grey_phase2_altbuff, screen_size
-
-
 RDEF buffers_area,              grey_phase3_buff, screen_size
+
+RDEF buffers_area,              _screen_buffer, screen_size*2
+
+; This area is reserved to protect the phase buffer from potential stack 
+; overrun durning fastcpy, it also allows there to be exactly $1000 bytes
+; apart, meaning a simply xor will take you to and from the alt buffers.
+;
+; ($C800 + 768*5 + $100)^$C800 = $1000
+DEFL buffers_area = buffers_area + $100
+
+
+RDEF buffers_area,              grey_phase1_altbuff, screen_size
+RDEF buffers_area,              grey_phase2_altbuff, screen_size
 RDEF buffers_area,              grey_phase3_altbuff, screen_size
 
-
-; Note: KEEP THIS LAST! This allows for some evil hacks 
-RDEF buffers_area,              _screen_buffer, screen_size*2
 
 
 defl buffers_end = buffers_area
