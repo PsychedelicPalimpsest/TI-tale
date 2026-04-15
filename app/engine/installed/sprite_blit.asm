@@ -6,6 +6,53 @@ PUBLIC _blit_solid
 
 PUBLIC _blit_sprite
 PUBLIC blit_sprite
+PUBLIC mark_hl_dirty
+
+
+; KEEP ME FIRST
+ALIGN 256
+bitset_lookup:
+REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+  ; When the 0-ith col is dirty, the highest bit is set
+ DEFW 1 << (15-val)
+ENDR
+
+
+
+
+
+; Takes a location on the screen buffer, and marks that col as dirty.
+; Inputs: hl = Location on screen
+; Clobbers: hl, a
+; T-states: 119
+mark_hl_dirty:
+; a=2*col number
+  add hl, hl ; Get col bits into high byte
+  ld a, h
+  sub ((_screen_buffer*2) >> 8) & 0xFF
+  add a
+
+;hl = Location in lookup table
+  ld h, bitset_lookup >> 8
+  ld l, a
+
+; Do the high byte
+  ld a, (dirty_cols)
+  or (hl)
+  ld (dirty_cols), a
+
+; Do the low byte
+  inc hl
+  ld a, (dirty_cols+1)
+  or (hl)
+  ld (dirty_cols+1), a 
+
+  ret
+
+
+
+
+
 
 ; extern void blit_solid(void* dst, void* src, char width, char height_times2) __z88dk_sdccdecl __z88dk_callee;
 ; T-states: 120WH + 61W + 137

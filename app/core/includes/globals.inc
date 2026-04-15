@@ -33,6 +33,13 @@ RDEF globals_area,            alt_phase2,      2
 RDEF globals_area,            alt_phase3,      2
 
 
+; Storage method: Highest bit (byte two) = first col
+; this ensures that, when loaded into hl, the `add hl, hl`
+; opcode makes the carry set when a col is diry
+RDEF globals_area,            dirty_cols,      2
+RDEF globals_area,            previous_dirty_cols,      2
+
+
 
 ; Map of user keys, see: https://web.archive.org/web/20240225131330/https://wikiti.brandonw.net/index.php?title=83Plus:Ports:01
 RDEF globals_area,            _current_keymap,  8
@@ -53,13 +60,13 @@ defl buffers_area =  buffers_start
 
 
 RDEF buffers_area,              grey_phase1_buff, screen_size
-RDEF buffers_area,              grey_phase2_buff, screen_size
-RDEF buffers_area,              grey_phase3_buff, screen_size
-
-
-
 RDEF buffers_area,              grey_phase1_altbuff, screen_size
+
+RDEF buffers_area,              grey_phase2_buff, screen_size
 RDEF buffers_area,              grey_phase2_altbuff, screen_size
+
+
+RDEF buffers_area,              grey_phase3_buff, screen_size
 RDEF buffers_area,              grey_phase3_altbuff, screen_size
 
 

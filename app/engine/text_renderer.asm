@@ -88,8 +88,8 @@ after_next_row:
 
   push bc
   push hl
-  push hl
 
+  push hl
   pop iy ; iy = screen buffer
 
   ex de, hl ; Sprite buffer in hl
