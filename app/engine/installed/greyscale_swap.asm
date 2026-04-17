@@ -3,7 +3,14 @@
 ;
 ; NOTE: Although designed for mode 7 lcd drawing (left to right), mode 5
 ;       works perfectly fine! (Although the dirty col system gets weird)
-
+;
+; T-State Analysis (AI generated):
+;   T_total = 933 + 10484*D + 3612*C + 366*S
+;   where D=dirty cols, C=copied cols, S=skipped cols, D+C+S=12
+;
+;   Min  (D=0,  C=0,  S=12): 5,325  T-states 
+;   Max  (D=12, C=0,  S=0):  126,741 T-states 
+;   Mean (D=4,  C=4,  S=4):  58,781  T-states 
 
 PUBLIC _greyscale_swap
 
@@ -41,7 +48,7 @@ endm
 
 
 
-
+; T-states: 80
 MACRO init_phase known_current_buff, known_alt_buff, phase_mode
   ld a, (known_current_buff >> 8) ^ (known_alt_buff >> 8)
   ld (phase_component@phase_swap_xor + 1), a
@@ -85,7 +92,6 @@ endm
 ; Inputs:
 ; hl = input buffer
 ; de = alt phase buffer
-; a = pop count of dirty cols variable
 phase_component:
   ; Register allocation:
   ; hl' = dirty cols
@@ -218,8 +224,6 @@ endr
 
 
 _greyscale_swap:
-  push ix
-
 ; =========Convert the individual buffers=========
   init_phase grey_phase1_buff, grey_phase1_altbuff, 1 
   ld hl, _screen_buffer
@@ -272,5 +276,4 @@ _greyscale_swap:
   ld (current_phase3), de
   ei
 
-  pop ix
   ret
