@@ -52,7 +52,7 @@ mark_col_dirty:
 
 
 ; extern void blit_opaque_norot(void* dst, void* src, char width, char height_times2) __z88dk_sdccdecl __z88dk_callee;
-; T-states: 120WH + 61W + 137
+; T-states: 21WH + 217W + 100
 _blit_opaque_norot:
   pop af
   pop de ; dst
@@ -70,7 +70,7 @@ _blit_opaque_norot:
 ;  ixl = width
 ;  ixh = height 
 ;
-; T-states: 120WH + 61W + 82
+; T-states: 21WH + 217W + 45
 blit_opaque_norot:
 ; a is the amount needed to go to the next col in dst
 ; use some self modifying code to restore
@@ -379,4 +379,3 @@ dark_loop:
   call mark_col_dirty
   ex de, hl
   jp mark_col_dirty ; tail call
-
