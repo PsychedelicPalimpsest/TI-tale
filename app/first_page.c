@@ -28,10 +28,24 @@ int main(){
   #endasm
     
 
-  for (int i = 64; i-=2;) screen_buffer[i] = 0xF;
     
   greyscale_swap();
-  greyscale_swap();
+#asm
+  extern blit_char
+; hl= screen_buffer
+; b = bit position (init with 0)
+; a = char
+; c = bit 3 is the color font select, bits 1 and 2 are the color modes. See: text_screen_rot_blit
+;     bit 3 is set if large font is used
+  ld hl, _screen_buffer + 256+128
+  ld b, 0
+  ld c, %011
+REPTC chr, "Hello Bitches!"
+  ld a, chr
+  call blit_char
+ENDR
+
+#endasm
   greyscale_swap();
 
 

@@ -2,7 +2,7 @@ SECTION code_engine
 
 INCLUDE "core/common.inc"
 
-EXTERN text_screen_rot_blit
+EXTERN blit_sprite_masked
 PUBLIC blit_char
 
 
@@ -26,9 +26,10 @@ font_select:
 Load_SFont: bcall _Load_SFont \ ret
 
 
+
 ; Inputs:
 ; hl= screen_buffer
-; b = bit position (init with 8)
+; b = bit position (init with 0)
 ; a = char
 ; c = bit 3 is the color font select, bits 1 and 2 are the color modes. See: text_screen_rot_blit
 ;     bit 3 is set if large font is used
@@ -105,7 +106,7 @@ after_next_row:
 ;                   assumed background. Ex: %00 ^ %10 = %10
 
   ld ixh, 7
-  call text_screen_rot_blit
+  call blit_sprite_masked
 
   pop hl
   pop bc

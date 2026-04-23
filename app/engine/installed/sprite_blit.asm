@@ -1,12 +1,12 @@
-; This file contains MAN assorted LCD blit tools. Each one
+; This file contains MANY assorted LCD blit tools. Each one
 ; is designed for a specific situation. 
 
-PUBLIC blit_solid
-PUBLIC _blit_solid
+PUBLIC blit_opaque_norot
+PUBLIC _blit_opaque_norot
 
 PUBLIC _blit_sprite
 PUBLIC blit_sprite
-PUBLIC mark_hl_dirty
+PUBLIC mark_col_dirty
 
 
 ; KEEP ME FIRST
@@ -21,7 +21,7 @@ ENDR
 ; Inputs: hl = Location on screen
 ; Clobbers: hl, a
 ; T-states: 124
-mark_hl_dirty:
+mark_col_dirty:
 ; a=2*col number
   add hl, hl ; Get col bits into high byte
   ld a, h
@@ -51,18 +51,19 @@ mark_hl_dirty:
 
 
 
-; extern void blit_solid(void* dst, void* src, char width, char height_times2) __z88dk_sdccdecl __z88dk_callee;
+; extern void blit_opaque_norot(void* dst, void* src, char width, char height_times2) __z88dk_sdccdecl __z88dk_callee;
 ; T-states: 120WH + 61W + 137
-_blit_solid:
+_blit_opaque_norot:
   pop af
   pop de ; dst
   pop hl ; src
   pop ix ; high byte goes to height, low byte goes width. Little endianness is fun
   push af
-  ; fall through to blit_solid
+  ; fall through to blit_opaque_norot
 
   
-; Writes a sprite who has no support for transparency (or transparent bytes)
+; Writes a sprite who has no support for transparency (or transparent bytes). 
+; This is notable for having NO ROTATION SUPPORT
 ; Inputs:
 ;  hl = Sprite source
 ;  de = Destination addr
@@ -70,20 +71,20 @@ _blit_solid:
 ;  ixh = height 
 ;
 ; T-states: 120WH + 61W + 82
-blit_solid:
+blit_opaque_norot:
 ; a is the amount needed to go to the next col in dst
 ; use some self modifying code to restore
   ld a, 64*2 
   sub ixh
-  ld (c_load_point+1), a
+  ld (@c_load_point+1), a
  
   ld b, $0
-loop:
+@loop:
   ld c, ixh
 
   ex de, hl
   push hl
-  call mark_hl_dirty
+  call mark_col_dirty
   pop hl
   ex de, hl
 
@@ -95,7 +96,7 @@ loop:
   ex de, hl
   
 ; bc = 2*(64-height)
-  c_load_point: ld c, 00h
+  @c_load_point: ld c, 00h
   add hl, bc
 
 
@@ -103,7 +104,7 @@ loop:
 
 ; Use the width as the loop counter
   dec ixl
-  jp nz, loop
+  jp nz, @loop
   ret
 
   
@@ -130,7 +131,7 @@ _blit_sprite:
 blit_sprite:
   ; Set the iyh (height) restore point via EVIL self modifying code 
   ld a, iyh
-  ld (_iyh_reset + 2), a  ; Patch operand of: ld iyh, 00h  (encoding: FD 26 XX)
+  ld (@iyh_reset + 2), a  ; Patch operand of: ld iyh, 00h  (encoding: FD 26 XX)
 
   ; Compute the byte stride needed to advance hl to the next column after
   ; drawing. Each row is 2 bytes (light + dark), screen is 64 rows tall,
@@ -145,9 +146,9 @@ blit_sprite:
   push bc       ; Push stride onto stack for reuse each column
 
 ; Shared loop entry for both the inner (row) and outer (column) loops.
-sprite_col_loop:
+@sprite_col_loop:
   push hl
-  call mark_hl_dirty
+  call mark_col_dirty
   pop hl
 
   ; --- Blend light plane ---
@@ -187,7 +188,7 @@ sprite_col_loop:
 
   ; Inner loop: iterate over all rows of this column
   dec iyh
-  jp nz, sprite_col_loop
+  jp nz, @sprite_col_loop
 
   ; Advance screen pointer past the undrawn rows to reach the next column
   ; Note: Stack is slow, but this is _as_ hot as the inner loop
@@ -196,11 +197,11 @@ sprite_col_loop:
   push bc
 
   ; Restore iyh for the next column (self-modifying: patches the immediate above)
-_iyh_reset: ld iyh, 00h
+@iyh_reset: ld iyh, 00h
 
   ; Outer loop: iterate over all columns
   dec iyl
-  jp nz, sprite_col_loop
+  jp nz, @sprite_col_loop
 
   ; Clean up stride from stack
   pop af
@@ -218,7 +219,7 @@ _iyh_reset: ld iyh, 00h
 ; Inputs:
 ; hl = byte to rot and blit
 ; iy = screen buffer
-MACRO apply_hl_to_sprite has_mod, default_method
+MACRO screen_rot_blit has_mod, default_method
   ; Self modifying code: the jr is replaced before this is run
   @rot_instr: jr $
   REPT 7
@@ -257,8 +258,8 @@ endm
 ; de=sprite
 ; a=8-rotation (0-7)
 ; ixh=height
-PUBLIC mono_screen_rot_blit
-mono_screen_rot_blit:
+PUBLIC blit_opaque
+blit_opaque:
   ld (light@rot_instr+1), a
   ld (dark@rot_instr+1), a
   ; Does not modify anything else
@@ -273,7 +274,7 @@ rot_loop:
   ld h, b
   ld l, a
 
-  light: apply_hl_to_sprite 0, or
+  light: screen_rot_blit 0, or
 
 ; Evil micro optimization: Alignment means no carry across bytes is possible >:}
   inc iyl
@@ -283,7 +284,7 @@ rot_loop:
   ld h, b
   ld l, a
 
-  dark: apply_hl_to_sprite 0, or
+  dark: screen_rot_blit 0, or
   inc iyl 
 
 
@@ -291,7 +292,7 @@ rot_loop:
   jp nz, rot_loop 
 
   pop hl
-  jp mark_hl_dirty ; Tail call
+  jp mark_col_dirty ; Tail call
 
 
 
@@ -306,8 +307,8 @@ rot_loop:
 ; ixh=height
 ; c=Text mode. 0-3. You should calculate this by XORing a the desired color by the
 ;                   assumed background. Ex: %00 ^ %10 = %10
-PUBLIC apply_sprite_rot_blit
-apply_sprite_rot_blit:
+PUBLIC blit_sprite_masked
+blit_sprite_masked:
 ; Patch rotation jr
   ld (light_loop@rot_instr+1), a
   ld (dark_loop@rot_instr+1), a
@@ -338,7 +339,7 @@ light_loop:
   ld h, b
   ld l, a
 
-  apply_hl_to_sprite 0, xor
+  screen_rot_blit 0, xor
   inc iyl
   inc iyl
 
@@ -361,7 +362,7 @@ dark_loop:
   ld h, b
   ld l, a
 
-  apply_hl_to_sprite 0, xor
+  screen_rot_blit 0, xor
   inc iyl
   inc iyl
 
@@ -375,7 +376,7 @@ dark_loop:
   ld hl, -128 
   add hl, de
   
-  call mark_hl_dirty
+  call mark_col_dirty
   ex de, hl
-  jp mark_hl_dirty ; tail call
+  jp mark_col_dirty ; tail call
 
