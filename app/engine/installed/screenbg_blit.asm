@@ -42,7 +42,7 @@ screenbg_blit:
   ; de = 12
   
 
-
+  di
 @loop:
   fastcpy_12 \ fastcpy_12 \ fastcpy_12 \ fastcpy_12
   fastcpy_12 \ fastcpy_12 \ fastcpy_12 \ fastcpy_12
@@ -56,6 +56,7 @@ screenbg_blit:
 
   ; Self modifying code, saves a few cycles (not much)
   @sp_restore: ld sp, 0000h
+  ei
   ret
 
 @counter: defb 0h

@@ -4,13 +4,13 @@
 ; NOTE: Although designed for mode 7 lcd drawing (left to right), mode 5
 ;       works perfectly fine! (Although the dirty col system gets weird)
 ;
-; T-State Analysis (AI generated):
-;   T_total = 933 + 10484*D + 3612*C + 366*S
-;   where D=dirty cols, C=copied cols, S=skipped cols, D+C+S=12
+; T-State Analysis:
+;   T_total = 416 + 7502*D + 3395*C + 122*S
+;   where D+C+S = 12 columns
 ;
-;   Min  (D=0,  C=0,  S=12): 5,325  T-states 
-;   Max  (D=12, C=0,  S=0):  126,741 T-states 
-;   Mean (D=4,  C=4,  S=4):  58,781  T-states 
+;   Min  (D=0,  C=0,  S=12): 1,880   T-states (Static screen)
+;   Max  (D=12, C=0,  S=0):  90,440  T-states (Full redraw)
+;   Mean (D=4,  C=4,  S=4):  44,076  T-states (Average motion)
 
 PUBLIC _greyscale_swap
 
@@ -25,84 +25,80 @@ M2 EQU %01001001   ; bits 6, 3, 0
 M3 EQU %00100010   ; bits 5, 1
 
 
+
+
 ; Input: hl = buffer with light, dark bytes inter leaved
-; Output: (de)
-; 53 t-states
-; 
+; Output: (de), de += 768*2*sign(instr) + 1 
 ; P'*L + P * D = D ^ (P' & (L ^ D))
-MACRO PIXEL mask 
-  ld a, (hl)      ; 7
-  inc hl          ; 6
+; 114 t-states
+MACRO PIXEL_BASE mask1, mask2, mask3, instr
+; b = D (dark pixel)
+; c = L (light pixel)
+  pop bc
 
-  xor (hl)        ; 7
-  and mask        ; 7
-  xor (hl)        ; 7
+; a = D (dark pixel)
+  ld a, b
 
+ ; b = L ^ D (shared across all three phases)
+  xor c           ; 4
+  ld b, a         ; 4
+
+; Phase 1: apply mask1
+  and 0xff^mask1   ; 7
+  xor c            ; 4
   ld (de), a       ; 7
 
 
-  inc hl      ; 6
-  inc de      ; 6
+  ; Each phase buffer is 768 bytes apart, or 3*256
+  ; As such, inc/dec x3 gets you to and thro
+  instr d \ instr d \ instr d
+
+  ld a, b
+  and 0xff^mask2
+  xor c
+  ld (de), a
+
+
+  instr d \ instr d \ instr d
+
+  ld a, b
+  and 0xff^mask3
+  xor c
+  ld (de), a
+
+  inc de
 endm
 
 
+; These two macros should be used in pairs, as they cleanup
+; after the other
 
+; Ascending through phases (phase1 → phase2 → phase3)
+MACRO PIXEL_UP mask1, mask2, mask3 
+  PIXEL_BASE mask1, mask2, mask3, inc 
+endm
 
-; T-states: 80
-MACRO init_phase known_current_buff, known_alt_buff, phase_mode
-  ld a, (known_current_buff >> 8) ^ (known_alt_buff >> 8)
-  ld (phase_component@phase_swap_xor + 1), a
-
-  if 1==phase_mode
-    ; do not do any pre pixels
-    ld hl, phase_component@dirty_cell_loop
-    ld (phase_component@pre_pixel_jp + 1), hl
-
-    ; Do a full set of post pixels
-    REPTI jp_label, phase_component@post_pix1_jp, phase_component@post_pix2_jp
-      ld hl, jp_label+3
-      ld (jp_label+1), hl
-    endr
-  endif
-  if 2==phase_mode
-    ; Do a single pre pixel, making the pattern 3 - 1 2 3
-    ld hl, phase_component@pre_pix3
-    ld (phase_component@pre_pixel_jp + 1), hl
-
-    ; Do the first two post pixels making the pattern ... 1 2 3 - 2 3
-    ld hl, phase_component@post_pix1_jp + 3
-    ld (phase_component@post_pix1_jp+1), hl
-
-    ld hl, phase_component@post_pixels
-    ld (phase_component@post_pix2_jp+1), hl
-  endif
-
-  if 3==phase_mode
-    ; Do two pre pixels, making the pattern 2 3 - 1 2 3
-    ld hl, phase_component@pre_pix2
-    ld (phase_component@pre_pixel_jp + 1), hl
-
-    ; Do only one more pixel, making the pattern ... 1 2 3 - 1
-    ld hl, phase_component@post_pixels
-    ld (phase_component@post_pix1_jp+1), hl
-  endif
+; Mask args are reversed: decrementing through phases visits
+; phase3→phase2→phase1, so mask3 applies first.
+MACRO PIXEL_DOWN  mask1, mask2, mask3
+  PIXEL_BASE mask3, mask2, mask1, dec 
 endm
 
 
 ; Inputs:
 ; hl = input buffer
-; de = alt phase buffer
+; de = alt phase buffer 1
 phase_component:
   ; Register allocation:
   ; hl' = dirty cols
+  ; de' = prev dirty cosl
   ; b'  = col loop counter 
   ; 
   ; hl = input buffer
-  ; de = output phase buffer
-  ; bc = cell loop counters
+  ; de = first output phase buffer
 
-
-
+  ; bc under copy = cell loop counters
+  ; 
 MACRO end_loop
   exx
   dec b
@@ -128,45 +124,44 @@ endm
   ex de, hl
   exx
 
- ; The screen is 64 tall. (64-3) / 12 = 5, r=1
-  ld b, 5
+  di
+  ld (@sp_restore+1), sp
+  ld sp, hl
 
 ; Phase generation goal: for each phase, we want a patern of
 ; Phase 1: 1 2 3
-; Phase 2: 3 1 2
-; Phase 3: 2 3 1
-; So, we leave 4 pixels to be done outside of the loop, and patch
-; the jumps to adjust which ones we are doing at a given phase.
+; Phase 2: 2 3 1
+; Phase 3: 3 1 2
 
+  PIXEL_UP M1, M2, M3
+  PIXEL_DOWN M2, M3, M1
+  PIXEL_UP M3, M1, M2
+  PIXEL_DOWN M1, M2, M3
 
-  ; Self modifying code: Patches what offset is used into the phase pattern
-  @pre_pixel_jp: jp 0000h
-
-; We don't use M1 for prepixels
-@pre_pix2:
-  PIXEL M2 
-@pre_pix3:
-  PIXEL M3 
 
 @dirty_cell_loop:
 ; Big code size, but this code is so hot it is needed
-REPT 4
-  PIXEL M1 
-  PIXEL M2 
-  PIXEL M3 
-endr
-  djnz @dirty_cell_loop
+REPT 2
+  PIXEL_UP M2, M3, M1
+  PIXEL_DOWN M3, M1, M2
+  PIXEL_UP M1, M2, M3
 
+  PIXEL_DOWN M2, M3, M1
+  PIXEL_UP M3, M1, M2
+  PIXEL_DOWN M1, M2, M3
+ENDR
+  ; Check if the phase buffer%64 is zero, if so, we have looped
+  ; back around to the next col
+  ld a, 63
+  and e
+  jp nz, @dirty_cell_loop
 
+  ld hl, sp ; Note: z88dk macro
 
-; Post pixels, each one of these jumps is modified before being ran
-  PIXEL M1 
-@post_pix1_jp: jp @post_pixels
+  ; Self modifying code
+@sp_restore: ld sp, 0000h
+  ei
 
-  PIXEL M2 
-@post_pix2_jp: jp @post_pixels
-
-  PIXEL M3 
 @post_pixels:
   end_loop ; handles dec and ret
 
@@ -177,32 +172,74 @@ endr
   add hl, hl
   ex de, hl
   exx
-; If the col is not dirty last frame, no need to copy it, as
+
+; If the col is was dirty last frame, no need to copy it, as
 ; it is still in this buffer. 
   jp nc, @nondirty_end_of_loop
   
   push hl
 
-; hl = current phase buffer (in use)
+; hl = the phase buffer currently being displayed
+; de = the alt buffer we are copying too
+
+; Flip the bit required to get to and from the alt buffers.
+; They are exactly $1000 bytes apart, so this works
+
   ld a, d
-  ; Self modifying code:
-@phase_swap_xor:  xor 00h
+  xor (grey_phase1_buff^grey_phase1_altbuff) >> 8  
+
   ld h, a
   ld l, e
 
   ld bc, 64
-@nondirty_copy_loop:
+@nondirty_copy_loop1:
   ldi \ ldi \ ldi \ ldi
   ldi \ ldi \ ldi \ ldi
   ldi \ ldi \ ldi \ ldi
   ldi \ ldi \ ldi \ ldi
 
   ; The P/V flag is reset (PO) if BC == 0 
-  jp pe, @nondirty_copy_loop
+  jp pe, @nondirty_copy_loop1
+
+; Get to next phase (phase 2)
+  inc h \ inc h \ inc h
+  inc d \ inc d \ inc d
+
+; Now, we are at the next phase + 64, to save cycles, we can use the ldd
+; instruction, which copies backward (decs de, hl, bc)
+
+  ld bc, 64
+@nondirty_copy_loop2:
+  ldd \ ldd \ ldd \ ldd
+  ldd \ ldd \ ldd \ ldd
+  ldd \ ldd \ ldd \ ldd
+  ldd \ ldd \ ldd \ ldd
+
+  jp pe, @nondirty_copy_loop2
+
+; Get to next phase (phase 3)
+  inc h \ inc h \ inc h
+  inc d \ inc d \ inc d
+
+  ld bc, 64
+@nondirty_copy_loop3:
+  ldi \ ldi \ ldi \ ldi
+  ldi \ ldi \ ldi \ ldi
+  ldi \ ldi \ ldi \ ldi
+  ldi \ ldi \ ldi \ ldi
+
+  ; The P/V flag is reset (PO) if BC == 0 
+  jp pe, @nondirty_copy_loop3
+
+; Get d back to the correct phase. 
+; NOTE: due to the last round of LDIs, it is +64 already
+  ld a, -6
+  add d
+  ld d, a
 
   pop hl
 
-; bc = 128
+; bc = 128 (b = 0 from ldi loop)
   ld c, 128
   add hl, bc
   end_loop ; Handles jp and ret
@@ -225,25 +262,9 @@ endr
 
 _greyscale_swap:
 ; =========Convert the individual buffers=========
-  init_phase grey_phase1_buff, grey_phase1_altbuff, 1 
   ld hl, _screen_buffer
   ld de, (alt_phase1)
   call phase_component
-
-
-  
-  init_phase grey_phase2_buff, grey_phase2_altbuff, 2 
-  ld hl, _screen_buffer
-  ld de, (alt_phase2)
-  call phase_component 
-
-
-
-  init_phase grey_phase3_buff, grey_phase3_altbuff, 3 
-  ld hl, _screen_buffer
-  ld de, (alt_phase3)
-  call phase_component
-
 
 ; Save old dirty cols
   ld hl, (dirty_cols)
