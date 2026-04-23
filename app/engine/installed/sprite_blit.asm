@@ -12,24 +12,21 @@ PUBLIC mark_hl_dirty
 ; KEEP ME FIRST
 ALIGN 256
 bitset_lookup:
-REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
   ; When the 0-ith col is dirty, the highest bit is set
  DEFW 1 << (15-val)
 ENDR
 
-
-
-
-
 ; Takes a location on the screen buffer, and marks that col as dirty.
 ; Inputs: hl = Location on screen
 ; Clobbers: hl, a
-; T-states: 119
+; T-states: 124
 mark_hl_dirty:
 ; a=2*col number
   add hl, hl ; Get col bits into high byte
   ld a, h
   sub ((_screen_buffer*2) >> 8) & 0xFF
+  and %1111 ; Stupid bounds checking, just keeps the input within the lookup table
   add a
 
 ;hl = Location in lookup table
@@ -42,7 +39,7 @@ mark_hl_dirty:
   ld (dirty_cols), a
 
 ; Do the low byte
-  inc hl
+  inc l ; Due to alignment cannot carry
   ld a, (dirty_cols+1)
   or (hl)
   ld (dirty_cols+1), a 
@@ -65,7 +62,7 @@ _blit_solid:
   ; fall through to blit_solid
 
   
-; Writes a sprite who has not support for transparency (or transparent bytes)
+; Writes a sprite who has no support for transparency (or transparent bytes)
 ; Inputs:
 ;  hl = Sprite source
 ;  de = Destination addr
@@ -75,12 +72,20 @@ _blit_solid:
 ; T-states: 120WH + 61W + 82
 blit_solid:
 ; a is the amount needed to go to the next col in dst
+; use some self modifying code to restore
   ld a, 64*2 
   sub ixh
+  ld (c_load_point+1), a
  
   ld b, $0
 loop:
   ld c, ixh
+
+  ex de, hl
+  push hl
+  call mark_hl_dirty
+  pop hl
+  ex de, hl
 
 ; hl = sprite
 ; de = screen
@@ -90,7 +95,7 @@ loop:
   ex de, hl
   
 ; bc = 2*(64-height)
-  ld c, a
+  c_load_point: ld c, 00h
   add hl, bc
 
 
@@ -141,6 +146,10 @@ blit_sprite:
 
 ; Shared loop entry for both the inner (row) and outer (column) loops.
 sprite_col_loop:
+  push hl
+  call mark_hl_dirty
+  pop hl
+
   ; --- Blend light plane ---
   ld b, (hl)    ; b = light screen byte (I)
 
@@ -254,6 +263,7 @@ mono_screen_rot_blit:
   ld (dark@rot_instr+1), a
   ; Does not modify anything else
   ld b, $0 ; Set b to zero for later
+  push iy
 
 rot_loop:
   ld a, (de)
@@ -279,11 +289,14 @@ rot_loop:
 
   dec ixh
   jp nz, rot_loop 
-  ret
+
+  pop hl
+  jp mark_hl_dirty ; Tail call
 
 
 
-; Specific routine for drawing text. 
+; This is designed for text bliting, however can be useful for more complex
+; situations when the sprite needs xor'd on. 
 ; Clobbers: iy, a, ix*, hl, de, b
 ;
 ; Inputs:
@@ -293,12 +306,13 @@ rot_loop:
 ; ixh=height
 ; c=Text mode. 0-3. You should calculate this by XORing a the desired color by the
 ;                   assumed background. Ex: %00 ^ %10 = %10
-PUBLIC text_screen_rot_blit
-text_screen_rot_blit:
+PUBLIC apply_sprite_rot_blit
+apply_sprite_rot_blit:
 ; Patch rotation jr
   ld (light_loop@rot_instr+1), a
   ld (dark_loop@rot_instr+1), a
 
+  push iy
 
 ; Set b=0 for the rest of routine
   ld b, $0 
@@ -353,5 +367,15 @@ dark_loop:
 
   dec ixh
   jp nz, dark_loop
-  ret
+
+  pop de ; Screen buffer
+
+; Note: This can go outside the valid range, but that is ok
+;       as that will just got to the unused bits in the bitset
+  ld hl, -128 
+  add hl, de
   
+  call mark_hl_dirty
+  ex de, hl
+  jp mark_hl_dirty ; tail call
+
