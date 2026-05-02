@@ -152,6 +152,7 @@ SECTION code_crt_init
 start:
     bcall    _ForceFullScreen 
     bcall    _ClrLCDFull
+    bcall    _DisableApd   ; Do not randomly turn off
 
     di ; Disable interupts to prevent any issues during setup
 
@@ -204,6 +205,9 @@ __restore_sp_onexit:
     di
     im 1
     ei    
+
+    bcall    _EnableApd ; The devs say to do this after turning it off
+
     call    $50		; B_JUMP(_jforcecmdnochar)
     DEFW    _JForceCmdNoChar;
     ret     ;
