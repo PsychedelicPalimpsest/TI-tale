@@ -50,6 +50,9 @@ RDEF globals_area,            _last_keymap,     8
 RDEF globals_area,            _nav_key_change,  1
 
 
+fheap_def globals_area, test_heap, 64, 4
+
+
 ; Set where z88dk puts static variables, note that only the first page is allowed them
 defc c_bss = $C100
 

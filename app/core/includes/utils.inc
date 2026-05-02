@@ -12,8 +12,13 @@ endm
 
 ; An auto incrementing ram definition
 MACRO RDEF arena, name, size
+; Capture the old arena value as a constant
   DEFC name = arena
-  DEFL arena = (arena) + size
+
+; Redefine the arena based on that constant
+; Note: 'DEFL' is token replacment, so care needs to be taken as not to blow up the file. 
+
+  DEFL arena = name + size
 endm
 
 MACRO RALIGN arena, alignment
@@ -63,26 +68,26 @@ macro msb_maska
 endm
 
 
-EXTERN popcnt_table
+; EXTERN popcnt_table
 
 ; a = amount of bits set in a
 ; Clobbers: a, de, hl, c
-macro popcnt_a
-  ld c, a
-  and $F
-
-  ld d, popcnt_table >> 8
-  ld e, a
-
-  ld a, c
-  and $F0
-  rrca \ rrca \ rrca \ rrca
-  ld h, d
-  ld l, a
-
-  ld a, (de)
-  add (hl)
-endm
+;macro popcnt_a
+;  ld c, a
+;  and $F
+;
+;  ld d, popcnt_table >> 8
+;  ld e, a
+;
+;  ld a, c
+;  and $F0
+;  rrca \ rrca \ rrca \ rrca
+;  ld h, d
+;  ld l, a
+;
+;  ld a, (de)
+;  add (hl)
+;endm
 
 
 
