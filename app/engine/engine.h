@@ -20,3 +20,14 @@ typedef struct {
 
 
 
+#ifdef ROOM
+// This stuff is common setup done for each room. 
+
+#ifndef ROOMID
+#error Something went wrong, ROOMID is NOT defined
+#endif
+
+#define room_entry RM_entrypoint_##ROOMID
+
+
+#endif
