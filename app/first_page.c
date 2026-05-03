@@ -3,68 +3,66 @@
 #include "core/globalc.h"
 extern void greyscale_swap();
 
-extern void screenbg_blit(char* dst, char* src, int stride) __z88dk_callee;
-extern char test_bg[]; 
-extern char test_sprite[]; 
 
-extern void blit_solid(void* dst, void* src, char width, char height_times2) __z88dk_sdccdecl __z88dk_callee;
-
-extern void blit_sprite(void* dst, void* src, char width, char height) __z88dk_sdccdecl __z88dk_callee;
-
-extern char write_ti_small(void* screen_loc, int font_code, unsigned int copy_mode) __z88dk_sdccdecl __z88dk_callee;
-extern char write_ti_large(void* screen_loc, int font_code, unsigned int copy_mode) __z88dk_sdccdecl __z88dk_callee;
-
-
-
-int main(){
-  for (int i = 128; i-=2;) screen_buffer[i] = 0xFF;
-  for (int i = 128; i-=2;) screen_buffer[128 + 1 + i] = 0xFF;
-  for (int i = 128; i-=2;) screen_buffer[256 + i] = screen_buffer[256 + 1 + i] = 0xFF;
-
-  greyscale_swap();
+void* alloc() __naked {
   #asm
-  ld a, $80
-  ld (dirty_cols+1), a
+  ld hl, fheap_addr(heap1)
+  fheap_alloc 2
   #endasm
-    
-
-    
-  greyscale_swap();
-#asm
-  extern blit_char
-; hl= screen_buffer
-; b = bit position (init with 0)
-; a = char
-; c = bit 3 is the color font select, bits 1 and 2 are the color modes. See: text_screen_rot_blit
-;     bit 3 is set if large font is used
-  ld hl, _screen_buffer + 256+128
-  ld b, 0
-  ld c, %011
-REPTC chr, "Hello Bitches!"
-  ld a, chr
-  call blit_char
-ENDR
-
-#endasm
-  greyscale_swap();
-
-
-  while (1);
 }
 
-#asm
+// input = de
+void free() __naked {
+  #asm
+  ld hl, fheap_addr(heap1)
+  fheap_free
+  ret
+   #endasm
+}
+
+int main(){
+  greyscale_swap();
+  #asm
+  fheap_def globals_area, heap1, 64, 2
+  fheap_init_inline heap1
+
+  ld ix, globals_area
+  REPTI v, 1, 2, 3, 4, 5, 6, 6, 8
+    push hl
+    call _alloc
+    ex de, hl
+    pop hl
+    
+    ld (ix), de
+    inc ix
+    inc ix
+  ENDR
+
+  ld ix, globals_area
+
+  ld de, (ix+2)
+  call _free
+  ld de, (ix+4)
+  call _free
 
 
-_test_sprite:
+  ld hl, fheap_addr(heap1)
+  fheap_foreach 2
+    ; do whatever in here
+    add hl, hl
 
-REPT 3
-  db $ff
-  DEFW $ff00
+    jp @loop
+    @end_of_loop:
 
-  db $ff
-  DEFW $00ff
-ENDR
+  
 
-#endasm
 
+
+
+
+
+  #endasm
+
+
+}
 

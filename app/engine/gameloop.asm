@@ -6,10 +6,6 @@ INCLUDE "core/common.inc"
 PUBLIC _game_loop
 _game_loop:
 
-  fheap_def globals_area, test, 64, 2
-  fheap_init test 
-
-
 
 @main_loop:
 ; This is the low byte of the game counter
