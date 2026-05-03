@@ -39,6 +39,7 @@ INCLUDE "installed/game_tick.asm"
 INCLUDE "installed/greyscale.asm"
 INCLUDE "installed/screenbg_blit.asm"
 INCLUDE "installed/greyscale_swap.asm"
+INCLUDE "installed/rand.asm"
 
 
 ; ALIGN 256

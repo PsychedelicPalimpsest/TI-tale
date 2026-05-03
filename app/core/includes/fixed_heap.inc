@@ -81,7 +81,7 @@ MACRO fheap_alloc obj_size
   ld e, (hl)
   inc hl
   ld a, (hl)
-  and a
+  and a ; Note, only checking the highest byte works since only the bootcode can start with zero.
   ld d, a
 
   jp nz, not_null
@@ -170,7 +170,7 @@ endm
 ; jumps to @end_of_loop. All loop state is kept in the shadow registers,
 ; feel free to use everything else (including hl).
 MACRO fheap_foreach obj_size
-  push hl \ exx \ pop hl
+  push hl \ exx \ ex af, af' \ pop hl
 
   inc hl \ inc hl
   ld e, (hl)
