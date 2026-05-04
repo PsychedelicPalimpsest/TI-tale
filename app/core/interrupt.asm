@@ -16,23 +16,31 @@ defc greyscale_addr = _greyscale_call + 1
 defc gametick_addr =  _gametick_call + 1
 
 
+MACRO GREY_ACK_TIMER
+	ld	a, 3 ; Interrupt mode (to bit 5 of port 4h), and loop
+	out	($31), 	a
+ENDM
+
 MACRO SETUP_GREY_TIMER
 	ld	a, $40
 	out	($30), a	;10922 Hz
 
-	ld	a, 2 ; Interrupt mode (to bit 5 of port 4h)
-	out	($31), 	a
+	GREY_ACK_TIMER
 
 	ld	a, (_grey_timing)
 	out	($32), a
+ENDM
+
+MACRO GAME_ACK_TIMER
+	ld	a, 3 ; Interrupt mode (to bit 5 of port 4h), and loop
+	out	($34), 	a
 ENDM
 
 MACRO SETUP_GAME_TIMER
 	ld	a, $46
 	out	($33), a	; 128 Hz
 
-	ld	a, 2 ; Interrupt mode (to bit 6 of port 4h)
-	out	($34), 	a
+	GAME_ACK_TIMER
 
 	ld	a, 4
 	out	($35), a ; 128/4 = 32Hz
@@ -77,7 +85,7 @@ after_exit:
 
     push bc
 
-    SETUP_GREY_TIMER
+    GREY_ACK_TIMER
 
     ; Note: Self modifying code!
     _greyscale_call: call 0000h
@@ -87,7 +95,7 @@ after_grey:
     bit 6, b
     jp z, after_game_tick
 
-    SETUP_GAME_TIMER
+    GAME_ACK_TIMER
 
     ; Note: Self modifying code!
     _gametick_call: call 0000h

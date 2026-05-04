@@ -14,7 +14,7 @@ engine.lib: $(ENGINE_LIB_FILES) $(wildcard engine/installed/*.asm)
 	z88dk-z80asm $(SFLAGS) -xengine.lib $(ENGINE_LIB_FILES)
 
 
-rooms/rooms.h rooms/rooms.inc: $(addprefix rooms/, $(shell python room.py --list))
+rooms/rooms.h rooms/rooms.inc &: $(addprefix rooms/, $(shell python room.py --list))
 	python room.py --gen-room-inc > rooms/rooms.inc
 	python room.py --gen-room-h > rooms/rooms.h
 
