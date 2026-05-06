@@ -170,6 +170,17 @@ start:
     in a, (6)
     ld (_first_rom_page), a
 
+    ; Save the old timer states
+    in a, ($30)
+    ld (ti_timer1_onoff), a
+
+    in a, ($33)
+    ld (ti_timer2_onoff), a
+
+    in a, ($36)
+    ld (ti_timer3_onoff), a
+
+
     EXTERN setup_interrupts
     call setup_interrupts
 
@@ -182,12 +193,24 @@ start:
 __Exit:     ; exit() jumps to this point
     di
 
-    xor a, a
-    out ($30), a        ; turn off timer
-    out ($31), a        ; clear loop control
+; HACK: The timers confuse me, this makes the os not shit itself. 
+;       If there exists a bcall to make this work, it has alluded me.
+    ; Set the control bit to loop, and counter to 1
+    ld a, 1
+    out ($31), a 
+    out ($32), a 
+    out ($34), a 
+    out ($35), a 
+    out ($37), a 
+    out ($38), a 
 
-    out ($33), a        ; turn off timer
-    out ($34), a        ; clear loop control
+    ld a, (ti_timer1_onoff)
+    out ($30), a
+    ld a, (ti_timer2_onoff)
+    out ($33), a
+    ld a, (ti_timer3_onoff)
+    out ($36), a
+
 
     ; Default ti-os values (TODO: Is this calulator dependent?)
     ld a, $42

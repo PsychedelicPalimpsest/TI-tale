@@ -12,7 +12,15 @@
 defl interupt_globals = $8101
 
 RDEF interupt_globals,  _first_rom_page, 1   ;  This tells the app where to return to after exiting
+RDEF interupt_globals,            ti_timer1_onoff,   1
+RDEF interupt_globals,            ti_timer2_onoff,   1
+RDEF interupt_globals,            ti_timer3_onoff,   1
+
 RDEF interupt_globals,  free_trash_byte, 1   ;  Text renderer trashes this
+; Restore TI state
+
+
+
 
 IF interupt_globals > $8181
   ; cause a syntax error
@@ -34,6 +42,7 @@ RDEF globals_area,            _game_count,     2
 
 RDEF globals_area,            _grey_timing,    1
 RDEF globals_area,            _grey_contrast,  1
+
 
 ; The screen buffers currently being drawn
 RDEF globals_area,            current_phase1,  2

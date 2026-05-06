@@ -1,5 +1,7 @@
 PUBLIC audio_tick
 
+; NOTE: **Must perseve all registers but af**
+
 
 
 audio_tick:

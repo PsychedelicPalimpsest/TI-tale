@@ -16,6 +16,7 @@ defc greyscale_addr = _greyscale_call + 1
 defc gametick_addr =  _gametick_call + 1
 
 
+
 MACRO GREY_ACK_TIMER
 	ld	a, 3 ; Interrupt mode (to bit 5 of port 4h), and loop
 	out	($31), 	a
@@ -57,34 +58,57 @@ MACRO SETUP_AUDIO_TIMER
 
 	AUDIO_ACK_TIMER
 
-	ld	a, 24
+	ld	a, 24*8
 	out	($38), a ; 32768/41 = 800Hz
 ENDM
-
-
 
 
 interupt:
 PHASE interupt_vector
     di
     push	af
-    push	bc
-    push	de
-    push	hl
 
-
-    
     in a, (4) ; Get interrupt cause 
-    ld b, a   ; Save cause to b
-
+    
+    rlca
+    jr c, audio_case
+after_audio_case:
+    rlca
+    jr c, game_case
+after_game_case:
+    rlca 
+    jr c, grey_case
+after_grey_case:
+    bit 3, a ; Originally bit 0, gets rotated to bit 3
+    jr nz, on_case
+after_cases:
     xor a, a ; Ack interrupts
     out	(03), a
 
+    ld a, interupt_mask
+    out (3), a
 
-    bit 0, b ; Test if on button is pressed
-    jp z, after_exit 
+    pop af
+    ei
+    ret
 
-; If so, exit
+game_case:
+    push af
+    GAME_ACK_TIMER
+
+    ; Note: Self modifying code!
+    _gametick_call: call 0000h
+    pop af
+    jp after_game_case
+grey_case:
+    push af
+    GREY_ACK_TIMER
+
+    ; Note: Self modifying code!
+    _greyscale_call: call 0000h
+    pop af
+    jp after_grey_case
+on_case:
     ; Load in the first rom page of app
     ld a, (_first_rom_page)
     out (6), a
@@ -95,47 +119,23 @@ PHASE interupt_vector
 
     ; Note: TiOS fixes the stack for us
     jp __Exit
-after_exit:
-    bit 5, b
-    jp z, after_grey
+audio_case:
 
-    push bc
+  push af
+  AUDIO_ACK_TIMER
 
-    GREY_ACK_TIMER
+  extern audio_tick
+  call audio_tick
+  pop af
 
-    ; Note: Self modifying code!
-    _greyscale_call: call 0000h
+; Optimization:
+; Since the audio is ran so often, it is likely it is the only one
+; being fired. And so the only bit being set would be #3 and #7 (itself), the on button.
+; which is shifted to bit 4, and the audio is shifted to 0. 
+  cp %10001
+  jr z, after_cases
 
-    pop bc
-after_grey:
-    bit 6, b
-    jp z, after_game_tick
-
-    push bc
-    GAME_ACK_TIMER
-
-    ; Note: Self modifying code!
-    _gametick_call: call 0000h
-    pop bc
-after_game_tick:
-    bit 7, b
-    jp z, after_audio_tick
-    AUDIO_ACK_TIMER
-
-    EXTERN audio_tick
-    call audio_tick
-
-after_audio_tick:
-
-    ld a, interupt_mask
-    out (3), a
-
-    pop	hl
-    pop	de
-    pop	bc
-    pop	af
-    ei
-    ret
+  jp after_audio_case
 after_interrupt_code:
 DEPHASE
 end_of_interupts:
