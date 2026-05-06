@@ -46,6 +46,22 @@ MACRO SETUP_GAME_TIMER
 	out	($35), a ; 128/4 = 32Hz
 ENDM
 
+MACRO AUDIO_ACK_TIMER
+	ld	a, 3 ; Interrupt mode (to bit 6 of port 4h), and loop
+	out	($37), 	a
+ENDM
+
+MACRO SETUP_AUDIO_TIMER
+	ld	a, $44
+	out	($36), a	; 32768 Hz
+
+	AUDIO_ACK_TIMER
+
+	ld	a, 24
+	out	($38), a ; 32768/41 = 800Hz
+ENDM
+
+
 
 
 interupt:
@@ -95,12 +111,21 @@ after_grey:
     bit 6, b
     jp z, after_game_tick
 
+    push bc
     GAME_ACK_TIMER
 
     ; Note: Self modifying code!
     _gametick_call: call 0000h
+    pop bc
 after_game_tick:
+    bit 7, b
+    jp z, after_audio_tick
+    AUDIO_ACK_TIMER
 
+    EXTERN audio_tick
+    call audio_tick
+
+after_audio_tick:
 
     ld a, interupt_mask
     out (3), a
@@ -139,6 +164,9 @@ setup_interrupts:
     ld a, interupt_mask
     out (3),a
 
+    ld a, %11000000 ; Disable link assist
+    out (8), a
+    
 
     ; Enable interrupts
     im 2
@@ -146,7 +174,10 @@ setup_interrupts:
     ; It is NOT safe to enable interupts until greyscale_addr and gametick_addr have been set!
 
     ; Note here the race condition :<
-    SETUP_GREY_TIMER
-    SETUP_GAME_TIMER
+
+    ; SETUP_GREY_TIMER
+    ; SETUP_GAME_TIMER
+    SETUP_AUDIO_TIMER
+
 
     ret

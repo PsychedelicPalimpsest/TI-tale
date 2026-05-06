@@ -189,6 +189,13 @@ __Exit:     ; exit() jumps to this point
     out ($33), a        ; turn off timer
     out ($34), a        ; clear loop control
 
+    ; Default ti-os values (TODO: Is this calulator dependent?)
+    ld a, $42
+    out ($36), a 
+    ld a, 3      ; Interupt and loop (is this correct??)
+    out ($37), a
+    ld a, 1
+    out ($38), a
 
     ld      iy,_IY_TABLE	; Restore flag pointer
     im      1		;
