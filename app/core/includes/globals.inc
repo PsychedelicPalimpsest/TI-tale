@@ -12,11 +12,8 @@
 defl interupt_globals = $8101
 
 RDEF interupt_globals,  _first_rom_page, 1   ;  This tells the app where to return to after exiting
-RDEF interupt_globals,            ti_timer1_onoff,   1
-RDEF interupt_globals,            ti_timer2_onoff,   1
-RDEF interupt_globals,            ti_timer3_onoff,   1
-
 RDEF interupt_globals,  free_trash_byte, 1   ;  Text renderer trashes this
+
 ; Restore TI state
 
 

@@ -15,8 +15,6 @@ defc interupt_mask = %00001001
 defc greyscale_addr = _greyscale_call + 1
 defc gametick_addr =  _gametick_call + 1
 
-
-
 MACRO GREY_ACK_TIMER
 	ld	a, 3 ; Interrupt mode (to bit 5 of port 4h), and loop
 	out	($31), 	a
@@ -63,10 +61,18 @@ MACRO SETUP_AUDIO_TIMER
 ENDM
 
 
+
+
 interupt:
 PHASE interupt_vector
     di
     push	af
+
+    xor a, a ; Ack interrupts
+    out	(03), a
+
+    ld a, interupt_mask ; Put back the old mask
+    out (3), a
 
     in a, (4) ; Get interrupt cause 
     
@@ -82,15 +88,11 @@ after_grey_case:
     bit 3, a ; Originally bit 0, gets rotated to bit 3
     jr nz, on_case
 after_cases:
-    xor a, a ; Ack interrupts
-    out	(03), a
 
-    ld a, interupt_mask
-    out (3), a
-
-    pop af
+    pop af ; Note: This is the user af, not other af interupt usage.
     ei
     ret
+
 
 game_case:
     push af
@@ -120,22 +122,11 @@ on_case:
     ; Note: TiOS fixes the stack for us
     jp __Exit
 audio_case:
+; Audio is expected to jp back and handle cleanup
+  INCLUDE "audio.asm"
 
-  push af
-  AUDIO_ACK_TIMER
 
-  extern audio_tick
-  call audio_tick
-  pop af
 
-; Optimization:
-; Since the audio is ran so often, it is likely it is the only one
-; being fired. And so the only bit being set would be #3 and #7 (itself), the on button.
-; which is shifted to bit 4, and the audio is shifted to 0. 
-  cp %10001
-  jr z, after_cases
-
-  jp after_audio_case
 after_interrupt_code:
 DEPHASE
 end_of_interupts:
@@ -175,8 +166,13 @@ setup_interrupts:
 
     ; Note here the race condition :<
 
-    ; SETUP_GREY_TIMER
+    SETUP_GREY_TIMER
     ; SETUP_GAME_TIMER
+    ld a, 94
+    ld (low_count+1), a
+    ld a, 94
+    ld (high_count+1), a
+
     SETUP_AUDIO_TIMER
 
 

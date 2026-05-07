@@ -6,7 +6,7 @@ SFLAGS = -l
 
 
 CORE_LIB_FILES = core/interrupt.asm
-core.lib: $(CORE_LIB_FILES)
+core.lib: $(CORE_LIB_FILES) core/audio.asm
 	z88dk-z80asm $(SFLAGS) -xcore.lib $(CORE_LIB_FILES)
 
 ENGINE_LIB_FILES = $(wildcard engine/*.asm)

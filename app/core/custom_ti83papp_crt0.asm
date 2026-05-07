@@ -170,16 +170,6 @@ start:
     in a, (6)
     ld (_first_rom_page), a
 
-    ; Save the old timer states
-    in a, ($30)
-    ld (ti_timer1_onoff), a
-
-    in a, ($33)
-    ld (ti_timer2_onoff), a
-
-    in a, ($36)
-    ld (ti_timer3_onoff), a
-
 
     EXTERN setup_interrupts
     call setup_interrupts
@@ -193,36 +183,18 @@ start:
 __Exit:     ; exit() jumps to this point
     di
 
-; HACK: The timers confuse me, this makes the os not shit itself. 
-;       If there exists a bcall to make this work, it has alluded me.
-    ; Set the control bit to loop, and counter to 1
-    ld a, 1
-    out ($31), a 
-    out ($32), a 
-    out ($34), a 
-    out ($35), a 
-    out ($37), a 
-    out ($38), a 
 
-    ld a, (ti_timer1_onoff)
+    xor a ; Disable all timers
     out ($30), a
-    ld a, (ti_timer2_onoff)
     out ($33), a
-    ld a, (ti_timer3_onoff)
     out ($36), a
-
-
-    ; Default ti-os values (TODO: Is this calulator dependent?)
-    ld a, $42
-    out ($36), a 
-    ld a, 3      ; Interupt and loop (is this correct??)
-    out ($37), a
-    ld a, 1
-    out ($38), a
 
     ld      iy,_IY_TABLE	; Restore flag pointer
     im      1		;
 
+
+    ld a, $0B ; Restore interupt mask
+    out ($03), a
 
     ld a, 81h ; Restore normal ram size. After this point BCALLS will work again
     out (7), a
