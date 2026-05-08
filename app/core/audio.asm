@@ -10,16 +10,7 @@
 
 MACRO audio_cleanup
 	AUDIO_ACK_TIMER
-  pop af
-
-; Optimization:
-; Since the audio is ran so often, it is likely it is the only one
-; being fired. And so the only bit being set would be #3 and #7 (itself), the on button.
-; which is shifted to bit 4, and the audio is shifted to 0. 
-  cp $11
-  jp z, after_cases
-
-  jp after_audio_case
+  interupt_cleanup
 endm
 
 
@@ -29,7 +20,6 @@ audio_tick:
 
 ; ====A the low sequence of a square wave===
 aud_low:
-  push af
 
 ; NOTE: Patch this puppy
 low_count: ld a, 0
@@ -45,7 +35,6 @@ low_count: ld a, 0
 
 ; ====A the high sequence of a square wave===
 aud_high:
-  push af
 
 ; NOTE: Patch this puppy
 high_count: ld a, 0

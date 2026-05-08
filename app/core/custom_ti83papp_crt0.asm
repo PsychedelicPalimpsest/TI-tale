@@ -189,6 +189,8 @@ __Exit:     ; exit() jumps to this point
     out ($33), a
     out ($36), a
 
+    out (0), a ; Clear audio
+
     ld      iy,_IY_TABLE	; Restore flag pointer
     im      1		;
 
@@ -202,9 +204,7 @@ __Exit:     ; exit() jumps to this point
 
     xor	    a		; Switch to 6MHz (normal speed)
     out (20h), a
-__restore_sp_onexit:
-    ;ld	sp,0		; Restore SP
-    di
+
     im 1
     ei    
 
