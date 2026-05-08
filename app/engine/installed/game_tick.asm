@@ -6,6 +6,7 @@ PUBLIC engine_tick
 
 engine_tick:
     push hl
+    push bc
 
 ; Copy current keymap to last keymap
     ld hl, (_current_keymap)
@@ -141,5 +142,6 @@ DOWN:
 
 after_tuning:
 
+  pop bc
   pop hl
   ret
