@@ -182,10 +182,7 @@ setup_interrupts:
 
     SETUP_GREY_TIMER
     ; SETUP_GAME_TIMER
-    ld a, 94
-    ld (low_count+1), a
-    ld a, 94
-    ld (high_count+1), a
+
 
     SETUP_AUDIO_TIMER
 
