@@ -13,8 +13,8 @@ MACRO audio_cleanup
 endm
 
 ; max=1+sqrt(32768K / F)
-DEFC saw_maximum = 15
-DEFC saw_constant = 3
+DEFC saw_maximum = 45
+; DEFC saw_constant = 3
 
 audio_tick:
 ; Cary flag always set (due to interupt code)
@@ -25,7 +25,7 @@ audio_tick:
 saw_double:
   ld a, $1
 saw_style: ; Next two bytes may be patched
-  add a, saw_constant
+  or a \ rla ; may become add a, saw_constant
   cp saw_maximum
   jp nc, double_cleanup
 
