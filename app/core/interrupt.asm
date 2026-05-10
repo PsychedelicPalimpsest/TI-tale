@@ -101,7 +101,7 @@ PHASE interupt_vector
     in a, (4) ; 11- Get interrupt cause 
     
     rlca      ; 4
-    jr nc, non_audio_case  ; 12/7
+    jp nc, non_audio_case  ; 10
       ; Do audio logic
       INCLUDE "audio.asm" ; Taken out for simplicity
      

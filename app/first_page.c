@@ -11,6 +11,15 @@ int main(){
   for (int i = 128; i-=2;) screen_buffer[256 + i] = screen_buffer[256 + 1 + i] = 0xFF;
 
   greyscale_swap();
-  while(1);
+  while(1) {
+    #asm
+    in a, ($30)
+    in a, ($32) 
+    add a, a
+    in a, ($37)
+    in a, ($38) 
+    #endasm
+
+  }
 }
 
