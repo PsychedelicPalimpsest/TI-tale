@@ -50,13 +50,13 @@ ENDM
 
 
 MACRO SETUP_AUDIO_TIMER
-	ld	a, $44
-	out	($36), a	; 32768 Hz
+	ld	a, $A0
+	out	($36), a	; cpu/64
 
 	AUDIO_ACK_TIMER
 
 	ld	a, 24*8
-	out	($38), a ; 32768/41 = 800Hz
+	out	($38), a 
 ENDM
   MACRO AUDIO_ACK_TIMER
     ld	a, 3 ; Interrupt mode (to bit 7 of port 4h), and loop
@@ -110,6 +110,9 @@ non_audio_case:
     jr nc, non_grey_case  ; 12/7
       ; Do greyscale logic
       GREY_ACK_TIMER
+
+; This hack allows the audio to still work, it may cause issues, but ¯\_(ツ)_/¯
+      ei 
 
       ; Note: Self modifying code! (hook)
       _greyscale_call: call 0000h
