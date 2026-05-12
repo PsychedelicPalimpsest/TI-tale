@@ -9,7 +9,6 @@ MACRO bcall nn
   DEFW nn
 endm
 
-
 ; An auto incrementing ram definition
 MACRO RDEF arena, name, size
 ; Capture the old arena value as a constant
