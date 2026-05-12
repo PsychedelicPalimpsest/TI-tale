@@ -2,7 +2,6 @@ SECTION code_core
 
 PUBLIC setup_interrupts
 PUBLIC greyscale_addr
-PUBLIC gametick_addr
 
 INCLUDE "common.inc"
 EXTERN __Exit
@@ -13,56 +12,27 @@ defc interupt_mask = %00001001
 
 ; Adresses of greyscale and gametick hooks
 defc greyscale_addr = _greyscale_call + 1
-defc gametick_addr =  _gametick_call + 1
 
 
-MACRO SETUP_GAME_TIMER
-	ld	a, $46
-	out	($30), a	; 128 Hz
-
-	GAME_ACK_TIMER
-
-	ld	a, 4
-	out	($32), a ; 128/4 = 32Hz
-ENDM
-
-  MACRO GAME_ACK_TIMER
-    ld	a, 3 ; Interrupt mode (to bit 6 of port 4h), and loop
-    out	($31), 	a
-  ENDM
+defc ch1_timer = $36
+defc ch2_timer = $33
 
 
 
 MACRO SETUP_GREY_TIMER
 	ld	a, $40
-	out	($33), a	;10922 Hz
+	out	($30), a	;10922 Hz
 
 	GREY_ACK_TIMER
 
 	ld	a, (_grey_timing)
-	out	($35), a
+	out	($32), a
 ENDM
 
   MACRO GREY_ACK_TIMER
     ld	a, 3 ; Interrupt mode (to bit 5 of port 4h), and loop
-    out	($34), 	a
+    out	($31), 	a
   ENDM
-
-
-MACRO SETUP_AUDIO_TIMER
-	ld	a, $A0
-	out	($36), a	; cpu/64
-
-	AUDIO_ACK_TIMER
-
-	ld	a, 24*8
-	out	($38), a 
-ENDM
-  MACRO AUDIO_ACK_TIMER
-    ld	a, 3 ; Interrupt mode (to bit 7 of port 4h), and loop
-    out	($37), 	a
-  ENDM
-
 
 
 
@@ -72,6 +42,10 @@ MACRO interupt_cleanup
     ret
 ENDM
 
+
+
+; Get audio macros
+INCLUDE "audio.inc"
 
 
 ; Interupt preformence: 
@@ -101,17 +75,23 @@ PHASE interupt_vector
     in a, (4) ; 11- Get interrupt cause 
     
     rlca      ; 4
-    jp nc, non_audio_case  ; 10
-      ; Do audio logic
-      INCLUDE "audio.asm" ; Taken out for simplicity
+ch1_jp: 
+    jp c, ch1@saw_double ; 10
      
-non_audio_case:
     rlca                  ; 4
-    jr nc, non_grey_case  ; 12/7
-      ; Do greyscale logic
+ch2_jp: 
+    jp c, ch2@saw_double ; 10
+    rlca
+    jr nc, non_grey_case
       GREY_ACK_TIMER
 
-; This hack allows the audio to still work, it may cause issues, but ¯\_(ツ)_/¯
+
+
+
+; This hack allows the audio to still work, it may cause issues ¯\_(ツ)_/¯
+;
+; Ex: if audio takes up too much cpu, greyscale might not run in 60hz, and
+;     will interupt this interupt, not good. 
       ei 
 
       ; Note: Self modifying code! (hook)
@@ -119,15 +99,6 @@ non_audio_case:
       interupt_cleanup 
 
 non_grey_case:
-    rlca
-    jr nc, non_game_case
-      ; Do gametick logic
-       GAME_ACK_TIMER
-
-      ; Note: Self modifying code!
-      _gametick_call: call 0000h
-      interupt_cleanup 
-non_game_case:
 ; Assume any other interupt is caused by the on button
 ; note: It needs acked by ports 2 & 3
     ; Ack interupt
@@ -145,6 +116,8 @@ non_game_case:
     jp __Exit
 
 
+ch1: AUDIO_CHANNEL 1, ch1_timer, ch1_jp, ch1_instrument_val_ptr, ch1_instrument_low_ptr, ch1_saw_style
+ch2: AUDIO_CHANNEL 2, ch2_timer, ch2_jp, ch2_instrument_val_ptr, ch2_instrument_low_ptr, ch2_saw_style
 
 after_interrupt_code:
 DEPHASE
@@ -181,13 +154,13 @@ setup_interrupts:
     im 2
     di
     ; It is NOT safe to enable interupts until greyscale_addr and gametick_addr have been set!
-    ; Note here the race condition :<
+    ; Fun fact: This is _not_ a race condition, as interupts are disabled, if the timer expires nothing happens!
+
 
     SETUP_GREY_TIMER
-    ; SETUP_GAME_TIMER
-
-
-    SETUP_AUDIO_TIMER
-
+; Disable audio timers (re-enabled in engine)
+    xor a
+    out (ch1_timer), a
+    out (ch2_timer), a
 
     ret

@@ -18,13 +18,10 @@ install_hooks:
   ldir
 
   EXTERN greyscale_addr
-  EXTERN gametick_addr
   ; Insert the engine hooks (self modifying code EVIL)
   ld hl, greyscale_tick
   ld (greyscale_addr), hl
 
-  ld hl, engine_tick
-  ld (gametick_addr), hl
 
   ret
 
@@ -40,6 +37,8 @@ INCLUDE "installed/greyscale.asm"
 INCLUDE "installed/screenbg_blit.asm"
 INCLUDE "installed/greyscale_swap.asm"
 INCLUDE "installed/rand.asm"
+
+INCLUDE "installed/audio_engine.asm"
 
   end_of_install:
 DEPHASE
