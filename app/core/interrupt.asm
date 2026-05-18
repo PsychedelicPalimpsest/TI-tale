@@ -17,6 +17,8 @@ defc greyscale_addr = _greyscale_call + 1
 defc ch1_timer = $36
 defc ch2_timer = $33
 
+PUBLIC ch1_jp
+PUBLIC ch2_jp
 
 
 MACRO SETUP_GREY_TIMER
@@ -116,8 +118,15 @@ non_grey_case:
     jp __Exit
 
 
-ch1: AUDIO_CHANNEL 1, ch1_timer, ch1_jp, ch1_instrument_val_ptr, ch1_instrument_low_ptr, ch1_saw_style
-ch2: AUDIO_CHANNEL 2, ch2_timer, ch2_jp, ch2_instrument_val_ptr, ch2_instrument_low_ptr, ch2_saw_style
+ch1: AUDIO_CHANNEL 1, ch1_timer, ch1_jp, \
+                    ch1_instr_state, ch1_instrument_val_ptr, ch1_instrument_low_ptr, \
+                    ch1_saw_state, ch1_saw_style, ch1_saw_maximum_ptr, \
+                    ch1_square_state, ch1_square_up_ptr, ch1_square_down_ptr
+
+ch2: AUDIO_CHANNEL 2, ch2_timer, ch2_jp, \
+                    ch2_instr_state, ch2_instrument_val_ptr, ch2_instrument_low_ptr, \
+                    ch2_saw_state, ch2_saw_style, ch2_saw_maximum_ptr, \
+                    ch2_square_state, ch2_square_up_ptr, ch2_square_down_ptr
 
 after_interrupt_code:
 DEPHASE

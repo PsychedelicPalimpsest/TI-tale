@@ -20,17 +20,47 @@ MACRO audio_cleanup timer
     interupt_cleanup
 endm
 
-
 ; This macro is used twice, one for each channel (left and right)
-MACRO AUDIO_CHANNEL mask, timer, audio_jp, instrument_val_ptr, instrument_low_ptr, saw_style
+; NOTE: Coming into this, the cary flag IS SET. 
+
+MACRO AUDIO_CHANNEL mask, timer, audio_jp,                                   \
+                    instrument_state, instrument_val_ptr, instrument_low_ptr,\
+                    saw_state, saw_style, saw_max,                           \
+                    square_state, square_up_ptr, square_down_ptr
+    PUBLIC timer
+
+    PUBLIC instrument_val_ptr
+    PUBLIC instrument_low_ptr
+
+    PUBLIC saw_style  
+    PUBLIC square_up_ptr
+    PUBLIC square_down_ptr
+
+    PUBLIC instrument_state
+    PUBLIC square_state
+    PUBLIC saw_state
+    PUBLIC saw_max
+
+
     DEFC instrument_val_ptr = @lookup_instrument+1    ; 16 bit
     DEFC instrument_low_ptr = @lookup_reset+1             ; 8 bit
+
     DEFC saw_style                    = @saw_style                        ; 2 bytes of opcodes
+    DEFC square_up_ptr      = @square_uptime   + 1
+    DEFC square_down_ptr    = @square_downtime + 1
+
+    DEFC instrument_state = @lookup_instrument
+    DEFC square_state =     @square_up_state
+    DEFC saw_state    =     @saw_state
+    DEFC saw_max      =     @saw_maximum+1
+
+
 
 ; This lets us only set the low byte of the jp instruction
 ; (this also means no more then 256 bytes can be used here)
 ALIGN 256
 
+@saw_state:
 ;---======= Saw wave =======---
 @saw_double:
     ld a, $1
@@ -65,6 +95,7 @@ ALIGN 256
 
 ; low_ticks = maximum - high_ticks ~= -high_ticks + maximum -1
     cpl
+@saw_maximum:
     add saw_maximum
 
     out ($38), a
@@ -80,7 +111,7 @@ ALIGN 256
     audio_cleanup timer
 
 ;---======= Pure square wave =======---
-@square_up:
+@square_up_state:
 ; Reset bit to pull high
     ld a, (sound_state)
     and ~mask
@@ -102,10 +133,11 @@ ALIGN 256
     ld (sound_state), a
     out (0), a
 
+@square_downtime:
     ld a, 46
     out ($38), a
 
-    ld a, @square_up&0xFF
+    ld a, @square_up_state&0xFF
     ld (audio_jp+1), a
 
     audio_cleanup timer
