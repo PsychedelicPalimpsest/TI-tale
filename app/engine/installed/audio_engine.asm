@@ -2,7 +2,7 @@
 ; There are two 'speed modes' the audio engine supports:
 ;  - The fast mode: Here, the timer is set to cpu_freq/64, this allows
 ;    'higher' quality output, at the cost of cpu.
-;  - The slow mode: Where the timer is 32678 Hz, this is best for retro
+;  - The slow mode: Where the timer is 32768 Hz, this is best for retro
 ;    style chiptune audio. 
 ;
 ; In the fast mode, everything sounds higher pitched. As such, this is mostly
@@ -18,20 +18,59 @@
 
 
 
+; Public pointers used to control the current sound
+PUBLIC audio_state
+PUBLIC audio_ptr
+defc audio_state = audio_tick+1
+defc audio_ptr   = astate_next_note+1 
 
 
 ; Speed modes:
 ch1_speed: DEFB 44h
 ch2_speed: DEFB 44h
 
-; Determines if you are permitted to sweep the adative constant. Bit 0 for channel 1, 1 for channel 2
+; Determines if you are permitted to sweep the additive constant. Bit 1 for channel 1, 2 for channel 2
 can_sweep_saw_const: DEFB 0h
 
-; Public pointers used to control the current sound
-PUBLIC audio_state
-PUBLIC audio_ptr
-defc audio_state = audio_tick+1
-defc audio_ptr = audio_tick@next_note_state+1
+
+; Table for the note bytecode 
+note_lookup:
+    defw note_stop_song ; 00
+    defw note_wait      ; 01 nn : wait ticks
+
+; Speed options: Sets the speed for the next note
+    defw note_ch1_fast  ; 02
+    defw note_ch1_slow  ; 03
+
+    defw note_ch2_fast  ; 04
+    defw note_ch2_slow  ; 05
+
+    defw note_ch1_stop  ; 06
+    defw note_ch2_stop  ; 07
+
+; Square wave
+    defw note_ch1_square ; 08 n n : ticks high, ticks low
+    defw note_ch2_square ; 09 n n
+
+; Additive saw mode
+    defw saw_ch1@saw1   ; 0a n n : additive constant, maximum
+    defw saw_ch2@saw1   ; 0b n n
+
+; Exponential saw mode
+    defw saw_ch1@saw2  ; 0c n : maximum ticks
+    defw saw_ch2@saw2  ; 0d n
+
+; Exponential+1 saw mode
+    defw saw_ch1@saw3 ; 0e n : maximum ticks
+    defw saw_ch2@saw3 ; 0f n
+
+; Square pitch sweeping. Activates whenever the grey counter & activation mask is zero
+    defw note_ch1_square_sweep ; 10 n n n : activation mask, high ticks added, low ticks added
+    defw note_ch2_square_sweep ; 11 n n n
+
+; Saw pitch sweeping, Activates whenever the grey counter & activation mask is zero
+    defw note_ch1_saw_sweep ; 12 n n n  : activation mask, maximum ticks added, addative constant added (ignored if in anything other then saw mode 1)
+    defw note_ch2_saw_sweep ; 13 n n n
 
 
 
@@ -51,96 +90,69 @@ EXTERN ch2_timer
 ; EX: 
 ;   set_ch_state 1, square_state
 MACRO set_ch_state channel, state
-    extern ch1_jp
-    extern ch2_jp
-    extern ch1@state
-    extern ch2@state
+    EXTERN ch1_jp, ch2_jp
+    EXTERN ch1@state, ch1@state
 
-    extern ch##channel##_##state
+    EXTERN ch##channel##_##state
 
 ; No di is needed since it is an atomic operation
     ld a, ch##channel##_##state & 0xff
     ld (channel == 1 ? ch1_jp+1 : ch2_jp+1), a
-
 endm
 
 ; Sets the timer for a channel
-; Outputs: a=speed, enables interupts
+; Outputs: a=speed
 MACRO set_timer channel, speed
     defl timer_ = channel == 1 ? ch1_timer : ch2_timer
 
-    di
-
     ld a, (channel == 1 ? ch1_speed : ch2_speed)
     out (timer_), a
-    ld a, 3 ; loop + interupt 
+    ld a, 3 ; loop + interrupt 
     out (timer_ + 1), a
 
     ld a, speed
     out (timer_ + 2), a
-
-    ei
-endm
-
-; Inputs: d = high timing, e = low timing
-; channel should be 1 or 2
-MACRO setup_square channel
-    EXTERN ch1_square_down_ptr, ch1_square_up_ptr
-    EXTERN ch2_square_down_ptr, ch2_square_up_ptr
-
-    di
-    set_timer channel, e ; Low ptr
-
-    ; Set the square down value
-    ; a is still the low timing
-    ld (channel == 1 ? ch1_square_down_ptr : ch2_square_down_ptr), a
-
-    ; Set the square up value
-    ld a, d
-    ld (channel == 1 ? ch1_square_up_ptr : ch2_square_up_ptr), a
-
-    set_ch_state channel, square_state  ; Enables interupts
 endm
 
 
-; Opcodes for the note bytecode 
-note_lookup:
-    defw audio_tick@stop_song ; 00
-    defw audio_tick@wait      ; 01 nn : wait ticks
 
-; Speed options: Sets the speed for the next note
-    defw audio_tick@ch1_fast  ; 02
-    defw audio_tick@ch1_slow  ; 03
 
-    defw audio_tick@ch2_fast  ; 04
-    defw audio_tick@ch2_slow  ; 05
 
-    defw audio_tick@ch1_stop  ; 06
-    defw audio_tick@ch2_stop  ; 07
+; ---======Channel cleanup hook======---
 
-; Square wave
-    defw audio_tick@ch1_square ; 08 n n : ticks high, ticks low
-    defw audio_tick@ch2_square ; 09 n n
+macro _reset_cleanup channel
+    ld hl, _no_cleanup
+    ld (channel == 1 ? ch1_cleanup_hook: ch2_cleanup_hook), hl
+endm
+macro set_cleanup_nohook channel 
+    ld hl, channel == 1 ? cleanup_ch1_nohook : cleanup_ch2_nohook
+    ld (channel == 1 ? ch1_cleanup_hook : ch2_cleanup_hook), hl
+endm
 
-; Adative saw mode
-    defw saw_ch1@saw1   ; 0a n n : addative constant, maximum
-    defw saw_ch2@saw1   ; 0b n n
+defc ch1_cleanup_hook = cleanup_ch1+1
+defc ch2_cleanup_hook = cleanup_ch2+1
 
-; Exponential saw mode
-    defw saw_ch1@saw2  ; 0c n : maximum ticks
-    defw saw_ch2@saw2  ; 0d n
+; These get called whenever a channels tone is changed
+cleanup_ch1: 
+    jp _no_cleanup
+cleanup_ch2: 
+    jp _no_cleanup
 
-; Exponential+1 saw mode
-    defw saw_ch1@saw3 ; 0e n : maximum ticks
-    defw saw_ch2@saw3 ; 0f n
 
-; Square pitch sweeping. Activates whenever the grey counter & activation mask is zero
-    defw audio_tick@ch1_square_sweep ; 10 n n n : activation mask, high ticks added, low ticks added
-    defw audio_tick@ch2_square_sweep ; 11 n n n
+cleanup_ch1_nohook:
+    _reset_cleanup 1
 
-; Saw pitch sweeping, Activates whenever the grey counter & activation mask is zero
-    defw audio_tick@ch1_saw_sweep ; 10 n n n  : activation mask, maximum ticks added, addative constant added (ignored if in anything other then saw mode 1)
-    defw audio_tick@ch2_saw_sweep ; 11 n n n
+    ld hl, no_wait_hook
+    ld (ch1_hook+1), hl
+    ret
+cleanup_ch2_nohook:
+    _reset_cleanup 2
+    ld hl, no_wait_hook
+    ld (ch2_hook+1), hl
+    ; Fall through for ret
+
+_no_cleanup: ret
+
 
 
 
@@ -149,19 +161,22 @@ note_lookup:
 ; the audio changes based on user input, but this is a price I
 ; am willing to pay. 
 ; 
-; This controls the audio
+; This controls the audio, andis the main entry point for audio
 audio_tick:
     ; Self modifying code state machine
-    jp @nothing
+    jp astate_nothing
 
 
-@nothing: ret
-    
+;---===== Audio States====---
 
-@next_note_state:
+astate_nothing: ret
+
+; This is where the next note is processed. A lot of things will jump to @after, which
+; allows them to set their own de. 
+astate_next_note:
     ; Self modifying code: Music ptr
     ld de, $0000
-@_next_note:
+@after:
 
     ld a, (de)
     inc de
@@ -177,63 +192,46 @@ audio_tick:
     ld h, (hl)
     ld l, a
 
+    ; Jp to the note
     jp (hl)
 
-
-; Channel cleanup hooks:
-macro _reset_cleanup channel
-    ld hl, audio_tick@_no_cleanup
-    ld (channel == 1 ? ch1_cleanup_hook: ch2_cleanup_hook), hl
-endm
-
-defc ch1_cleanup_hook = @cleanup_ch1+1
-defc ch2_cleanup_hook = @cleanup_ch2+1
-
-; These get called whenever a channels tone is changed
-@cleanup_ch1: 
-    jp @_no_cleanup
-@cleanup_ch2: 
-    jp @_no_cleanup
-
-@cleanup_ch1_nohook:
-    _reset_cleanup 1
-    ld hl, @wait_ch2_hook
-    ld (@wait_ch1_hook+1), hl
-    ret
-@cleanup_ch2_nohook:
-    _reset_cleanup 2
-    ld hl, @after_wait_ch2_hook
-    ld (@wait_ch2_hook+1), hl
-    ret
+; Note calling conventions:
+; Input: de is set to the audio pointer. 
+; Output: Every note MUST do one of two things:
+;         1. Jump to astate_next_note@after with de=the next note ptr
+;            this is done when a note does not need to wait until the next state
+;         2. Write the new audio ptr to astate_next_note+1, before returning
 
 
-@_no_cleanup: ret
+    no_wait_hook: ret
 
-@wait_state:
+astate_wait:
     ; Self modifying code: gray count target value
     ld de, 0000
     ld hl, (_gray_count)
 
+    ; sub hl, de
     or a \ sbc hl, de
 
-    jr nc, @wait_expired
+    jr nc, wait_expired
 
-@wait_ch1_hook:
-    jp @wait_ch2_hook
-@wait_ch2_hook:
-    jp @after_wait_ch2_hook
-@after_wait_ch2_hook:
-    ret
+    ch1_hook:
+        call no_wait_hook
 
-@wait_expired:
-    ld hl, @next_note_state
-    ld (audio_state), hl
-    jp (hl)
+    ch2_hook:
+        jp no_wait_hook
+
+    wait_expired:
+        ld hl, astate_next_note
+        ld (audio_state), hl
+        jp (hl)
     
 
-@stop_song:
+;---======Note bytecode implmentations=====--- 
+
+note_stop_song:
     ; No need to save audio ptr, since we are stoping the song
-    ld hl, @nothing
+    ld hl, astate_nothing
     ld (audio_state), hl
 
     ; Reset speed
@@ -245,12 +243,13 @@ defc ch2_cleanup_hook = @cleanup_ch2+1
     xor a
     out (ch1_timer), a
     out (ch2_timer), a
+    ld (can_sweep_saw_const), a
 
-    call @cleanup_ch1
-    jp   @cleanup_ch2
+    call cleanup_ch1
+    jp   cleanup_ch2 ; Tail call
 
 
-@wait:
+note_wait:
     ex de, hl
 
     ld e, (hl)
@@ -261,59 +260,81 @@ defc ch2_cleanup_hook = @cleanup_ch2+1
     ; Save updated audio ptr
     ld (audio_ptr), hl
 
+    ld hl, astate_wait
+    ld (audio_state), hl
+
     ld hl, (_gray_count)
     add hl, de
-    ld (@wait_state+1), hl
+    ld (astate_wait+1), hl
     ret
 
-@ch1_fast:
+note_ch1_fast:
     ld a, $A0 ; cpu_freq/64
     ld (ch1_speed), a
 
-    call @cleanup_ch1
-    jp @_next_note
-@ch1_slow:
+    jp astate_next_note@after
+note_ch1_slow:
     ld a, $44 ; 32768 Hz
     ld (ch1_speed), a
 
-    call @cleanup_ch1
-    jp @_next_note
+    jp astate_next_note@after
 
 
-@ch2_fast:
+note_ch2_fast:
     ld a, $A0 ; cpu_freq/64
     ld (ch2_speed), a
 
-    call @cleanup_ch2
-    jp @_next_note
-@ch2_slow:
+    jp astate_next_note@after
+note_ch2_slow:
     ld a, $44 ; 32768 Hz
     ld (ch2_speed), a
 
-    call @cleanup_ch2
-    jp @_next_note
+    jp astate_next_note@after
 
 
-@ch1_stop:
-    call @cleanup_ch1
+note_ch1_stop:
+    call cleanup_ch1
 
     ; Turn the timer off
     xor a
     out (ch1_timer), a
-    jp @_next_note
+    jp astate_next_note@after
 
-@ch2_stop:
-    call @cleanup_ch2
+note_ch2_stop:
+    call cleanup_ch2
 
     ; Turn the timer off
     xor a
     out (ch2_timer), a
-    jp @_next_note
+    jp astate_next_note@after
 
 
+; Inputs: d = high timing, e = low timing
+; channel should be 1 or 2
+MACRO setup_square channel
+    EXTERN ch1_square_down_ptr, ch1_square_up_ptr
+    EXTERN ch2_square_down_ptr, ch2_square_up_ptr
 
+    di
+    set_timer channel, e ; Low period
+
+    ; Set the square down value
+    ; a is still the low timing
+    ld (channel == 1 ? ch1_square_down_ptr : ch2_square_down_ptr), a
+
+    ; Set the square up value
+    ld a, d
+    ld (channel == 1 ? ch1_square_up_ptr : ch2_square_up_ptr), a
+
+    set_ch_state channel, square_state
+
+    ei
+endm
+
+
+; Generic for both channels
 macro _square channel
-    call channel == 1 ? @cleanup_ch1 : @cleanup_ch1
+    call channel == 1 ? cleanup_ch1 : cleanup_ch2
 
     ex de, hl
     
@@ -323,20 +344,19 @@ macro _square channel
     setup_square channel
 
     ex de, hl
-    jp @_next_note
+    jp astate_next_note@after
 endm
 
 
-@ch1_square: _square 1 
-@ch2_square: _square 2 
+note_ch1_square: _square 1 
+note_ch2_square: _square 2 
 
 macro _square_sweep channel
-    local @wait_hook, @wait_hook_mask
-    local @wait_hook_up_mod, @wait_hook_down_mod
-
 ; Set the cleanup code
-    ld hl, channel == 1 ? @cleanup_ch1_nohook  : @cleanup_ch2_nohook
-    ld (channel == 1 ? ch1_cleanup_hook : ch2_cleanup_hook), hl
+    set_cleanup_nohook channel
+
+    ld hl, @wait_hook
+    ld (channel == 1 ? ch1_hook+1 : ch2_hook+1), hl
 
 ; Set the activation mask
     ld a, (de) \ inc de
@@ -350,16 +370,17 @@ macro _square_sweep channel
     ld a, (de) \ inc de
     ld (@wait_hook_down_mod+1), a
 
-    jp @_next_note
 
 
-    defl return_jp = channel == 1 ? @wait_ch2_hook : @after_wait_ch2_hook
+    jp astate_next_note@after
+
+
 @wait_hook:
     ld a, (_gray_count) ; Low byte of grey count
 
     ; Self modifying code
-@wait_hook_mask: cp 00h
-    jp nz, return_jp
+@wait_hook_mask: and 00h
+    ret nz
 
     defl up_ptr = channel == 1 ? ch1_square_up_ptr : ch2_square_up_ptr
     ld a, (up_ptr)
@@ -374,13 +395,11 @@ macro _square_sweep channel
     ld (down_ptr), a
 
 
-    jp return_jp
+    ret
 endm
 
-@ch1_square_sweep: _square_sweep 1
-@ch2_square_sweep: _square_sweep 2
-
-
+note_ch1_square_sweep: _square_sweep 1
+note_ch2_square_sweep: _square_sweep 2
 
 
 macro _saw style, max_ptr, chan
@@ -430,8 +449,11 @@ macro _saw style, max_ptr, chan
 
     ; fall through
 @setup:
-    call chan == 1 ? audio_tick@cleanup_ch1 : audio_tick@cleanup_ch2
+; Currently interupts are disabled
+
     set_timer chan, 2 ; Set later by the saw wave
+
+    call chan == 1 ? cleanup_ch1 : cleanup_ch2
 
     ld a, (de) \ inc de
     ld (max_ptr), a
@@ -439,23 +461,23 @@ macro _saw style, max_ptr, chan
     set_ch_state chan, saw_state 
 
     ei
-    jp audio_tick@_next_note
+
+    jp astate_next_note@after
 endm
 
-extern ch1_saw_style, ch1_saw_maximum_ptr
+EXTERN ch1_saw_style, ch1_saw_maximum_ptr
 saw_ch1: _saw ch1_saw_style, ch1_saw_maximum_ptr, 1
 
-extern ch2_saw_style, ch2_saw_maximum_ptr
+EXTERN ch2_saw_style, ch2_saw_maximum_ptr
 saw_ch2: _saw ch2_saw_style, ch2_saw_maximum_ptr,  2
 
 
 macro _saw_sweep channel
-    local @wait_hook, @wait_hook_mask
-    local @wait_hook_max_mod, @wait_hook_const_mod
-
 ; Set the cleanup code
-    ld hl, channel == 1 ? audio_tick@cleanup_ch1_nohook  : audio_tick@cleanup_ch2_nohook
-    ld (channel == 1 ? ch1_cleanup_hook : ch2_cleanup_hook), hl
+    set_cleanup_nohook channel
+
+    ld hl, @wait_hook
+    ld (channel == 1 ? ch1_hook+1 : ch2_hook+1), hl
 
 ; Set the activation mask
     ld a, (de) \ inc de
@@ -469,16 +491,16 @@ macro _saw_sweep channel
     ld a, (de) \ inc de
     ld (@wait_hook_const_mod+1), a
 
-    jp audio_tick@_next_note
 
 
-    defl return_jp = channel == 1 ? audio_tick@wait_ch2_hook : audio_tick@after_wait_ch2_hook
+    jp astate_next_note@after
+
 @wait_hook:
     ld a, (_gray_count) ; Low byte of grey count
 
     ; Self modifying code
-@wait_hook_mask: cp 00h
-    jp nz, return_jp
+@wait_hook_mask: and 00h
+    ret nz 
 
     defl max_ptr = channel == 1 ? ch1_saw_maximum_ptr : ch2_saw_maximum_ptr
     ld a, (max_ptr)
@@ -488,19 +510,16 @@ macro _saw_sweep channel
     ld a, (can_sweep_saw_const)
     and 1 << channel
 
-; If the saw style is anything other then style 1, do not modifying the addative constant
-    jp z, return_jp
+; If the saw style is anything other then style 1, do not modify the addative constant
+    ret z
 
     defl style_ptr = channel == 1 ? ch1_saw_style : ch2_saw_style
     ld a, (style_ptr+1)
 @wait_hook_const_mod: add 00h
     ld (style_ptr+1), a
 
-
-    jp return_jp
-   
-
+    ret
 endm
 
-audio_tick@ch1_saw_sweep: _saw_sweep 1
-audio_tick@ch2_saw_sweep: _saw_sweep 2
+note_ch1_saw_sweep: _saw_sweep 1
+note_ch2_saw_sweep: _saw_sweep 2
