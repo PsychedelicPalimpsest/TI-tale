@@ -1,8 +1,9 @@
-; This code runs at 32 Hz, and is run by interrupt.asm
+; This code runs at ~30 Hz, and is run by greyscale.asm
 PUBLIC engine_tick
 
 
 engine_tick:
+
 ; Copy current keymap to last keymap
     ld hl, (_current_keymap)
     ld (_last_keymap), hl
@@ -15,7 +16,7 @@ engine_tick:
     ld (_last_keymap + 6), hl
 
 
-; Game counter
+; Game counter (do we need this???)
     ld hl, (_game_count)
     inc hl
     ld (_game_count), hl
@@ -136,4 +137,5 @@ DOWN:
     ; Fall through
 
 after_tuning:
+
   ret

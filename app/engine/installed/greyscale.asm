@@ -5,23 +5,25 @@
 ; due to the lack of delay between LCD writes. 
 
 greyscale_tick:
-
 defc xmax = 96d
 defc ymax = 64d
     ld hl, (_gray_count)
     inc hl
     ld (_gray_count), hl
 
+    ; Call only on even ticks, so ~60/2 Hz
+    bit 0, l
+    call nz, engine_tick
 
     ld a, (phase)
-    and a, a ; Test if a a=0
+    or a
     jp z, phase0
 
     dec a
     jp z, phase1
 
     ; a=2
-    xor a, a
+    xor a
     ld (phase), a
     ld hl, (current_phase1)
     jp after_phases

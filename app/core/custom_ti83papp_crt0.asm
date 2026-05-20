@@ -170,6 +170,7 @@ start:
     in a, (6)
     ld (_first_rom_page), a
 
+
     EXTERN setup_interrupts
     call setup_interrupts
 
@@ -182,17 +183,20 @@ start:
 __Exit:     ; exit() jumps to this point
     di
 
-    xor a, a
-    out ($30), a        ; turn off timer
-    out ($31), a        ; clear loop control
 
-    out ($33), a        ; turn off timer
-    out ($34), a        ; clear loop control
+    xor a ; Disable all timers
+    out ($30), a
+    out ($33), a
+    out ($36), a
 
+    out (0), a ; Clear audio
 
     ld      iy,_IY_TABLE	; Restore flag pointer
     im      1		;
 
+
+    ld a, $0B ; Restore interupt mask
+    out ($03), a
 
     ld a, 81h ; Restore normal ram size. After this point BCALLS will work again
     out (7), a
@@ -200,9 +204,7 @@ __Exit:     ; exit() jumps to this point
 
     xor	    a		; Switch to 6MHz (normal speed)
     out (20h), a
-__restore_sp_onexit:
-    ;ld	sp,0		; Restore SP
-    di
+
     im 1
     ei    
 

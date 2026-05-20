@@ -9,7 +9,6 @@ MACRO bcall nn
   DEFW nn
 endm
 
-
 ; An auto incrementing ram definition
 MACRO RDEF arena, name, size
 ; Capture the old arena value as a constant
@@ -126,11 +125,11 @@ endm
 ; Modified for constants (29 t-states)
 ; hl = nn + a
 MACRO add_nn_a_hl  nn
-	add a, nn & 0xFF
-	ld l,a
-  ld a, nn >> 8
-  adc a, 0
-  ld h, a
+    add a, nn & 0xFF
+    ld l,a
+    ld a, nn >> 8
+    adc a, 0
+    ld h, a
 endm
 
 
