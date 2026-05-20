@@ -58,7 +58,7 @@ MACRO fheap_init
   ld (hl), d ; Since we are not allowed in the bootcode, d must be non-zero!
 endm
 
-; NOTE: Is create a procedure, do not inline
+; NOTE: This creates a procedure, do not inline
 ;
 ; Inputs: 
 ; hl = heap ptr
@@ -119,10 +119,10 @@ not_null:
   ex de, hl
   ; now hl = *freehead, de = &freehead+1
   dec de
-  ldi \ ldi
+  ldi \ ldd
 
-  ; Undo incs from ldi, and go metadata byte
-  dec hl \ dec hl \ dec hl
+  ; Undo inc from ldi, and go metadata byte
+  dec hl \ dec hl
 
   xor a, a
   ld (hl), a
@@ -135,7 +135,7 @@ endm
 ; hl = heap to free on
 ; de = ptr to free
 ; Outputs:
-; bc--
+; bc-=2
 ; hl=hl
 ; de=de
 MACRO fheap_free
@@ -150,11 +150,8 @@ MACRO fheap_free
   inc de
 
   ldi ; Copy first byte of old heap head
+  ldd ; Copy secound byte, then restore hl and de
 
-  ld a, (hl) ; Copy secound byte
-  ld (de), a
-
-  dec hl \ dec de ; Restore ptrs
 
   ld (hl), e
   inc hl
