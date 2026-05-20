@@ -85,10 +85,12 @@ ch2_jp:
     jp c, ch2@saw_double ; 10
     rlca
     jr nc, non_grey_case
+    ; Greyscale uses all of these! (poor sap)
+        push hl
+        push de
+        push bc
+
       GREY_ACK_TIMER
-
-
-
 
 ; This hack allows the audio to still work, it may cause issues ¯\_(ツ)_/¯
 ;
@@ -96,8 +98,16 @@ ch2_jp:
 ;     will interupt this interupt, not good. 
       ei 
 
+      EXTERN audio_tick
+      call audio_tick
+
       ; Note: Self modifying code! (hook)
       _greyscale_call: call 0000h
+
+        pop bc
+        pop de
+        pop hl
+
       interupt_cleanup 
 
 non_grey_case:
@@ -120,12 +130,12 @@ non_grey_case:
 
 ch1: AUDIO_CHANNEL 1, ch1_timer, ch1_jp, \
                     ch1_instr_state, ch1_instrument_val_ptr, ch1_instrument_low_ptr, \
-                    ch1_saw_state, ch1_saw_style, ch1_saw_maximum_ptr, \
+                    ch1_saw_state, ch1_saw_style, ch1_saw_maximum_ptr1, ch1_saw_maximum_ptr2,  \
                     ch1_square_state, ch1_square_up_ptr, ch1_square_down_ptr
 
 ch2: AUDIO_CHANNEL 2, ch2_timer, ch2_jp, \
                     ch2_instr_state, ch2_instrument_val_ptr, ch2_instrument_low_ptr, \
-                    ch2_saw_state, ch2_saw_style, ch2_saw_maximum_ptr, \
+                    ch2_saw_state, ch2_saw_style, ch2_saw_maximum_ptr1, ch2_saw_maximum_ptr2, \
                     ch2_square_state, ch2_square_up_ptr, ch2_square_down_ptr
 
 after_interrupt_code:

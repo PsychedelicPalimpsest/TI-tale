@@ -4,13 +4,7 @@
 ; This code is highly optimized, and will only run on post 2007 calculators
 ; due to the lack of delay between LCD writes. 
 
-; NOTE: **Must perseve all registers but af**
-
 greyscale_tick:
-    push hl
-    push de
-    push bc
-
 defc xmax = 96d
 defc ymax = 64d
     ld hl, (_gray_count)
@@ -78,9 +72,6 @@ endr
     sub a, d
     jp nc, row_loop
 
-    pop bc
-    pop de
-    pop hl
     ret
 
 

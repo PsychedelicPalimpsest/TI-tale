@@ -11,8 +11,8 @@
 
 
 ; max=1+sqrt(32768K / F)
-DEFC saw_maximum = 45
-DEFC saw_constant = 2
+; DEFC saw_maximum = 45
+; DEFC saw_constant = 2
 
 MACRO audio_cleanup timer
    ld a, $3         ;  Loop + interupt
@@ -25,7 +25,7 @@ endm
 
 MACRO AUDIO_CHANNEL mask, timer, audio_jp,                                   \
                     instrument_state, instrument_val_ptr, instrument_low_ptr,\
-                    saw_state, saw_style, saw_max,                           \
+                    saw_state, saw_style, saw_max1, saw_max2,                           \
                     square_state, square_up_ptr, square_down_ptr
     PUBLIC timer
 
@@ -39,7 +39,8 @@ MACRO AUDIO_CHANNEL mask, timer, audio_jp,                                   \
     PUBLIC instrument_state
     PUBLIC square_state
     PUBLIC saw_state
-    PUBLIC saw_max
+    PUBLIC saw_max1
+    PUBLIC saw_max2
 
 
     DEFC instrument_val_ptr = @lookup_instrument+1    ; 16 bit
@@ -52,7 +53,8 @@ MACRO AUDIO_CHANNEL mask, timer, audio_jp,                                   \
     DEFC instrument_state = @lookup_instrument
     DEFC square_state =     @square_up_state
     DEFC saw_state    =     @saw_state
-    DEFC saw_max      =     @saw_maximum+1
+    DEFC saw_max1     =     @saw_maximum1+1
+    DEFC saw_max2     =     @saw_maximum2+1
 
 
 
@@ -65,14 +67,16 @@ ALIGN 256
 @saw_double:
     ld a, $1
 @saw_style: ; Next two bytes may be patched
-    ; or a \ rla ; may become add a, saw_constant
-        add a, saw_constant
-    cp saw_maximum
+    or a \ rla ; may become add a, saw_constant
+
+    jr c, @saw_cleanup ; Safty (could be removed)
+@saw_maximum1:
+    cp 00h ; saw_maximum
     jr nc, @saw_cleanup 
 
     ld (@saw_double+1), a
 @saw_output:
-    out	($38), a
+    out	(2+timer), a ; loop counter
 
 ; Reset the bit to pull it high
     ld a, (sound_state)
@@ -93,12 +97,12 @@ ALIGN 256
 @saw_double_rest:
     ld a, (@saw_double+1)
 
-; low_ticks = maximum - high_ticks ~= -high_ticks + maximum -1
-    cpl
-@saw_maximum:
-    add saw_maximum
+; low_ticks = maximum - high_ticks ~= -high_ticks + maximum
+    neg
+@saw_maximum2:
+    add 00h ; saw_maximum
 
-    out ($38), a
+    out (2+timer), a ; loop counter
 
 ; Set the bit to pull low
     ld a, (sound_state)
@@ -120,8 +124,8 @@ ALIGN 256
 
  
 @square_uptime:
-    ld a, 46
-    out ($38), a
+    ld a, 00h ; 
+    out (2+timer), a
 
     ld a, @square_down&0xFF
     ld (audio_jp+1), a
@@ -135,7 +139,7 @@ ALIGN 256
 
 @square_downtime:
     ld a, 46
-    out ($38), a
+    out (2+timer), a
 
     ld a, @square_up_state&0xFF
     ld (audio_jp+1), a
@@ -148,7 +152,7 @@ EXTERN test_instrument
     ld a, (0000) ; (test_instrument) 
     or a
     jr z, @lookup_reset
-    out ($38), a
+    out (2+timer), a
 
 @oscilator:
     ld a, (sound_state)

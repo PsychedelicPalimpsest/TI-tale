@@ -25,6 +25,18 @@ defc audio_state = audio_tick+1
 defc audio_ptr   = astate_next_note+1 
 
 
+
+PUBLIC set_song
+set_song:
+    ld (audio_ptr), hl
+
+    ld hl, astate_next_note
+    ld (audio_state), hl
+    ret
+
+
+
+
 ; Speed modes:
 ch1_speed: DEFB 44h
 ch2_speed: DEFB 44h
@@ -52,7 +64,9 @@ note_lookup:
     defw note_ch1_square ; 08 n n : ticks high, ticks low
     defw note_ch2_square ; 09 n n
 
-; Additive saw mode
+; Additive saw mode. Given an addative constant K, and desired freq F:
+; max=1+sqrt(32768K / F)
+
     defw saw_ch1@saw1   ; 0a n n : additive constant, maximum
     defw saw_ch2@saw1   ; 0b n n
 
@@ -103,15 +117,15 @@ endm
 ; Sets the timer for a channel
 ; Outputs: a=speed
 MACRO set_timer channel, speed
-    defl timer_ = channel == 1 ? ch1_timer : ch2_timer
+    defl timer_ = (channel == 1 ? ch1_timer : ch2_timer)
 
     ld a, (channel == 1 ? ch1_speed : ch2_speed)
     out (timer_), a
     ld a, 3 ; loop + interrupt 
-    out (timer_ + 1), a
+    out (1+timer_), a
 
     ld a, speed
-    out (timer_ + 2), a
+    out (2+timer_), a
 endm
 
 
@@ -156,7 +170,7 @@ _no_cleanup: ret
 
 
 
-
+PUBLIC audio_tick
 ; This runs at ~60 hz before the greyscale tick, this does mean
 ; the audio changes based on user input, but this is a price I
 ; am willing to pay. 
@@ -402,7 +416,7 @@ note_ch1_square_sweep: _square_sweep 1
 note_ch2_square_sweep: _square_sweep 2
 
 
-macro _saw style, max_ptr, chan
+macro _saw style, max_ptr1, max_ptr2, chan
 @saw1:
     di
     ld a, $C6 ; add a, n
@@ -456,7 +470,8 @@ macro _saw style, max_ptr, chan
     call chan == 1 ? cleanup_ch1 : cleanup_ch2
 
     ld a, (de) \ inc de
-    ld (max_ptr), a
+    ld (max_ptr1), a
+    ld (max_ptr2), a
 
     set_ch_state chan, saw_state 
 
@@ -465,11 +480,11 @@ macro _saw style, max_ptr, chan
     jp astate_next_note@after
 endm
 
-EXTERN ch1_saw_style, ch1_saw_maximum_ptr
-saw_ch1: _saw ch1_saw_style, ch1_saw_maximum_ptr, 1
+EXTERN ch1_saw_style, ch1_saw_maximum_ptr1, ch1_saw_maximum_ptr2
+saw_ch1: _saw ch1_saw_style, ch1_saw_maximum_ptr1, ch1_saw_maximum_ptr2, 1
 
-EXTERN ch2_saw_style, ch2_saw_maximum_ptr
-saw_ch2: _saw ch2_saw_style, ch2_saw_maximum_ptr,  2
+EXTERN ch2_saw_style, ch2_saw_maximum_ptr1, ch2_saw_maximum_ptr2
+saw_ch2: _saw ch2_saw_style, ch2_saw_maximum_ptr1, ch2_saw_maximum_ptr2,  2
 
 
 macro _saw_sweep channel
@@ -487,7 +502,7 @@ macro _saw_sweep channel
     ld a, (de) \ inc de
     ld (@wait_hook_max_mod+1), a
 
-; Addative const ticks added
+; Additive const ticks added
     ld a, (de) \ inc de
     ld (@wait_hook_const_mod+1), a
 
@@ -502,10 +517,12 @@ macro _saw_sweep channel
 @wait_hook_mask: and 00h
     ret nz 
 
-    defl max_ptr = channel == 1 ? ch1_saw_maximum_ptr : ch2_saw_maximum_ptr
-    ld a, (max_ptr)
+    defl max_ptr1 = channel == 1 ? ch1_saw_maximum_ptr1 : ch2_saw_maximum_ptr1
+    defl max_ptr2 = channel == 1 ? ch1_saw_maximum_ptr2 : ch2_saw_maximum_ptr2
+    ld a, (max_ptr1)
 @wait_hook_max_mod: add 00h
-    ld (max_ptr), a
+    ld (max_ptr1), a
+    ld (max_ptr2), a
 
     ld a, (can_sweep_saw_const)
     and 1 << channel
@@ -513,7 +530,7 @@ macro _saw_sweep channel
 ; If the saw style is anything other then style 1, do not modify the addative constant
     ret z
 
-    defl style_ptr = channel == 1 ? ch1_saw_style : ch2_saw_style
+    defl style_ptr = (channel == 1 ? ch1_saw_style : ch2_saw_style)
     ld a, (style_ptr+1)
 @wait_hook_const_mod: add 00h
     ld (style_ptr+1), a
