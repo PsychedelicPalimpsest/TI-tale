@@ -170,9 +170,9 @@ EXTERN test_instrument
     ld a, 0 ; test_instrument & 0xFF
     ld (@lookup_instrument+1), a
 
+; Reset the bit for the next instrument pulse
     ld a, (sound_state)
     and ~mask
-    out (0), a
     ld (sound_state), a
 
     jp @lookup_instrument
