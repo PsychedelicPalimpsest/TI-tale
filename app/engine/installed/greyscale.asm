@@ -1,15 +1,83 @@
 ; Greyscale system. This code runs from interrupt.asm at approx 60 Hz, but
 ; is adjustable by the user to adjust flickering issues. 
 ; 
-; This code is highly optimized, and will only run on post 2007 calculators
+; This code is highly optimized, and will only run on post ~2007 calculators
 ; due to the lack of delay between LCD writes. 
 
-greyscale_tick:
+
+
+PUBLIC xmax, ymax
+
 defc xmax = 96d
 defc ymax = 64d
-    ld hl, (_gray_count)
+
+
+PUBLIC clock_count_1, clock_count_2, clock_count_3, clock_count_4
+
+
+; This is the main counter for the game. It is measured in 2X the ticks of the 32768Hz clock, or 2**16.
+; this means that count_3 is the number of secounds since the game has started! And you can use 
+; the pair (count_2, count_3) as a 16 bit fixed point number of secounds. This has a maximum of 
+; 194 days of range.
+;
+; Please note: count_1 is not very percise!
+defc clock_count_1 = greyc_12+1
+defc clock_count_2 = greyc_12+2
+defc clock_count_3 = greyc_3 +1
+defc clock_count_4 = greyc_4 +1
+defc clock_count_5 = greyc_5 +1
+
+PUBLIC _grey_count, grey_timingX6
+
+defc grey_timingX6 = greyc_x6+1
+
+defc _grey_count=greyscale_tick+1
+
+; The long count, this is only rarly hit (once per secound). 
+    greyc_3: 
+        ld a, 00h
+        add 1
+        ld (greyc_3+1), a
+        ld (_scount+1), a  ; High byte of secounds counter
+
+        jp nc, after_grey_count
+
+; Every 256 secounds
+    greyc_4: 
+        ld a, 00h
+        add 1
+        ld (greyc_4+1), a
+
+        jp nc, after_grey_count
+
+; Every 256*256 secounds
+    greyc_5: 
+        ld a, 00h
+        add 1
+        ld (greyc_5+1), a
+
+        jp after_grey_count
+
+; GREYSCALE ENTRY POINT:
+greyscale_tick:
+    ld hl, 0
     inc hl
-    ld (_gray_count), hl
+    ld (_grey_count), hl
+
+greyc_12:
+    ld de, 0000h                ; High percision timer
+greyc_x6:
+    ld hl, 0000h               ; How much ticks as passed in a hypothetical 64KHz clock
+
+    add hl, de
+
+    ld (greyc_12+1), hl
+
+    ld a, h
+    ld (_scount), a     ; Low byte of secounds counter
+
+    jr c, greyc_3         ; Only happens once per secound
+after_grey_count:
 
     ; Call only on even ticks, so ~60/2 Hz
     bit 0, l

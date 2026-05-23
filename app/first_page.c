@@ -18,11 +18,11 @@ REPTI del, 40, 60, 100, 120, 160, 180, 220, 240, 250
     db $0a, 1, del
     db $12, $3, 5, 2
 
-    db $01 \ dw 20
+    db $01 \ dw 64
 
     db $09, del, 100
     
-    db $01 \ dw 80   ; wait
+    db $01 \ dw 256   ; wait
 endr
 
     db 0

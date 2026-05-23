@@ -22,8 +22,8 @@ engine_init:
     ld bc, $1000 ; 4kb
     ldir
 
-    ld a, $A0
-    ld (_grey_timing), a
+    ld l, $A0
+    call _set_grey_timing
 
 ; Set buffers as dirty, this tells the greyscale system to force redraw.
   ld hl, $ffff
@@ -66,3 +66,27 @@ engine_init:
     ld (alt_phase3), hl
 
     ret
+
+; void set_grey_timing(unsigned char timing) __z88dk_fastcall;
+PUBLIC _set_grey_timing
+_set_grey_timing:
+    ld a, l
+    ld (_grey_timing), a
+
+    ld h, $0
+    ld d, h
+    ld e, l
+
+    add hl, hl
+    add hl, de
+    add hl, hl
+    ld (grey_timingX6), hl
+    ret
+
+
+
+
+
+
+
+

@@ -37,10 +37,26 @@ defl globals_area = _globals_start
 ;  Engine internals
 ;==================================================
 
-RDEF globals_area,            _gray_count,     2   ; a count of the times the greyscale routine has fired
+
+; a count of the times the greyscale routine has fired
+; The rate of change of this varies per configuration, so use of this is
+; discouraged!
+EXTERN _gray_count  
+
 RDEF globals_area,            _game_count,     2
 
+; DO NOT SET DIRECTLY, use `set_grey_timing`!
 RDEF globals_area,            _grey_timing,    1
+EXTERN grey_timingX6
+
+
+; High percision clock values. See greyscale.asm
+EXTERN clock_count_1, clock_count_2, clock_count_3, clock_count_4, clock_count_5
+
+; A 16 bit fixed point number of the amount of secounds % 256 since the game has started
+RDEF globals_area,            _scount,         2
+
+
 RDEF globals_area,            _grey_contrast,  1
 
 

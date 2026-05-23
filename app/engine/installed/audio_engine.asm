@@ -222,7 +222,7 @@ astate_next_note:
 astate_wait:
     ; Self modifying code: gray count target value
     ld de, 0000
-    ld hl, (_gray_count)
+    ld hl, (_scount)
 
     ; sub hl, de
     or a \ sbc hl, de
@@ -277,7 +277,7 @@ note_wait:
     ld hl, astate_wait
     ld (audio_state), hl
 
-    ld hl, (_gray_count)
+    ld hl, (_scount)
     add hl, de
     ld (astate_wait+1), hl
     ret
@@ -390,7 +390,7 @@ macro _square_sweep channel
 
 
 @wait_hook:
-    ld a, (_gray_count) ; Low byte of grey count
+    ld a, (_grey_count) ; Low byte of grey count
 
     ; Self modifying code
 @wait_hook_mask: and 00h
@@ -511,7 +511,7 @@ macro _saw_sweep channel
     jp astate_next_note@after
 
 @wait_hook:
-    ld a, (_gray_count) ; Low byte of grey count
+    ld a, (_grey_count) ; Low byte of secound count
 
     ; Self modifying code
 @wait_hook_mask: and 00h

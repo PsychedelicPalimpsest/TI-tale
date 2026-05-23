@@ -133,6 +133,21 @@ MACRO add_nn_a_hl  nn
 endm
 
 
+
+; hl = 3*a
+; Clobbers de, (41 t-states)
+MACRO mul_a_3_hl
+    ld h, $0
+    ld l, a
+
+    ld d, h
+    ld e, a
+
+    add hl, hl
+    add hl, de
+endm
+
+
 macro add_de_a
     add a, e
     ld e, a
