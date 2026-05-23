@@ -64,10 +64,12 @@ greyscale_tick:
     inc hl
     ld (_grey_count), hl
 
-greyc_12:
-    ld de, 0000h                ; High percision timer
-greyc_x6:
-    ld hl, 0000h               ; How much ticks as passed in a hypothetical 64KHz clock
+    ; Call only on even ticks, so ~60/2 Hz
+    bit 0, l
+    call nz, engine_tick
+
+greyc_12: ld de, 0000h  ; High percision timer
+greyc_x6: ld hl, 0000h  ; How much ticks as passed in a hypothetical 64KHz clock since the last greyscale tick
 
     add hl, de
 
@@ -79,9 +81,7 @@ greyc_x6:
     jr c, greyc_3         ; Only happens once per secound
 after_grey_count:
 
-    ; Call only on even ticks, so ~60/2 Hz
-    bit 0, l
-    call nz, engine_tick
+
 
     ld a, (phase)
     or a

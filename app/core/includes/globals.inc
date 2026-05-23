@@ -53,7 +53,7 @@ EXTERN grey_timingX6
 ; High percision clock values. See greyscale.asm
 EXTERN clock_count_1, clock_count_2, clock_count_3, clock_count_4, clock_count_5
 
-; A 16 bit fixed point number of the amount of secounds % 256 since the game has started
+; A 16 bit fixed point number of the amount of secounds % 256 since the game has started. 
 RDEF globals_area,            _scount,         2
 
 
