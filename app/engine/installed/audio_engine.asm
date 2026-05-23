@@ -19,20 +19,28 @@
 
 
 ; Public pointers used to control the current sound
-PUBLIC audio_state
-PUBLIC audio_ptr
-defc audio_state = audio_tick+1
-defc audio_ptr   = astate_next_note+1 
 
 
 
 PUBLIC set_song
 set_song:
-    ld (audio_ptr), hl
+    ld (audio_ptr1+1), hl
 
     ld hl, astate_next_note
-    ld (audio_state), hl
+    ld (audio_machine1+1), hl
     ret
+
+
+PUBLIC set_effect
+set_effect:
+    ld (audio_ptr2+1), hl
+
+    ld hl, astate_next_note
+    ld (audio_machine2+1), hl
+    ret
+
+
+
 
 
 
@@ -169,6 +177,9 @@ _no_cleanup: ret
 
 
 
+defc state_machine = (1+audio_machine1 - (audio_ptr1+1))
+defc await_time    = (1+wait_ptr1      - (audio_ptr1+1))
+
 
 PUBLIC audio_tick
 ; This runs at ~60 hz before the greyscale tick, this does mean
@@ -177,21 +188,47 @@ PUBLIC audio_tick
 ; 
 ; This controls the audio, andis the main entry point for audio
 audio_tick:
-    ; Self modifying code state machine
-    jp astate_nothing
+    push ix
+
+audio_ptr1: ld de, 0000          ; Audio ptr
+
+    ld a, d \ or a
+    jp z, after_audio1
+
+    ld ix, audio_ptr1+1
+
+wait_ptr1: ld bc, 0000          ; Wait ptr
+
+
+audio_machine1: call astate_nothing
+after_audio1:
+
+
+audio_ptr2: ld de, 0000
+
+    ld a, d \ or a
+    jp z, after_audio2
+
+    ld ix, audio_ptr2+1
+    ld bc, 0000
+
+    ld a, d \ or e
+audio_machine2: call astate_nothing
+
+after_audio2:
+
+    pop ix
+    ret
+
+
 
 
 ;---===== Audio States====---
 
 astate_nothing: ret
 
-; This is where the next note is processed. A lot of things will jump to @after, which
-; allows them to set their own de. 
+; This assumes de is the 
 astate_next_note:
-    ; Self modifying code: Music ptr
-    ld de, $0000
-@after:
-
     ld a, (de)
     inc de
 
@@ -212,20 +249,20 @@ astate_next_note:
 ; Note calling conventions:
 ; Input: de is set to the audio pointer. 
 ; Output: Every note MUST do one of two things:
-;         1. Jump to astate_next_note@after with de=the next note ptr
+;         1. Jump to astate_next_note with de=the next note ptr
 ;            this is done when a note does not need to wait until the next state
-;         2. Write the new audio ptr to astate_next_note+1, before returning
+;         2. Write the new audio ptr to ix
+;      Setting the next state goes to ix+state_machine
 
 
     no_wait_hook: ret
 
 astate_wait:
-    ; Self modifying code: gray count target value
-    ld de, 0000
     ld hl, (_scount)
 
-    ; sub hl, de
-    or a \ sbc hl, de
+; bc is the audio wait time, set by caller
+    ; sub hl, bc
+    or a \ sbc hl, bc
 
     jr nc, wait_expired
 
@@ -237,7 +274,7 @@ astate_wait:
 
     wait_expired:
         ld hl, astate_next_note
-        ld (audio_state), hl
+        ld (ix+state_machine), hl  ; Z80 macro
         jp (hl)
     
 
@@ -246,7 +283,7 @@ astate_wait:
 note_stop_song:
     ; No need to save audio ptr, since we are stoping the song
     ld hl, astate_nothing
-    ld (audio_state), hl
+    ld (ix+state_machine), hl
 
     ; Reset speed
     ld a, $44 ; 32768 Hz
@@ -272,38 +309,39 @@ note_wait:
     inc hl
 
     ; Save updated audio ptr
-    ld (audio_ptr), hl
+    ld (ix), hl
 
     ld hl, astate_wait
-    ld (audio_state), hl
+    ld (ix+state_machine), hl
 
     ld hl, (_scount)
     add hl, de
-    ld (astate_wait+1), hl
+
+    ld (ix+await_time), hl
     ret
 
 note_ch1_fast:
     ld a, $A0 ; cpu_freq/64
     ld (ch1_speed), a
 
-    jp astate_next_note@after
+    jp astate_next_note
 note_ch1_slow:
     ld a, $44 ; 32768 Hz
     ld (ch1_speed), a
 
-    jp astate_next_note@after
+    jp astate_next_note
 
 
 note_ch2_fast:
     ld a, $A0 ; cpu_freq/64
     ld (ch2_speed), a
 
-    jp astate_next_note@after
+    jp astate_next_note
 note_ch2_slow:
     ld a, $44 ; 32768 Hz
     ld (ch2_speed), a
 
-    jp astate_next_note@after
+    jp astate_next_note
 
 
 note_ch1_stop:
@@ -312,7 +350,7 @@ note_ch1_stop:
     ; Turn the timer off
     xor a
     out (ch1_timer), a
-    jp astate_next_note@after
+    jp astate_next_note
 
 note_ch2_stop:
     call cleanup_ch2
@@ -320,7 +358,7 @@ note_ch2_stop:
     ; Turn the timer off
     xor a
     out (ch2_timer), a
-    jp astate_next_note@after
+    jp astate_next_note
 
 
 ; Inputs: d = high timing, e = low timing
@@ -358,7 +396,7 @@ macro _square channel
     setup_square channel
 
     ex de, hl
-    jp astate_next_note@after
+    jp astate_next_note
 endm
 
 
@@ -386,7 +424,7 @@ macro _square_sweep channel
 
 
 
-    jp astate_next_note@after
+    jp astate_next_note
 
 
 @wait_hook:
@@ -477,7 +515,7 @@ macro _saw style, max_ptr1, max_ptr2, chan
 
     ei
 
-    jp astate_next_note@after
+    jp astate_next_note
 endm
 
 EXTERN ch1_saw_style, ch1_saw_maximum_ptr1, ch1_saw_maximum_ptr2
@@ -508,7 +546,7 @@ macro _saw_sweep channel
 
 
 
-    jp astate_next_note@after
+    jp astate_next_note
 
 @wait_hook:
     ld a, (_grey_count) ; Low byte of secound count
