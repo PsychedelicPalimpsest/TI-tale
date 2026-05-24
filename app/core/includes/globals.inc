@@ -1,9 +1,6 @@
 ;============Global variable allocations============
 
 
-
-
-
 ;==================================================
 ; Scrap bytes betweem interupt table and interupt
 ; 8101h - 8181h are free (middle of interupts)
@@ -17,11 +14,6 @@ RDEF interupt_globals,  free_trash_byte, 1   ;  Text renderer trashes this
 RDEF interupt_globals,  sound_state,     1   ; Current linkport state
 
 
-; Restore TI state
-
-
-
-
 IF interupt_globals > $8181
   ; cause a syntax error
   error Corruption detected
@@ -29,8 +21,10 @@ endif
 
 
 
+; These are the fixed location 
 defl _globals_start = $C000
 defl globals_area = _globals_start
+
 
 
 ;==================================================
@@ -97,7 +91,6 @@ defc c_bss = $C100
 ; Actual screen buffers
 ;==================================================
 
-
 defl screen_size = 768    ; 96 * 64/8
 
 defl buffers_start =  $C800
@@ -123,5 +116,12 @@ RDEF buffers_area,              grey_phase3_altbuff, screen_size
 
 
 
-defl buffers_end = buffers_area
+defc buffers_end = buffers_area
 
+
+
+
+
+; This symbol is set by engine/install.asm, aka code installed to ram. After this
+; point the dynamic variable allocations start.
+EXTERN end_of_install

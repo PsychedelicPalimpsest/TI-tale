@@ -1,4 +1,5 @@
 #include <stdbool.h>
+#include <stdint.h>
 
 enum event_t{
   ev_create,
@@ -16,6 +17,30 @@ typedef struct {
 
 typedef struct {
 } Instance;
+
+
+typedef struct {
+    void*   rot_cache; // Location in the sprite cache table
+    uint8_t width; // Pixel width
+    uint8_t height;
+    
+    void* tileset;
+    uint8_t tileset_width;
+    uint8_t tileset_height;
+} Tile;
+
+
+typedef struct {
+    void* rot_cache;
+    void* data;
+
+    // Flags:
+    // bit 0: Do rot cache
+    // ...todo
+    uint8_t flags;
+    uint8_t width;
+    uint8_t height;
+} Sprite;
 
 
 

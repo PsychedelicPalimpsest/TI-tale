@@ -4,7 +4,7 @@
 
 SECTION code_engine
 PUBLIC install_hooks
-
+PUBLIC end_of_install
 
 ; Todo: Figure out more percise location AFTER interupts
 DEFC install_location =  $8500
@@ -26,6 +26,7 @@ install_hooks:
   ret
 
 
+
 install_origin:
 PHASE install_location 
 start_of_install:
@@ -40,7 +41,7 @@ INCLUDE "installed/rand.asm"
 
 INCLUDE "installed/audio_engine.asm"
 
-  end_of_install:
+    end_of_install:
 DEPHASE
 
 
