@@ -121,7 +121,7 @@ not_null:
   dec de
   ldi \ ldd
 
-  ; Undo inc from ldi, and go metadata byte
+  ; Undo incs from ldi, and go metadata byte
   dec hl \ dec hl
 
   xor a, a

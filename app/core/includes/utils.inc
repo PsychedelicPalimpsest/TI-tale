@@ -133,10 +133,31 @@ MACRO add_nn_a_hl  nn
 endm
 
 
+; hl = nn + 2a  (43 t-states)
+MACRO add_nn_2a_hl  nn
+    ld l, a
+    ld h, 0
+    add hl, hl
+    ld de, nn
+    add hl, de
+endm
+
+
+MACRO add_hl_nn nn
+    IF (nn) <= 4
+        REPT nn
+            inc hl
+        endr
+    else
+        ld de, nn
+        add hl, de
+    endif
+ENDM
+
 
 ; hl = 3*a
 ; Clobbers de, (41 t-states)
-MACRO mul_a_3_hl
+MACRO mul_3a_hl
     ld h, $0
     ld l, a
 

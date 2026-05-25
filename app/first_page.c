@@ -25,6 +25,7 @@ REPTI del, 40, 60, 100, 120, 160, 180, 220, 240, 250
     db $01 \ dw 256   ; wait
 endr
 
+
     db 0
 
 
@@ -33,6 +34,18 @@ endr
 
 
 int main(){
+#asm
+INCLUDE "core/includes/hashmap.inc"
+
+    hmap_def test_map, $8000, 64, 3, $8000 
+
+
+
+#endasm
+
+
+
+
   set_song();
 
   for (int i = 128; i-=2;) screen_buffer[i] = 0xFF;

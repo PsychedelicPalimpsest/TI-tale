@@ -1,3 +1,6 @@
+IFNDEF GLOBALS_INC
+DEFINE GLOBALS_INC
+
 ;============Global variable allocations============
 
 
@@ -125,3 +128,7 @@ defc buffers_end = buffers_area
 ; This symbol is set by engine/install.asm, aka code installed to ram. After this
 ; point the dynamic variable allocations start.
 EXTERN end_of_install
+
+
+
+ENDIF
