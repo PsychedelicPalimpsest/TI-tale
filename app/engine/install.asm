@@ -9,7 +9,7 @@ PUBLIC end_of_install
 ; Todo: Figure out more percise location AFTER interupts
 DEFC install_location =  $8500
 INCLUDE "core/common.inc"
-
+INCLUDE "engine/engine_globals.inc"
 
 install_hooks:
   ld hl, install_origin
@@ -31,6 +31,8 @@ install_origin:
 PHASE install_location 
 start_of_install:
   ; NOTE: ALWAYS KEEP THIS FIRST. is saves <256 bytes due to alignment
+INCLUDE "installed/sprite_system.asm"
+
 INCLUDE "installed/sprite_blit.asm"
 
 INCLUDE "installed/game_tick.asm"

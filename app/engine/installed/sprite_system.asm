@@ -50,87 +50,75 @@ setup_sprite_system:
     ret
 
 
-
-; Rotates an input buffer into an output buffer. Simply reset bc,
-; to run one after another. The first column needs zero'd!
+; Takes a sprite, and generates the sprite rotation cache.
 ; Inputs:
 ;  de =  Input location
-;  ix =  Output location + height
-;  b  =  Height (Height cannot be more then 128)
-;  c  =  0 
-;  a  =  7-rot
-;
-; Clobbers: hl, a
-; Outputs: ix += height, de += height
-;
-; Optimal usage: Only call bitro on the first col, after that call bitro_subsequent
+;  ix =  Output location
+;  hl = Width*height
+;  c = Width (bytes)
+;  a  = Height 
+build_cache:
+    ld (@reset_height+1), a
+    ld (@restore_sp+1), sp
+    ld sp, hl
 
-PUBLIC bitro, bitro_subsequent
-DEFC bitro_subsequent = bitro@loop
 
-bitro:
-    ld (@rot_pt+1), a
 
-    ld a, b \ neg
-; DD XX N where N is the +d part (this is why height is limited)
-    ld (@set_curr1+2), a
-    ld (@set_curr2+2), a
-
+; hl = 8*width*height - 1
+    add hl, hl
+    add hl, hl
+    add hl, hl
+    dec hl
+    ld (@next_outputline+1), hl
+    
+@reset_height:
+    ld b, 00
 @loop:
     ld a, (de)
+    exx
 
-    ld l, a
-    ld h, c ; C is assumed to be zero (3 cycle savings per loop!)
+; Use register pair ac, where a is the high byte
+    ld c, a
+    xor a
 
-@rot_pt:
-    jr $+2
-    REPT 7
-        add hl, hl
-    endr
+    REPT 4
+        ld (hl), c
+        add hl, sp
 
-; Combine with the previous value which could be here
-@set_curr1: ld a, (ix+0) \ or l
-@set_curr2: ld (ix+0),  a
+        ex de, hl
 
-    ld (ix), h
+        ld (hl), a
+        add hl, sp ; Carry flag is assemed to be reset!
 
-    inc ix
+        rl c
+        rla
+
+        ld (hl), a
+        add hl, sp
+
+        ex de, hl
+        ld (hl), c
+        add hl, sp
+
+        rl c
+        rla
+    ENDR
+
+@next_outputline: ld bc, 0000
+    
+    or a ; Reset carry
+    sbc hl, bc
+    ex de, hl
+
+    sbc hl, bc ; Carry flag assumed reset 
+    ex de, hl
+
+    exx
     inc de
 
-    djnz bitro
+    djnz @loop
+    dec c
+    jp nz, @reset_height
+    
+@restore_sp: ld sp, 0000
     ret
-
-
-
-
-; Inputs:
-; de = sprite
-; ix = output
-; bc  = height (cannot be more then 128)
-; iyl = width
-;
-; WARNING: Please zero the first output column
-PUBLIC bitro_full
-bitro_full:
-    add ix, bc
-
-    ld a, c
-    ld c, b
-    ld b, a
-
-    ld (@loop+1), a
-
-    call bitro
-
-    dec iyl
-    ret z ; One col sprites
-
-@loop:
-    ld b, 00h ; Restore height (smc)
-    call bitro_subsequent
-
-    dec iyl
-    jp nz, @loop
-
-    ret
-
