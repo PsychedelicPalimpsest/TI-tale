@@ -68,7 +68,7 @@ MACRO hmap_init hmap
     ldir
 endm
 
-# Note, this should not be inlined if commonly used :<
+# Note: This generates a routine
 # run xhash, and then this.
 # Inputs:
 # A = hash (see xhash), (hl)=key 
