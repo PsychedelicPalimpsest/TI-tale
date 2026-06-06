@@ -177,6 +177,16 @@ macro add_de_a
 @s1:
 endm
 
+macro add_hl_a_de
+    add a, l
+    ld e, a
+    ld d, h
+    jp nc, @s1
+    inc d
+@s1:
+endm
+
+
 ; de = nn + a
 MACRO add_nn_a_de  nn
 	add a, nn & 0xFF

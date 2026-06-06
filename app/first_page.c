@@ -5,41 +5,31 @@
 
 extern void greyscale_swap();
 
-void set_song() __naked {
+void set_sprite() __naked {
 #asm 
-    ld hl, test_song
-    EXTERN set_song
-    jp set_song
+    extern build_cache
+    ld hl, _screen_buffer
+    exx
 
-    
-
-test_song:
-REPTI del, 40, 60, 100, 120, 160, 180, 220, 240, 250 
-    db $0a, 1, del
-    db $12, $3, 5, 2
-
-    db $01 \ dw 64
-
-    db $09, del, 100
-    
-    db $01 \ dw 256   ; wait
-endr
+    ld de, sprite
+    ld a, 5*2
+    ld c, 1
+    ld hl, 5*2*2
 
 
-    db 0
-
-
+    jp build_cache
+sprite:
+    DEFB $FF, $0F
+    DEFB $FF, $F0
+    DEFB $0F, $FF
+    DEFB $F0, $FF
+    DEFB $FF, $FF
 #endasm
 }
 
 
 int main(){
-
-  set_song();
-
-  for (int i = 128; i-=2;) screen_buffer[i] = 0xFF;
-  for (int i = 128; i-=2;) screen_buffer[128 + 1 + i] = 0xFF;
-  for (int i = 128; i-=2;) screen_buffer[256 + i] = screen_buffer[256 + 1 + i] = 0xFF;
+    set_sprite();
 
   greyscale_swap();
   while (1);

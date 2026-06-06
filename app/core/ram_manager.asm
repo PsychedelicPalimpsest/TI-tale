@@ -5,7 +5,6 @@ INCLUDE "core/common.inc"
 
 PUBLIC init_ram
 init_ram:
-
     in a, (2)
     ld hl, err_unsuported
 
@@ -15,10 +14,12 @@ init_ram:
 
 ; Find the required amount of ram to copy
     ld hl, (tempMem) ; End of user variables
+
     ex de, hl
     ld hl, $C000
     or a \ sbc hl, de
     ex de, hl
+
     jp nc, @no_carry
 
     ld hl, $C000
@@ -28,11 +29,6 @@ init_ram:
     ; now hl is the amount of bytes needed
 
     push hl
-
-
-    
-    
-
 
 
 ;    Make all ram executable

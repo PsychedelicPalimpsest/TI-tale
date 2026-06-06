@@ -50,25 +50,51 @@ setup_sprite_system:
     ret
 
 
+
+
+
 ; Takes a sprite, and generates the sprite rotation cache.
+; NOTE: Disabling interupts is a MUST
 ; Inputs:
 ;  de =  Input location
-;  ix =  Output location
-;  hl = Width*height
+;  hl'=  Output location
+;  hl = (Width+1)*height
 ;  c = Width (bytes)
 ;  a  = Height 
+PUBLIC build_cache
 build_cache:
     ld (@reset_height+1), a
     ld (@restore_sp+1), sp
     ld sp, hl
 
+    
+    exx
+        ; de = output location + height
+        add_hl_a_de
+    exx
+
+; Register allocation:
+; sp = stride between rotations (width*heigh)
+; b  = height loop counter
+; c  = width  loop counter (input)
+; de = input ptr
+; hl'= regular output ptr
+; de'= output ptr + height
 
 
-; hl = 8*width*height - 1
+; hl = -(8*width*height - 1)
     add hl, hl
     add hl, hl
     add hl, hl
-    dec hl
+
+    ld a, l
+    cpl
+    ld l, a
+
+    ld a, h
+    cpl
+    ld h, a
+    inc hl \ inc hl
     ld (@next_outputline+1), hl
     
 @reset_height:
@@ -78,39 +104,41 @@ build_cache:
     exx
 
 ; Use register pair ac, where a is the high byte
-    ld c, a
-    xor a
+    ld b, a
+    ld c, $0
 
     REPT 4
+        ld a, b
+        or (hl)
+        ld (hl), a
+        add hl, sp
+    
+        ex de, hl
+
+        ld (hl), c
+        add hl, sp
+
+        srl b
+        rr c
+
         ld (hl), c
         add hl, sp
 
         ex de, hl
-
-        ld (hl), a
-        add hl, sp ; Carry flag is assemed to be reset!
-
-        rl c
-        rla
-
+        ld a, b
+        or (hl)
         ld (hl), a
         add hl, sp
 
-        ex de, hl
-        ld (hl), c
-        add hl, sp
-
-        rl c
-        rla
+        srl b
+        rr c
     ENDR
 
 @next_outputline: ld bc, 0000
-    
-    or a ; Reset carry
-    sbc hl, bc
+    add hl, bc
     ex de, hl
 
-    sbc hl, bc ; Carry flag assumed reset 
+    add hl, bc 
     ex de, hl
 
     exx
