@@ -72,6 +72,8 @@ PUBLIC _set_grey_timing
 _set_grey_timing:
     ld a, l
     ld (_grey_timing), a
+	out	($32), a         ; Greyscale timing counter port
+
 
     ld h, $0
     ld d, h

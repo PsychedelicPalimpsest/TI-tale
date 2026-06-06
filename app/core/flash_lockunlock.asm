@@ -1,3 +1,4 @@
+SECTION CODE_ENGINE
 ; PREFACE: THIS FILE IS TAKEN: the_mad_joob @
 ; https://www.omnimaga.org/asm-language/flash-snacks/msg407110/#msg407110
 ;

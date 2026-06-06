@@ -5,7 +5,7 @@ CFLAGS = "-pragma-define:CRT_ENABLE_STDIO=0" -m --list
 SFLAGS = -l
 
 
-CORE_LIB_FILES = core/interrupt.asm 
+CORE_LIB_FILES = core/interrupt.asm core/flash_lockunlock.asm core/ram_manager.asm
 core.lib: $(CORE_LIB_FILES) core/audio.inc
 	z88dk-z80asm $(SFLAGS) -xcore.lib $(CORE_LIB_FILES)
 

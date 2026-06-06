@@ -34,17 +34,6 @@ endr
 
 
 int main(){
-#asm
-INCLUDE "core/includes/hashmap.inc"
-
-    hmap_def test_map, $8000, 64, 3, $8000 
-
-
-
-#endasm
-
-
-
 
   set_song();
 

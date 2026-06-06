@@ -7,7 +7,7 @@
 
     EXTERN  _main		; No matter what set up we have, main is
                         ;  always, always external to this file.
-    GLOBAL  __Exit
+    GLOBAL  __Exit, __Early_Exit
 
 
 
@@ -148,6 +148,7 @@ ENDIF
     ; End of branch table, begin of startup stuff
     ;--------------------------------------------
 
+
 SECTION code_crt_init
 start:
     bcall    _ForceFullScreen 
@@ -156,12 +157,15 @@ start:
 
     di ; Disable interupts to prevent any issues during setup
 
+    EXTERN init_ram
+    call init_ram
+
+    di
+
+
+
     ld a, $1 ; Set 15Mz
     out (20h), a
-
-    ; Give us more ram. After this point bcalls are not safe
-    ld a, $83
-    out (7), a
 
     EXTERN engine_prepage_init
     call engine_prepage_init
@@ -170,6 +174,11 @@ start:
     in a, (6)
     ld (_first_rom_page), a
 
+
+    xor a ; Disable all timers (Normalized the timer state)
+    out ($30), a
+    out ($33), a
+    out ($36), a
 
     EXTERN setup_interrupts
     call setup_interrupts
@@ -183,7 +192,6 @@ start:
 __Exit:     ; exit() jumps to this point
     di
 
-
     xor a ; Disable all timers
     out ($30), a
     out ($33), a
@@ -191,22 +199,25 @@ __Exit:     ; exit() jumps to this point
 
     out (0), a ; Clear audio
 
+
+    EXTERN cleanup_ram
+    call cleanup_ram
+
+
     ld      iy,_IY_TABLE	; Restore flag pointer
-    im      1		;
+    im      1
 
 
     ld a, $0B ; Restore interupt mask
     out ($03), a
-
-    ld a, 81h ; Restore normal ram size. After this point BCALLS will work again
-    out (7), a
-
 
     xor	    a		; Switch to 6MHz (normal speed)
     out (20h), a
 
     im 1
     ei    
+
+__Early_Exit:
 
     bcall    _EnableApd ; The devs say to do this after turning it off
 
