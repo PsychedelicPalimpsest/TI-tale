@@ -12,18 +12,16 @@ void set_sprite() __naked {
     exx
 
     ld de, sprite
-    ld a, 5*2
-    ld c, 1
-    ld hl, 5*2*2
+    ld a, 4*2
+    ld c, 3
+    ld hl, 4*2*3
 
 
     jp build_cache
 sprite:
-    DEFB $FF, $0F
-    DEFB $FF, $F0
-    DEFB $0F, $FF
-    DEFB $F0, $FF
-    DEFB $FF, $FF
+    DEFB $FF, $0F, $0F, $FF
+    DEFB $FF, $00, $00, $FF
+    DEFB $FF, $0F, $0F, $FF
 #endasm
 }
 

@@ -59,24 +59,18 @@ setup_sprite_system:
 ;  de =  Input location
 ;  hl'=  Output location
 ;  hl = (Width+1)*height
-;  c = Width (bytes)
-;  a  = Height 
+;  c = Height  
+;  a = Width (bytes)
 PUBLIC build_cache
 build_cache:
     ld (@reset_height+1), a
     ld (@restore_sp+1), sp
     ld sp, hl
 
-    
-    exx
-        ; de = output location + height
-        add_hl_a_de
-    exx
-
 ; Register allocation:
 ; sp = stride between rotations (width*heigh)
-; b  = height loop counter
-; c  = width  loop counter (input)
+; b  = width  loop counter (input)
+; c  = height loop counter
 ; de = input ptr
 ; hl'= regular output ptr
 ; de'= output ptr + height
@@ -107,31 +101,19 @@ build_cache:
     ld b, a
     ld c, $0
 
-    REPT 4
+    REPT 8
         ld a, b
         or (hl)
         ld (hl), a
-        add hl, sp
-    
-        ex de, hl
+        inc hl
 
         ld (hl), c
-        add hl, sp
-
+        inc hl
+        
         srl b
         rr c
 
-        ld (hl), c
         add hl, sp
-
-        ex de, hl
-        ld a, b
-        or (hl)
-        ld (hl), a
-        add hl, sp
-
-        srl b
-        rr c
     ENDR
 
 @next_outputline: ld bc, 0000
