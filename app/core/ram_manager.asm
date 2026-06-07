@@ -31,16 +31,16 @@ init_ram:
     push hl
 
 
-;    Make all ram executable
     EXTERN flashunlock
     call flashunlock
+     ;    Make all ram executable
         xor a      ; Set lower ram execution limit to zero
         out ($25),a
 
         cpl        ; Set highest ram execution limit to MAX
         out ($26),a
 
-
+    
         xor a
         ld ($8E29), a ; numLastEntries, this makes page 83 FREE
 
@@ -66,10 +66,10 @@ init_ram:
     pop hl ; Get the ret ptr
 
 ; See: https://wikiti.brandonw.net/index.php?title=83Plus:OS:Ram_Pages
-    ld a, $83
+    ld a, $83  ; The free executable ram page
     out (7), a
 
-    ld a, 1   ; Default 8000h ram page to C000
+    ld a, 1   ; Default 8000h ram page to C000h
     out (5), a
 
     ld a, b
