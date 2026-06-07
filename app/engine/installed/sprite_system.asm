@@ -58,37 +58,31 @@ setup_sprite_system:
 ; Inputs:
 ;  de =  Input location
 ;  hl'=  Output location
-;  hl = (Width+1)*height
-;  c = Height  
+;  de' = Stride between pixels
+;  hl =  Width*height - stride
 ;  a = Width (bytes)
+;  c = Height  
 PUBLIC build_cache
 build_cache:
     ld (@reset_height+1), a
     ld (@restore_sp+1), sp
     ld sp, hl
 
-; Register allocation:
-; sp = stride between rotations (width*heigh)
-; b  = width  loop counter (input)
-; c  = height loop counter
-; de = input ptr
-; hl'= regular output ptr
-; de'= output ptr + height
+    ld ixh, d ; Temp storage for de
+    ld b,   e
 
-
-; hl = -(8*width*height - 1)
+; hl = Width*height*8
     add hl, hl
     add hl, hl
     add hl, hl
 
-    ld a, l
-    cpl
-    ld l, a
-
-    ld a, h
-    cpl
-    ld h, a
-    inc hl \ inc hl
+; width - Width*height*8
+    ld d, $0
+    ld e, a
+    ex de, hl
+    sbc hl, de ; It would be bad anyways the above overflowed, so this is find
+    ld d,   ixh ; Restore de
+    ld e,   b
     ld (@next_outputline+1), hl
     
 @reset_height:
@@ -97,7 +91,7 @@ build_cache:
     ld a, (de)
     exx
 
-; Use register pair ac, where a is the high byte
+; Use register pair bc, where c is the high byte
     ld b, a
     ld c, $0
 
@@ -105,10 +99,10 @@ build_cache:
         ld a, b
         or (hl)
         ld (hl), a
-        inc hl
+        add hl, de
 
         ld (hl), c
-        inc hl
+
         
         srl b
         rr c
@@ -118,10 +112,6 @@ build_cache:
 
 @next_outputline: ld bc, 0000
     add hl, bc
-    ex de, hl
-
-    add hl, bc 
-    ex de, hl
 
     exx
     inc de

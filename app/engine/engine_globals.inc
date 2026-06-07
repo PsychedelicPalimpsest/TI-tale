@@ -1,3 +1,6 @@
+#IFNDEF ENGINE_GLOBALS
+#DEFINE ENGINE_GLOBALS
+
 
 INCLUDE "core/includes/globals.inc"
 
@@ -25,3 +28,5 @@ DEFC engine_globals_end = engine_globals
 ; After the engine globals (static size), is the dynamically sized sprite cache
 DEFC sprite_cache_head = engine_globals_end
 
+
+#ENDIF
