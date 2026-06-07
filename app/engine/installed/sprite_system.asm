@@ -105,3 +105,194 @@ build_cache:
     
 @restore_sp: ld sp, 0000h
     ret
+
+
+
+PUBLIC rot_screenblit
+rot_screenblit:
+
+; inputs:
+; de = input background-1
+; ix = output buffer
+; hl = input stride-1
+; a  = 8-rotation 
+rotblit_screen:
+    macro rot_byte label
+    label:
+        jr $+2
+        rept 7
+            add hl, hl
+        endr
+            
+    endm
+
+    ld (@rot1+1), a
+    ld (@rot2+1), a
+    ld (@rot3+1), a
+    ld (@rot4+1), a
+   
+    ld (@input_stride+1), hl
+    ld iyh, 64
+@loop:
+; the first byte (both light and grey) needs whatever is rotated into it
+    ld a, (de) \ inc de
+    ld h, $0
+    ld l, a
+    rot_byte @rot1
+    ld b, h
+
+    ld a, (de) \ inc de
+    ld h, $0
+    ld l, a
+    rot_byte @rot2
+    ld c, h
+
+    ld iyl, 11
+@inner_loop:
+; light byte
+    ld a, (de) \ inc de
+    ld h, $0
+    ld l, a
+    rot_byte @rot3
+
+    ld a, b \ or l
+    ld (ix), a
+    ld b, h
+
+; dark byte
+    ld a, (de) \ inc de
+    ld h, $0
+    ld l, a
+    rot_byte @rot4
+
+    ld a, c \ or l
+    ld (ix+1), a
+    ld c, h
+
+    inc ix \ inc ix
+
+    dec iyl
+    jp nz, @inner_loop
+
+@input_stride:
+    ld hl, $0000
+    add hl, de
+    ex de, hl
+
+    dec iyh
+    jp nz, @loop
+
+    ret   
+
+
+
+
+
+
+
+    
+
+
+    
+    
+
+    
+    
+    
+
+
+
+
+
+
+; inputs:
+; hl = output location
+; de = input location
+; a = width (pixels/8)
+; ixh = height
+; outputs:
+; hl = the output location advanced to the next row, directly under the placed sprite
+public norot3x2_blit
+norot3x2_blit:
+    ld (@height_loop+1), a
+
+; this is the amount of bytes needed to get to the next row.
+; 24 - 2*w = 2*(-w + 12)
+    neg
+    add 12
+    add a
+    ld (@advance_row +1), a
+
+
+@height_loop:
+    ld b, 0
+@width_loop:
+; mask to b
+    ld a, (de)
+    ld c, a
+    inc de
+
+; shuffle in light byte
+    ld a, (de)
+    xor (hl)
+    and c
+    xor (hl)
+    ld (hl), a
+    
+    inc hl \ inc de
+
+; shuffle in dark byte
+    ld a, (de)
+    xor (hl)
+    and c
+    xor (hl)
+    ld (hl), a
+
+
+    inc hl \ inc de
+
+    djnz @width_loop
+
+; b is already zero
+@advance_row:
+    ld c, $0
+    add hl, bc
+
+    dec ixh
+    jp nz, @height_loop
+    ret
+
+
+; Inputs:
+; hl = Input location
+; de = Output location
+; a = Width   (Pixels/8)
+; ixh = Height
+public norot2x2_blit
+norot2x2_blit:
+    add a
+    ld (@height_loop+1), a
+
+; This is the amount of bytes needed to get to the next row.
+; 24 - 2*w = 2*(-w + 12)
+    neg
+    add 12
+    add a
+    ld (@advance_row +1), a   
+
+
+@height_loop:
+    ld bc, 0000h
+    ldir    ; Just copy the bytes over
+
+; B is already zero
+@advance_row:
+    ld c, $0
+    add hl, bc
+
+    dec ixh
+    jp nz, @height_loop
+    ret
+
+
+
