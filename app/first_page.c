@@ -9,12 +9,12 @@ void set_sprite() __naked {
 #asm
     INCLUDE "engine/engine_globals.inc"
     ld hl, engine_globals_end
+    ld de, 3*6-2
     exx
-
     ld de, sprite
     ld a, 4
     ld c, 3
-    ld hl, 3*4
+    ld hl, 2
 
 
     EXTERN build_cache
@@ -32,7 +32,7 @@ int main(){
 #asm
     ld hl, engine_globals_end
     ld de, _screen_buffer 
-    ld ixh, 2*2
+    ld ixh, 3
     ld ixl, 3
 
     EXTERN blit_opaque_norot

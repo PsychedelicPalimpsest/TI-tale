@@ -57,68 +57,51 @@ setup_sprite_system:
 ; NOTE: Disabling interupts is a MUST
 ; Inputs:
 ;  de =  Input location
+;  hl =  Pixel width (1 for monochrome, 2 for opaque greyscale, 3 for greyscale with transparency)
 ;  hl'=  Output location
-;  de' = Stride between pixels
-;  hl =  Width*height - stride
-;  a = Width (bytes)
-;  c = Height  
+;  de'=  (Width + Pixel Width)*height - Pixel Width 
+;  a  =  Width (bytes, not pixels)
+;  c  =  Height
 PUBLIC build_cache
 build_cache:
-    ld (@reset_height+1), a
-    ld (@restore_sp+1), sp
+    ld (@height_loop+1), a
+    ld (@restore_sp+1),  sp
     ld sp, hl
 
-    ld ixh, d ; Temp storage for de
-    ld b,   e
-
-; hl = Width*height*8
-    add hl, hl
-    add hl, hl
-    add hl, hl
-
-; width - Width*height*8
-    ld d, $0
-    ld e, a
-    ex de, hl
-    sbc hl, de ; It would be bad anyways the above overflowed, so this is find
-    ld d,   ixh ; Restore de
-    ld e,   b
-    ld (@next_outputline+1), hl
-    
-@reset_height:
-    ld b, 00
-@loop:
+@height_loop: ld b, $00
+@width_loop:
     ld a, (de)
-    exx
-
-; Use register pair bc, where c is the high byte
-    ld b, a
-    ld c, $0
-
-    REPT 8
-        ld a, b
-        or (hl)
-        ld (hl), a
-        add hl, de
-
-        ld (hl), c
-
-        
-        srl b
-        rr c
-
-        add hl, sp
-    ENDR
-
-@next_outputline: ld bc, 0000
-    add hl, bc
-
-    exx
     inc de
+    exx
+        ld (@reset_hl+1), hl
 
-    djnz @loop
+        ld b, $0
+        ld c, a
+        REPT 7
+            ld a, (hl)
+            or c
+            ld (hl),a 
+
+            add hl, sp 
+
+            ld (hl), b
+            
+            add hl, de
+
+            srl c
+            rr  b
+        endr
+@reset_hl: ld hl, 0000
+    inc hl
+    exx
+    djnz @width_loop
+
+    ; This adds in an extra padding byte to the end of each row
+    exx \ add hl, sp \ exx
+
+
     dec c
-    jp nz, @reset_height
+    jp nz, @height_loop
     
-@restore_sp: ld sp, 0000
+@restore_sp: ld sp, 0000h
     ret
