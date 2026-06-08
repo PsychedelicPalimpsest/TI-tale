@@ -115,7 +115,7 @@ rot_screenblit:
 ; de = input background-1
 ; ix = output buffer
 ; hl = input stride-1
-; a  = 8-rotation 
+; a  = 7-rotation 
 rotblit_screen:
     macro rot_byte label
     label:
@@ -141,14 +141,17 @@ rotblit_screen:
     rot_byte @rot1
     ld b, h
 
+
     ld a, (de) \ inc de
     ld h, $0
     ld l, a
     rot_byte @rot2
     ld c, h
 
-    ld iyl, 11
+    exx
+    ld b, 11
 @inner_loop:
+    exx
 ; light byte
     ld a, (de) \ inc de
     ld h, $0
@@ -156,8 +159,11 @@ rotblit_screen:
     rot_byte @rot3
 
     ld a, b \ or l
-    ld (ix), a
     ld b, h
+
+    exx
+        ld (hl), a \ inc hl
+    exx
 
 ; dark byte
     ld a, (de) \ inc de
@@ -166,14 +172,12 @@ rotblit_screen:
     rot_byte @rot4
 
     ld a, c \ or l
-    ld (ix+1), a
     ld c, h
 
-    inc ix \ inc ix
-
-    dec iyl
-    jp nz, @inner_loop
-
+    exx
+        ld (hl), a \ inc hl
+        djnz @inner_loop
+    exx
 @input_stride:
     ld hl, $0000
     add hl, de
@@ -182,7 +186,7 @@ rotblit_screen:
     dec iyh
     jp nz, @loop
 
-    ret   
+    ret
 
 
 
