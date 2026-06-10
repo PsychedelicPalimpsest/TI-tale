@@ -7,38 +7,30 @@ extern void greyscale_swap();
 
 void set_sprite() __naked {
 #asm
-    INCLUDE "engine/engine_globals.inc"
-    ld hl, engine_globals_end
-    ld de, 3*6-2
-    exx
-    ld de, sprite
-    ld a, 4
-    ld c, 3
-    ld hl, 2
 
-
-    EXTERN build_cache
-    jp build_cache
-sprite:
-    DEFB $FF, $0F, $0F, $FF
-    DEFB $FF, $00, $00, $FF
-    DEFB $FF, $0F, $0F, $FF
+test_bg:
+REPT 64
+    defb $FF, $00
+    defb $00, $FF
+    defb $FF, $FF
+    defb $00, $FF
+    defb $FF, $00
+    defs 16
+ENDR
+end_bg:
 #endasm
 }
 
 
 int main(){
-    set_sprite();
 #asm
-    ld hl, engine_globals_end
-    ld de, _screen_buffer 
-    ld ixh, 3
-    ld ixl, 3
+    ld hl, _screen_buffer + 768*2
+    ld de, end_bg
+    ld bc, 0
+    ld a, 7
 
-    EXTERN blit_opaque_norot
-    call blit_opaque_norot
-
-
+    EXTERN rot_screenblit
+    call rot_screenblit
 #endasm
 
   greyscale_swap();

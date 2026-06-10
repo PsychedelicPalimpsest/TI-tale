@@ -170,9 +170,7 @@ start:
     EXTERN engine_prepage_init
     call engine_prepage_init
 
-    ; Save the old rom of 4000h
-    in a, (6)
-    ld (_first_rom_page), a
+
 
 
     xor a ; Disable all timers (Normalized the timer state)
@@ -185,6 +183,10 @@ start:
 
     EXTERN engine_init
     call engine_init
+
+    ; Save the current rom page (where this is on)
+    in a, (6)
+    ld (_first_rom_page), a
 
     ; Note: Interupts are currently disabled
     call    _main		; call main()

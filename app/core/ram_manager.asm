@@ -45,7 +45,7 @@ init_ram:
         ld ($8E29), a ; numLastEntries, this makes page 83 FREE
 
     ; Backup 8000h to swap sector
-        ld a, $F0     ; Mark page as ready to delete, this is a safty for
+        ld a, $FE     ; Mark page as swap
         ld ($8000), a ; if the calc is reset
 
 
@@ -53,12 +53,13 @@ init_ram:
 
         pop bc  ; User memory usage
         push af ; Save the sector
-        
+        push af
+        bcall $8084 ; EraseFlashPage
+        pop af
 
         ld de, $4000
         ld hl, $8000
         bcall $80C9 ; WriteFlash
-
     EXTERN flashlock
     call flashlock
 
@@ -102,25 +103,8 @@ cleanup_ram:
     xor a      ; Restore regular $C000 page
     out (5), a
 
-
-
-;    Make all ram executable
-    EXTERN flashunlock
-    call flashunlock
-        exx
-        push hl
-
-; Cleanup the swap
-        ld a, b ; Restore ram page
-        ld hl, $4000
-
-        bcall $8024 ; EraseFlash 
-    EXTERN flashlock
-    call flashlock
-
-
-    ret
-
+    exx
+    jp (hl)
 
 
 

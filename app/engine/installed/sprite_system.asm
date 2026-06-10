@@ -111,100 +111,151 @@ build_cache:
 PUBLIC rot_screenblit
 rot_screenblit:
 
-; inputs:
-; de = input background-1
-; ix = output buffer
-; hl = input stride-1
-; a  = 7-rotation 
+; Inputs:
+; hl=Output Buffer + 768*2
+; de=Input buffer  + 768*2 + 2
+; bc=Input buffer stride
+; a=Bits to rotate
 rotblit_screen:
-    macro rot_byte label
-    label:
-        jr $+2
-        rept 7
-            add hl, hl
-        endr
-            
-    endm
+    or a
+    ; jr z, @fast_path
+    cp 5
+    jp c, @lessthen_5
+    add -5
+    jp _using_right
 
-    ld (@rot1+1), a
-    ld (@rot2+1), a
-    ld (@rot3+1), a
-    ld (@rot4+1), a
-   
-    ld (@input_stride+1), hl
-    ld iyh, 64
-@loop:
-; the first byte (both light and grey) needs whatever is rotated into it
-    ld a, (de) \ inc de
-    ld h, $0
-    ld l, a
-    rot_byte @rot1
-    ld b, h
+@lessthen_5:
+    neg
+    add 4
+    jp _using_left
 
 
-    ld a, (de) \ inc de
-    ld h, $0
-    ld l, a
-    rot_byte @rot2
-    ld c, h
 
+@fast_path:
+    push bc
     exx
-    ld b, 11
-@inner_loop:
-    exx
-; light byte
-    ld a, (de) \ inc de
-    ld h, $0
-    ld l, a
-    rot_byte @rot3
-
-    ld a, b \ or l
-    ld b, h
-
-    exx
-        ld (hl), a \ inc hl
+        pop de
+        ld hl, -14
+        add hl, de
+        ex de, hl
     exx
 
-; dark byte
-    ld a, (de) \ inc de
-    ld h, $0
-    ld l, a
-    rot_byte @rot4
+    ; Z88dk macros
+    ld ix, hl ; output into dst
 
-    ld a, c \ or l
-    ld c, h
+    ld iy, de ; input into src
 
-    exx
-        ld (hl), a \ inc hl
-        djnz @inner_loop
-    exx
-@input_stride:
-    ld hl, $0000
-    add hl, de
-    ex de, hl
 
-    dec iyh
-    jp nz, @loop
+    ld de, -12
 
+    di ; This needs interupts disabled
+    ld (@sp_restore+1), sp
+
+@copy_loop:
+REPT 4
+    fastcpy_12_samestridebackwards
+    fastcpy_12backwards
+ENDR
+    ld a, _screen_buffer >> 8
+    cp ixh
+    jp nz, @copy_loop
+    ld a, _screen_buffer & 0xFF
+    cp ixl
+    jp nz, @copy_loop
+
+@sp_restore: ld sp, 0000h
+    ei
     ret
 
 
-
-
-
-
-
     
 
 
-    
-    
 
-    
-    
-    
+macro _leftmethod label
+    ld e, $0
+    ld a, (hl)
+label:
+    jr $+2 ; SMC: Rot amount
+    REPT 4
+        rla
+        rl e
+    endr
+endm
+macro _rightmethod label
+    ld e, (hl)
+    xor a
+label:
+    jr $+2 ; SMC: Rot amount
+    REPT 3
+        rr e
+        rra
+    endr
+endm
+
+macro _rot_scr method
+; If you thing about it, why disable interupts, most likely it will just be
+; overwritten by the next iteration, hopefully ¯\(°_o)/¯
+    ld (@restore_sp+1), sp
+    ld sp, hl
+    ld (@do_stride+1), bc
+
+; a *= 3
+    ld b, a
+    add a
+    add b
+
+    ld (@cin_rot1+1), a
+    ld (@cin_rot2+1), a
+    ld (@rot1+1), a
+    ld (@rot2+1), a
+
+    ; Input is now in hl
+    ex de, hl
 
 
+    ld ixl, 64
+@outer_loop:
+; Build initial carry in
+    dec hl
+    method @cin_rot1
+    ld b, e
+
+    dec hl
+    method @cin_rot2
+    ld c, e
+
+    ld iyl, 12
+    @row_loop:
+        dec hl
+        method @rot1
+        or b
+        ld b, e
+        ld d, a
+
+        dec hl
+        method @rot2
+        or c
+        ld c, e
+        ld e, a
+
+        push de
+
+        dec iyl
+        jp nz, @row_loop
+
+@do_stride: ld bc, 0000h ; SMC: Input stride
+    add hl, bc
+    
+    dec ixl
+    jp nz, @outer_loop
+
+@restore_sp: ld sp, 0000h
+    ret
+endm
+
+_using_left:  _rot_scr _leftmethod
+_using_right: _rot_scr _rightmethod
 
 
 
