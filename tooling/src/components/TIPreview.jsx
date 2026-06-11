@@ -1,9 +1,12 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import useStore from "../store/useStore";
 import { renderViewportRegion } from "../renderer/room-canvas.js";
-import { TI84_W, TI84_H } from "../parser/types.js";
+import {
+  TI84_W,
+  TI84_H,
+  PREVIEW_ZOOM_OPTIONS,
+} from "../parser/types.js";
 
-const PREVIEW_ZOOM = 3;
 const RENDER_DEBOUNCE = 150;
 
 export default function TIPreview() {
@@ -12,6 +15,7 @@ export default function TIPreview() {
   const genRef = useRef(0);
   const [rendering, setRendering] = useState(false);
   const [viewEmpty, setViewEmpty] = useState(false);
+  const [cursor, setCursor] = useState(null);
 
   const {
     roomData,
@@ -20,6 +24,8 @@ export default function TIPreview() {
     viewportScale,
     showTiles,
     showInstances,
+    previewZoom,
+    setPreviewZoom,
   } = useStore();
 
   const vpW = Math.round(TI84_W * viewportScale);
@@ -74,21 +80,74 @@ export default function TIPreview() {
     return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
   }, [doRender, roomData]);
 
+  const handleCanvasMouseMove = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    const cssX = e.clientX - rect.left;
+    const cssY = e.clientY - rect.top;
+    const sx = Math.floor((cssX / rect.width) * TI84_W);
+    const sy = Math.floor((cssY / rect.height) * TI84_H);
+    if (sx < 0 || sx >= TI84_W || sy < 0 || sy >= TI84_H) {
+      setCursor(null);
+      return;
+    }
+    setCursor({ x: sx, y: sy });
+  };
+
+  const handleCanvasMouseLeave = () => setCursor(null);
+
   if (!roomData) return null;
+
+  const isPresetZoom = PREVIEW_ZOOM_OPTIONS.includes(previewZoom);
+  const cursorText = cursor ? `(${cursor.x}, ${cursor.y})` : "—";
 
   return (
     <div className="ti-preview">
       <div className="ti-preview-header">
         <span>TI Preview ({TI84_W}&times;{TI84_H})</span>
         <span className="ti-preview-dims">
-          {PREVIEW_ZOOM}&times; display | scale {viewportScale.toFixed(2)}x | ({viewportX}, {viewportY})
+          scale {viewportScale.toFixed(2)}x | ({viewportX}, {viewportY})
         </span>
+      </div>
+      <div className="ti-preview-toolbar">
+        <label>Display:</label>
+        <select
+          className="viewport-scale-select"
+          value={isPresetZoom ? previewZoom : ""}
+          onChange={(e) => setPreviewZoom(parseFloat(e.target.value))}
+        >
+          <option value="" disabled>&mdash; custom &mdash;</option>
+          {PREVIEW_ZOOM_OPTIONS.map((z) => (
+            <option key={z} value={z}>{z}x</option>
+          ))}
+        </select>
+        <input
+          type="number"
+          className="viewport-scale-input"
+          min="1"
+          max="8"
+          step="1"
+          value={isPresetZoom ? "" : previewZoom}
+          placeholder="z"
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === "") return;
+            const n = parseFloat(raw);
+            if (!Number.isFinite(n)) return;
+            setPreviewZoom(n);
+          }}
+        />
+        <span className="ti-preview-cursor">cursor: {cursorText}</span>
       </div>
       <div className="ti-preview-canvas-wrap">
         <canvas
           ref={canvasRef}
           className="ti-preview-canvas"
-          style={{ width: TI84_W * PREVIEW_ZOOM, height: TI84_H * PREVIEW_ZOOM }}
+          style={{ width: TI84_W * previewZoom, height: TI84_H * previewZoom }}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseLeave={handleCanvasMouseLeave}
         />
         {rendering && <div className="ti-preview-loading">rendering...</div>}
         {!rendering && viewEmpty && (
@@ -96,7 +155,7 @@ export default function TIPreview() {
         )}
       </div>
       <div className="ti-preview-footer">
-        4-level greyscale &middot; 1:1 pixels
+        4-level greyscale &middot; 1:1 pixels &middot; {previewZoom}x display
       </div>
     </div>
   );

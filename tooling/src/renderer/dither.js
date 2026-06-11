@@ -27,6 +27,24 @@ function ditherPixel(r, g, b, x, y) {
   return LEVELS[0];
 }
 
+const ALPHA_THRESHOLD = 128;
+
+function ditherPixelFromData(data, i, x, y) {
+  const a = data[i + 3];
+  if (a < ALPHA_THRESHOLD) {
+    data[i] = 0;
+    data[i + 1] = 0;
+    data[i + 2] = 0;
+    data[i + 3] = 0;
+    return;
+  }
+  const val = ditherPixel(data[i], data[i + 1], data[i + 2], x, y);
+  data[i] = val;
+  data[i + 1] = val;
+  data[i + 2] = val;
+  data[i + 3] = 255;
+}
+
 export function applyOrderedDither(ctx, w, h) {
   const imageData = ctx.getImageData(0, 0, w, h);
   const data = imageData.data;
@@ -34,11 +52,7 @@ export function applyOrderedDither(ctx, w, h) {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
-      const val = ditherPixel(data[i], data[i + 1], data[i + 2], x, y);
-      data[i] = val;
-      data[i + 1] = val;
-      data[i + 2] = val;
-      data[i + 3] = 255;
+      ditherPixelFromData(data, i, x, y);
     }
   }
 
@@ -53,11 +67,7 @@ export function applyOrderedDitherToImageData(imageData) {
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const i = (y * w + x) * 4;
-      const val = ditherPixel(data[i], data[i + 1], data[i + 2], x, y);
-      data[i] = val;
-      data[i + 1] = val;
-      data[i + 2] = val;
-      data[i + 3] = 255;
+      ditherPixelFromData(data, i, x, y);
     }
   }
 }

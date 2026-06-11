@@ -26,8 +26,13 @@ function serveRawAssets() {
     name: "serve-raw-assets",
     configureServer(server) {
       server.middlewares.use((req, res, next) => {
+        const stripQuery = (s) => {
+          const i = s.indexOf("?");
+          return i === -1 ? s : s.slice(0, i);
+        };
+
         const serveFile = (base, rel) => {
-          const p = path.resolve(base, rel);
+          const p = path.resolve(base, stripQuery(rel));
           if (!p.startsWith(base)) return false;
           try {
             const buf = fs.readFileSync(p);
@@ -43,6 +48,7 @@ function serveRawAssets() {
               ".json": "application/json",
             };
             res.setHeader("Content-Type", types[ext] || "application/octet-stream");
+            res.setHeader("Cache-Control", "no-store");
             res.end(buf);
             return true;
           } catch {
@@ -71,6 +77,72 @@ function serveRawAssets() {
             return;
           }
         }
+
+        if (req.url === "/api/redrawn-list") {
+          try {
+            const list = (dir) => fs.readdirSync(dir, { withFileTypes: true })
+              .filter(d => d.isFile() && d.name.toLowerCase().endsWith(".png"))
+              .map(d => d.name.replace(/\.png$/i, ""));
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({
+              sprites: list(path.join(redrawnRoot, "sprites")),
+              backgrounds: list(path.join(redrawnRoot, "backgrounds")),
+            }));
+            return;
+          } catch (e) {
+            res.statusCode = 500;
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify({ error: String(e) }));
+            return;
+          }
+        }
+
+        if (req.url === "/api/redrawn-upload" && req.method === "POST") {
+          let body = "";
+          req.on("data", (chunk) => { body += chunk; });
+          req.on("end", () => {
+            try {
+              const { kind, name, data } = JSON.parse(body);
+              if (!["sprites", "backgrounds"].includes(kind)) throw new Error("invalid kind");
+              if (!/^[A-Za-z0-9_\-]+$/.test(name)) throw new Error("invalid name");
+              const m = /^data:image\/png;base64,(.+)$/.exec(data || "");
+              if (!m) throw new Error("expected data URL of PNG");
+              const buf = Buffer.from(m[1], "base64");
+              const dest = path.join(redrawnRoot, kind, `${name}.png`);
+              fs.mkdirSync(path.dirname(dest), { recursive: true });
+              fs.writeFileSync(dest, buf);
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ ok: true, path: `/redrawn/${kind}/${name}.png` }));
+            } catch (e) {
+              res.statusCode = 400;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: String(e.message || e) }));
+            }
+          });
+          return;
+        }
+
+        if (req.url === "/api/redrawn-delete" && req.method === "POST") {
+          let body = "";
+          req.on("data", (chunk) => { body += chunk; });
+          req.on("end", () => {
+            try {
+              const { kind, name } = JSON.parse(body);
+              if (!["sprites", "backgrounds"].includes(kind)) throw new Error("invalid kind");
+              if (!/^[A-Za-z0-9_\-]+$/.test(name)) throw new Error("invalid name");
+              const dest = path.join(redrawnRoot, kind, `${name}.png`);
+              if (fs.existsSync(dest)) fs.unlinkSync(dest);
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ ok: true }));
+            } catch (e) {
+              res.statusCode = 400;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: String(e.message || e) }));
+            }
+          });
+          return;
+        }
+
         next();
       });
     },

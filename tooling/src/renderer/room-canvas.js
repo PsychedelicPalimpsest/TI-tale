@@ -6,15 +6,42 @@ const DITHER_CACHE = new Map();
 
 export function loadImage(url) {
   if (IMG_CACHE.has(url)) return IMG_CACHE.get(url);
-  const img = new Image();
-  img.crossOrigin = "anonymous";
   const promise = new Promise((resolve, reject) => {
-    img.onload = () => {
-      IMG_CACHE.set(url, img);
-      resolve(img);
+    const img = new Image();
+    let settled = false;
+    const finish = (err, val) => {
+      if (settled) return;
+      settled = true;
+      if (err) reject(err);
+      else {
+        IMG_CACHE.set(url, val);
+        resolve(val);
+      }
     };
-    img.onerror = () => reject(new Error(`Failed to load ${url}`));
+    img.onload = () => finish(null, img);
+    img.onerror = () => { /* fallback will run */ };
     img.src = url;
+    // Fallback: try createImageBitmap if the Image element fails to fire onload.
+    setTimeout(async () => {
+      if (settled) return;
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const blob = await res.blob();
+        const bitmap = await createImageBitmap(blob);
+        if (settled) return;
+        const wrapped = {
+          naturalWidth: bitmap.width,
+          naturalHeight: bitmap.height,
+          width: bitmap.width,
+          height: bitmap.height,
+          _bitmap: bitmap,
+        };
+        finish(null, wrapped);
+      } catch {
+        finish(new Error(`Failed to load ${url}`));
+      }
+    }, 300);
   });
   IMG_CACHE.set(url, promise);
   return promise;

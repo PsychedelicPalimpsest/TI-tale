@@ -1,5 +1,38 @@
 import { create } from "zustand";
-import { TI84_W, TI84_H } from "../parser/types.js";
+import {
+  TI84_W,
+  TI84_H,
+  PREVIEW_ZOOM_DEFAULT,
+  PREVIEW_ZOOM_MIN,
+  PREVIEW_ZOOM_MAX,
+} from "../parser/types.js";
+
+const VIEWPORT_SCALE_MIN = 0.25;
+const VIEWPORT_SCALE_MAX = 8;
+const PREVIEW_ZOOM_STORAGE_KEY = "titale.previewZoom";
+
+function readStoredPreviewZoom() {
+  try {
+    if (typeof localStorage === "undefined") return PREVIEW_ZOOM_DEFAULT;
+    const raw = localStorage.getItem(PREVIEW_ZOOM_STORAGE_KEY);
+    if (raw == null) return PREVIEW_ZOOM_DEFAULT;
+    const n = parseFloat(raw);
+    if (!Number.isFinite(n)) return PREVIEW_ZOOM_DEFAULT;
+    return Math.max(PREVIEW_ZOOM_MIN, Math.min(PREVIEW_ZOOM_MAX, n));
+  } catch (e) {
+    console.warn("Could not read previewZoom from localStorage", e);
+    return PREVIEW_ZOOM_DEFAULT;
+  }
+}
+
+function writeStoredPreviewZoom(z) {
+  try {
+    if (typeof localStorage === "undefined") return;
+    localStorage.setItem(PREVIEW_ZOOM_STORAGE_KEY, String(z));
+  } catch (e) {
+    console.warn("Could not persist previewZoom to localStorage", e);
+  }
+}
 
 const store = create((set, get) => ({
   roomFile: "",
@@ -18,6 +51,11 @@ const store = create((set, get) => ({
   showInstances: true,
   autoGen: false,
   showPreview: false,
+  previewZoom: readStoredPreviewZoom(),
+
+  selectedAsset: null,
+  redrawnSprites: [],
+  redrawnBackgrounds: [],
 
   roomList: [],
 
@@ -30,6 +68,22 @@ const store = create((set, get) => ({
       console.error("Failed to fetch room list", e);
     }
   },
+
+  fetchRedrawn: async () => {
+    try {
+      const res = await fetch("/api/redrawn-list");
+      const data = await res.json();
+      set({
+        redrawnSprites: data.sprites || [],
+        redrawnBackgrounds: data.backgrounds || [],
+      });
+    } catch (e) {
+      console.error("Failed to fetch redrawn list", e);
+    }
+  },
+
+  selectAsset: (asset) => set({ selectedAsset: asset }),
+  closeAsset: () => set({ selectedAsset: null }),
 
   loadRoom: async (file) => {
     if (!file) return;
@@ -53,7 +107,10 @@ const store = create((set, get) => ({
 
   setScale: (s) => set({ scale: Math.max(0.25, Math.min(8, s)) }),
   setViewport: (x, y) => set({ viewportX: x, viewportY: y }),
-  setViewportScale: (s) => set((state) => {
+  setViewportScale: (raw) => set((state) => {
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return {};
+    const s = Math.max(VIEWPORT_SCALE_MIN, Math.min(VIEWPORT_SCALE_MAX, n));
     const vw = Math.round(TI84_W * s);
     const vh = Math.round(TI84_H * s);
     const maxX = Math.max(0, (state.roomData?.width || 0) - vw);
@@ -70,6 +127,13 @@ const store = create((set, get) => ({
   toggleInstances: () => set((s) => ({ showInstances: !s.showInstances })),
   toggleAutoGen: () => set((s) => ({ autoGen: !s.autoGen })),
   togglePreview: () => set((s) => ({ showPreview: !s.showPreview })),
+  setPreviewZoom: (z) => {
+    const n = Number(z);
+    if (!Number.isFinite(n)) return;
+    const clamped = Math.max(PREVIEW_ZOOM_MIN, Math.min(PREVIEW_ZOOM_MAX, n));
+    writeStoredPreviewZoom(clamped);
+    set({ previewZoom: clamped });
+  },
 }));
 
 export default store;

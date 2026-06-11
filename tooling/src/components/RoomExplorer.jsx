@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import useStore from "../store/useStore";
 import { renderRoom, drawGrid, drawViewport, clearCache } from "../renderer/room-canvas.js";
 import { TI84_W, TI84_H } from "../parser/types.js";
@@ -6,12 +6,10 @@ import { TI84_W, TI84_H } from "../parser/types.js";
 export default function RoomExplorer() {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
-  const cleanCache = useRef(null);
   const genRef = useRef(0);
   const dragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
   const [rendering, setRendering] = useState(false);
-  const [cacheVersion, setCacheVersion] = useState(0);
 
   const {
     roomData,
@@ -35,9 +33,13 @@ export default function RoomExplorer() {
   const tiSW = TI84_W / vpW;
   const tiSH = TI84_H / vpH;
 
-  const buildCleanCache = useCallback(async () => {
-    if (!roomData) return;
+  useEffect(() => {
+    if (!roomData || !canvasRef.current) return;
     const gen = ++genRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+
+    clearCache();
 
     const off = document.createElement("canvas");
     off.width = roomData.width * scale;
@@ -45,51 +47,24 @@ export default function RoomExplorer() {
     const octx = off.getContext("2d");
 
     setRendering(true);
-    try {
-      await renderRoom(octx, roomData, {
-        scale,
-        showTiles,
-        showInstances,
-        autoGen,
-        tiSW,
-        tiSH,
+    let cancelled = false;
+
+    renderRoom(octx, roomData, { scale, showTiles, showInstances, autoGen, tiSW, tiSH })
+      .then(() => {
+        if (cancelled || gen !== genRef.current) return;
+        if (showGrid) drawGrid(octx, scale, roomData.width, roomData.height);
+        canvas.width = off.width;
+        canvas.height = off.height;
+        ctx.drawImage(off, 0, 0);
+        if (showViewport) drawViewport(ctx, viewportX, viewportY, vpW, vpH, scale);
+      })
+      .finally(() => {
+        if (gen === genRef.current) setRendering(false);
       });
 
-      if (showGrid) {
-        drawGrid(octx, scale, roomData.width, roomData.height);
-      }
-
-      if (gen !== genRef.current) return;
-      cleanCache.current = off;
-      setCacheVersion(v => v + 1);
-    } finally {
-      if (gen === genRef.current) setRendering(false);
-    }
-  }, [roomData, scale, showTiles, showInstances, showGrid, autoGen, tiSW, tiSH]);
-
-  useEffect(() => {
-    cleanCache.current = null;
-    clearCache();
-    buildCleanCache();
-  }, [buildCleanCache]);
-
-  const composite = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || !cleanCache.current) return;
-    const ctx = canvas.getContext("2d");
-    const src = cleanCache.current;
-    canvas.width = src.width;
-    canvas.height = src.height;
-    ctx.drawImage(src, 0, 0);
-
-    if (showViewport) {
-      drawViewport(ctx, viewportX, viewportY, vpW, vpH, scale);
-    }
-  }, [viewportX, viewportY, vpW, vpH, showViewport, scale, cacheVersion]);
-
-  useEffect(() => {
-    composite();
-  }, [composite]);
+    return () => { cancelled = true; };
+  }, [roomData, scale, showTiles, showInstances, showGrid, autoGen, tiSW, tiSH,
+     viewportX, viewportY, vpW, vpH, showViewport]);
 
   const clampViewport = useCallback((vx, vy) => {
     if (!roomData) return { vx, vy };

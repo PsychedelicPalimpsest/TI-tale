@@ -48,6 +48,24 @@ src/
 - **Bit-Crunch (AutoGen)** --- An ordered-dithering pipeline that converts full-colour sprites into 4-level greyscale (black, dark grey, light grey, white) using a 4×4 Bayer matrix. This approximates how graphics would render on the TI-84 Plus's limited display.
 - **TI Preview** --- A 96×64 pixel canvas showing the bit-crunched content of the current viewport region, rendered at 1:1 pixel mapping to the calculator's screen.
 
+### Asset pipeline
+
+A custom Vite middleware plugin in `vite.config.js` mounts three routes against the project:
+
+- `/undertale/<path>` → files under `$UNDERTALE/` (read-only game assets: `.room.gmx`, `.background.gmx`, `.sprite.gmx`, PNGs).
+- `/redrawn/<path>` → files under `tooling/app/assets/redrawn/` (artist redrawn assets, intended to replace the originals on the TI-84).
+- `/api/room-list` → JSON list of `.room.gmx` filenames in the project's `rooms/` directory.
+
+The dev server reads `../.env` once at startup for the `UNDERTALE` path; restart Vite if it changes.
+
+### Notes
+
+- **1:1 pixel invariant** --- `TIPreview.jsx` always allocates a 96×64 internal canvas; the `previewZoom` setting scales it purely via CSS. Don't write to the canvas at any size other than 96×64 or the 1-px-to-1-px guarantee breaks.
+- **Dither preserves alpha** --- `dither.js` uses an alpha threshold of 128: pixels below it are forced to fully transparent `(0,0,0,0)`, pixels at or above it are dithered and forced to opaque. Don't regress to unconditionally writing `alpha=255` or transparent sprite regions will fill with black.
+- **Greyscale ramp is fixed** --- The 4 levels are `[0x00, 0x55, 0xAA, 0xFF]` (0/33/67/100%). Don't change them without re-tuning the Bayer thresholds in the same file.
+- **Dither cache** --- `room-canvas.js` memoises dithered tiles by source rect and target size (`DITHER_CACHE`). It is cleared by `clearCache()`, which is called whenever the room changes; toggling bit-crunch settings is therefore a re-render, not a cache invalidation.
+- **Toolbar conventions** --- The viewport-scale `<select>` shows the `— custom —` placeholder when `viewportScale` isn't in `VIEWPORT_SCALES`; the sibling `<input type="number">` is the free-form entry. The same pattern is used in the TI preview for display zoom. `previewZoom` is the only piece of state persisted to `localStorage` (key `titale.previewZoom`).
+
 ### Running
 
 ```bash
