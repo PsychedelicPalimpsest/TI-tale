@@ -25,5 +25,5 @@ rand16:
 	jp	nc,@rand
 	inc	hl
 @rand:
-  ld	(rand16+1),hl
+    ld	(rand16+1),hl
 	ret
