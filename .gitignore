@@ -6,3 +6,6 @@ out*
 *.lis
 .pytest_cache/
 *.lib
+.playwright-mcp/
+tooling/node_modules/
+tooling/dist/
