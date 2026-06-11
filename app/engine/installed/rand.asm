@@ -1,4 +1,5 @@
 PUBLIC rand16
+PUBLIC _rand_seed
 
 
 
@@ -8,7 +9,7 @@ PUBLIC rand16
 ;
 ; Taken from https://web.archive.org/web/20150225121110/http://baze.au.com/misc/z80bits.html#4.1
 ; This lives in ram for self modifying code 
-
+DEFC _rand_seed = rand16+1
 rand16:
 	ld	de, $0		; Seed: default to zero
 	ld	a,d
