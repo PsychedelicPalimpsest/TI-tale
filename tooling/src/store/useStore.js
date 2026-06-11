@@ -11,8 +11,7 @@ const store = create((set, get) => ({
   scale: 1,
   viewportX: 0,
   viewportY: 0,
-  viewportW: TI84_W,
-  viewportH: TI84_H,
+  viewportScale: 1,
   showGrid: false,
   showViewport: true,
   showTiles: true,
@@ -45,8 +44,7 @@ const store = create((set, get) => ({
         scale: 1,
         viewportX: 0,
         viewportY: 0,
-        viewportW: TI84_W,
-        viewportH: TI84_H,
+        viewportScale: 1,
       });
     } catch (e) {
       set({ error: e.message, loading: false });
@@ -55,16 +53,15 @@ const store = create((set, get) => ({
 
   setScale: (s) => set({ scale: Math.max(0.25, Math.min(8, s)) }),
   setViewport: (x, y) => set({ viewportX: x, viewportY: y }),
-  setViewportSize: (w, h) => set((s) => {
-    const nw = Math.max(16, Math.min(640, w));
-    const nh = Math.max(16, Math.min(480, h));
-    const maxX = (s.roomData?.width || 0) - nw;
-    const maxY = (s.roomData?.height || 0) - nh;
+  setViewportScale: (s) => set((state) => {
+    const vw = Math.round(TI84_W * s);
+    const vh = Math.round(TI84_H * s);
+    const maxX = Math.max(0, (state.roomData?.width || 0) - vw);
+    const maxY = Math.max(0, (state.roomData?.height || 0) - vh);
     return {
-      viewportW: nw,
-      viewportH: nh,
-      viewportX: Math.max(0, Math.min(s.viewportX, maxX)),
-      viewportY: Math.max(0, Math.min(s.viewportY, maxY)),
+      viewportScale: s,
+      viewportX: Math.max(0, Math.min(state.viewportX, maxX)),
+      viewportY: Math.max(0, Math.min(state.viewportY, maxY)),
     };
   }),
   toggleGrid: () => set((s) => ({ showGrid: !s.showGrid })),

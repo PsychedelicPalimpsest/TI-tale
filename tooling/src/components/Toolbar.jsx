@@ -1,12 +1,11 @@
 import React from "react";
 import useStore from "../store/useStore";
-import { GRID_SIZE } from "../parser/types.js";
+import { GRID_SIZE, VIEWPORT_SCALES } from "../parser/types.js";
 
 export default function Toolbar() {
   const {
     scale, setScale,
-    viewportX, viewportY,
-    viewportW, viewportH, setViewportSize,
+    viewportScale, setViewportScale,
     showGrid, toggleGrid,
     showViewport, toggleViewport,
     showTiles, toggleTiles,
@@ -14,16 +13,12 @@ export default function Toolbar() {
     autoGen, toggleAutoGen,
     showPreview, togglePreview,
     roomData,
+    viewportX,
+    viewportY,
   } = useStore();
 
-  const handleWChange = (e) => {
-    const v = parseInt(e.target.value, 10);
-    if (!isNaN(v)) setViewportSize(v, viewportH);
-  };
-  const handleHChange = (e) => {
-    const v = parseInt(e.target.value, 10);
-    if (!isNaN(v)) setViewportSize(viewportW, v);
-  };
+  const vpW = Math.round(96 * viewportScale);
+  const vpH = Math.round(64 * viewportScale);
 
   return (
     <div className="toolbar">
@@ -52,26 +47,22 @@ export default function Toolbar() {
           <input type="checkbox" checked={showViewport} onChange={toggleViewport} />
           Viewport
         </label>
-        <label>W:</label>
-        <input
-          type="number"
-          className="viewport-size"
-          value={viewportW}
-          onChange={handleWChange}
-          min={16}
-          max={640}
-          step={8}
-        />
-        <label>H:</label>
-        <input
-          type="number"
-          className="viewport-size"
-          value={viewportH}
-          onChange={handleHChange}
-          min={16}
-          max={480}
-          step={8}
-        />
+        <label>Scale:</label>
+        <select
+          className="viewport-scale-select"
+          value={viewportScale}
+          onChange={(e) => setViewportScale(parseFloat(e.target.value))}
+        >
+          {VIEWPORT_SCALES.map((s) => {
+            const w = Math.round(96 * s);
+            const h = Math.round(64 * s);
+            return (
+              <option key={s} value={s}>
+                {s.toFixed(2)}x ({w}&times;{h})
+              </option>
+            );
+          })}
+        </select>
       </div>
 
       <div className="toolbar-group toolbar-separator" />
@@ -108,7 +99,7 @@ export default function Toolbar() {
           Room: {roomData.width}x{roomData.height} px
           &nbsp;| Tiles: {roomData.tiles.length}
           &nbsp;| Instances: {roomData.instances.length}
-          &nbsp;| VP: ({viewportX},{viewportY})
+          &nbsp;| VP: ({viewportX},{viewportY}) {vpW}&times;{vpH}
         </div>
       )}
     </div>

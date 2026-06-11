@@ -124,7 +124,7 @@ html, body, #root {
   min-width: 28px;
 }
 
-.viewport-size {
+.viewport-scale-select {
   background: #252525;
   color: #d4d4d4;
   border: 1px solid #3a3a3a;
@@ -132,14 +132,6 @@ html, body, #root {
   padding: 2px 4px;
   font-family: inherit;
   font-size: 11px;
-  width: 48px;
-  text-align: center;
-}
-
-.viewport-size::-webkit-inner-spin-button,
-.viewport-size::-webkit-outer-spin-button {
-  opacity: 1;
-  height: 20px;
 }
 
 .toolbar-separator {

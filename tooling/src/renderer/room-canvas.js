@@ -1,6 +1,8 @@
 import { GRID_SIZE } from "../parser/types.js";
+import { applyOrderedDither } from "./dither.js";
 
 const IMG_CACHE = new Map();
+const DITHER_CACHE = new Map();
 
 export function loadImage(url) {
   if (IMG_CACHE.has(url)) return IMG_CACHE.get(url);
@@ -20,6 +22,7 @@ export function loadImage(url) {
 
 export function clearCache() {
   IMG_CACHE.clear();
+  DITHER_CACHE.clear();
 }
 
 function colourToRGB(hexOrNum) {
@@ -82,47 +85,93 @@ async function getObjSprite(objName, objSpriteCache) {
   }
 }
 
-function drawTile(ctx, img, tile, scale, offsetX, offsetY) {
-  const sx = tile.xo;
-  const sy = tile.yo;
-  const sw = tile.w;
-  const sh = tile.h;
-  const dx = (tile.x + offsetX) * scale;
-  const dy = (tile.y + offsetY) * scale;
-  const dw = sw * scale;
-  const dh = sh * scale;
+function ditherKey(img, sx, sy, sw, sh, tw, th) {
+  return `${img.src}|${sx}|${sy}|${sw}|${sh}|${tw}|${th}`;
+}
+
+function makeTile(img, sx, sy, sw, sh, tw, th) {
+  tw = Math.max(1, Math.round(tw));
+  th = Math.max(1, Math.round(th));
+
+  const key = ditherKey(img, sx, sy, sw, sh, tw, th);
+  const hit = DITHER_CACHE.get(key);
+  if (hit) return hit;
+
+  const can = document.createElement("canvas");
+  can.width = tw;
+  can.height = th;
+  const c = can.getContext("2d");
+  c.imageSmoothingEnabled = false;
+  c.drawImage(img, sx, sy, sw, sh, 0, 0, tw, th);
+  applyOrderedDither(c, tw, th);
+  DITHER_CACHE.set(key, can);
+  return can;
+}
+
+function drawTile(ctx, img, tile, scale, autoGen, tiSW, tiSH) {
+  const dx = tile.x * scale;
+  const dy = tile.y * scale;
+  const dw = tile.w * scale;
+  const dh = tile.h * scale;
+
+  if (autoGen) {
+    const tw = Math.max(1, Math.round(tile.w * tiSW));
+    const th = Math.max(1, Math.round(tile.h * tiSH));
+    const dithered = makeTile(img, tile.xo, tile.yo, tile.w, tile.h, tw, th);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(dithered, 0, 0, tw, th, dx, dy, dw, dh);
+    ctx.imageSmoothingEnabled = true;
+    return;
+  }
 
   const col = colourToRGB(tile.colour);
   if (col.a < 1 || col.r !== 255 || col.g !== 255 || col.b !== 255) {
     ctx.globalAlpha = col.a;
     const tmp = document.createElement("canvas");
-    tmp.width = sw;
-    tmp.height = sh;
+    tmp.width = tile.w;
+    tmp.height = tile.h;
     const tctx = tmp.getContext("2d");
-    tctx.drawImage(img, sx, sy, sw, sh, 0, 0, sw, sh);
+    tctx.drawImage(img, tile.xo, tile.yo, tile.w, tile.h, 0, 0, tile.w, tile.h);
     tctx.globalCompositeOperation = "source-atop";
     tctx.fillStyle = `rgb(${col.r},${col.g},${col.b})`;
-    tctx.fillRect(0, 0, sw, sh);
-    ctx.drawImage(tmp, 0, 0, sw, sh, dx, dy, dw, dh);
+    tctx.fillRect(0, 0, tile.w, tile.h);
+    ctx.drawImage(tmp, 0, 0, tile.w, tile.h, dx, dy, dw, dh);
     ctx.globalAlpha = 1;
   } else {
-    ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+    ctx.drawImage(img, tile.xo, tile.yo, tile.w, tile.h, dx, dy, dw, dh);
   }
 }
 
-function drawInstance(ctx, spr, inst, scale, offsetX, offsetY) {
-  const dx = (inst.x - spr.xorig + offsetX) * scale;
-  const dy = (inst.y - spr.yorig + offsetY) * scale;
+function drawInstance(ctx, spr, inst, scale, autoGen, tiSW, tiSH) {
+  const dx = (inst.x - spr.xorig) * scale;
+  const dy = (inst.y - spr.yorig) * scale;
   const dw = spr.width * scale;
   const dh = spr.height * scale;
+
+  if (autoGen) {
+    const tw = Math.max(1, Math.round(spr.width * tiSW));
+    const th = Math.max(1, Math.round(spr.height * tiSH));
+    const dithered = makeTile(spr.img, 0, 0, spr.width, spr.height, tw, th);
+    ctx.imageSmoothingEnabled = false;
+    if (inst.rotation === 0 && inst.scaleX === 1 && inst.scaleY === 1) {
+      ctx.drawImage(dithered, 0, 0, dw, dh, dx, dy, dw, dh);
+    } else {
+      ctx.save();
+      ctx.translate(inst.x * scale, inst.y * scale);
+      ctx.rotate((inst.rotation * Math.PI) / 180);
+      ctx.scale(inst.scaleX, inst.scaleY);
+      ctx.drawImage(dithered, 0, 0, dw, dh, -spr.xorig * scale, -spr.yorig * scale, dw, dh);
+      ctx.restore();
+    }
+    ctx.imageSmoothingEnabled = true;
+    return;
+  }
 
   if (inst.rotation === 0 && inst.scaleX === 1 && inst.scaleY === 1) {
     ctx.drawImage(spr.img, dx, dy, dw, dh);
   } else {
     ctx.save();
-    const cx = (inst.x + offsetX) * scale;
-    const cy = (inst.y + offsetY) * scale;
-    ctx.translate(cx, cy);
+    ctx.translate(inst.x * scale, inst.y * scale);
     ctx.rotate((inst.rotation * Math.PI) / 180);
     ctx.scale(inst.scaleX, inst.scaleY);
     ctx.drawImage(spr.img, -spr.xorig * scale, -spr.yorig * scale, dw, dh);
@@ -131,19 +180,11 @@ function drawInstance(ctx, spr, inst, scale, offsetX, offsetY) {
 }
 
 export async function renderRoom(ctx, roomData, opts = {}) {
-  const {
-    offsetX = 0,
-    offsetY = 0,
-    scale = 1,
-    showTiles = true,
-    showInstances = true,
-  } = opts;
-
+  const { scale = 1, showTiles = true, showInstances = true, autoGen = false, tiSW = 1, tiSH = 1 } = opts;
   const { width, height, tiles, instances } = roomData;
 
   ctx.canvas.width = width * scale;
   ctx.canvas.height = height * scale;
-
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
@@ -156,16 +197,14 @@ export async function renderRoom(ctx, roomData, opts = {}) {
       if (!byBg[t.bgName]) byBg[t.bgName] = [];
       byBg[t.bgName].push(t);
     }
-
     const bgNames = Object.keys(byBg);
     const bgResults = await Promise.all(
       bgNames.map(async (name) => ({ name, img: await getBgImage(name, bgCache) }))
     );
-
     for (const { name, img } of bgResults) {
       if (!img) continue;
       for (const t of byBg[name]) {
-        drawTile(ctx, img, t, scale, offsetX, offsetY);
+        drawTile(ctx, img, t, scale, autoGen, tiSW, tiSH);
       }
     }
   }
@@ -177,14 +216,11 @@ export async function renderRoom(ctx, roomData, opts = {}) {
       uniqueObjs.map(async (name) => ({ name, data: await getObjSprite(name, objSpriteCache) }))
     );
     const spriteLookup = {};
-    for (const { name, data } of spriteResults) {
-      spriteLookup[name] = data;
-    }
-
+    for (const { name, data } of spriteResults) spriteLookup[name] = data;
     for (const inst of instances) {
       const spr = spriteLookup[inst.objName];
-      if (!spr) continue;
-      drawInstance(ctx, spr, inst, scale, offsetX, offsetY);
+      if (!spr || !spr.width || !spr.height) continue;
+      drawInstance(ctx, spr, inst, scale, autoGen, tiSW, tiSH);
     }
   }
 }
@@ -196,14 +232,17 @@ export async function renderViewportRegion(ctx, roomData, opts = {}) {
     showTiles = true,
     showInstances = true,
   } = opts;
-
   const { tiles, instances } = roomData;
+  const OUT_W = 96;
+  const OUT_H = 64;
 
-  ctx.canvas.width = vw;
-  ctx.canvas.height = vh;
+  ctx.canvas.width = OUT_W;
+  ctx.canvas.height = OUT_H;
   ctx.fillStyle = "#000000";
-  ctx.fillRect(0, 0, vw, vh);
+  ctx.fillRect(0, 0, OUT_W, OUT_H);
 
+  const sx = OUT_W / vw;
+  const sy = OUT_H / vh;
   const bgCache = new Map();
 
   if (showTiles && tiles.length > 0) {
@@ -224,20 +263,16 @@ export async function renderViewportRegion(ctx, roomData, opts = {}) {
       for (const t of byBg[name]) {
         if (t.x + t.w <= vx || t.y + t.h <= vy || t.x >= vx + vw || t.y >= vy + vh) continue;
 
-        let sx = t.xo;
-        let sy = t.yo;
-        let sw = t.w;
-        let sh = t.h;
-        let dx = t.x - vx;
-        let dy = t.y - vy;
+        const dx = Math.round((t.x - vx) * sx);
+        const dy = Math.round((t.y - vy) * sy);
+        const right = Math.round((t.x + t.w - vx) * sx);
+        const bottom = Math.round((t.y + t.h - vy) * sy);
+        const dw = Math.max(1, right - dx);
+        const dh = Math.max(1, bottom - dy);
+        if (dw <= 0 || dh <= 0) continue;
 
-        if (dx < 0) { const c = -dx; sx += c; sw -= c; dx = 0; }
-        if (dy < 0) { const c = -dy; sy += c; sh -= c; dy = 0; }
-        if (dx + sw > vw) sw = vw - dx;
-        if (dy + sh > vh) sh = vh - dy;
-        if (sw <= 0 || sh <= 0) continue;
-
-        ctx.drawImage(img, sx, sy, sw, sh, dx, dy, sw, sh);
+        const tile = makeTile(img, t.xo, t.yo, t.w, t.h, dw, dh);
+        ctx.drawImage(tile, 0, 0, dw, dh, dx, dy, dw, dh);
       }
     }
   }
@@ -249,32 +284,26 @@ export async function renderViewportRegion(ctx, roomData, opts = {}) {
       uniqueObjs.map(async (name) => ({ name, data: await getObjSprite(name, objSpriteCache) }))
     );
     const spriteLookup = {};
-    for (const { name, data } of spriteResults) {
-      spriteLookup[name] = data;
-    }
+    for (const { name, data } of spriteResults) spriteLookup[name] = data;
 
     for (const inst of instances) {
       const spr = spriteLookup[inst.objName];
-      if (!spr) continue;
+      if (!spr || !spr.width || !spr.height) continue;
 
-      const ix = inst.x - spr.xorig;
-      const iy = inst.y - spr.yorig;
+      const ix = inst.x - (spr.xorig || 0);
+      const iy = inst.y - (spr.yorig || 0);
       if (ix + spr.width <= vx || iy + spr.height <= vy || ix >= vx + vw || iy >= vy + vh) continue;
 
-      let sx = 0;
-      let sy = 0;
-      let sw = spr.width;
-      let sh = spr.height;
-      let dx = ix - vx;
-      let dy = iy - vy;
+      const dx = Math.round((ix - vx) * sx);
+      const dy = Math.round((iy - vy) * sy);
+      const right = Math.round((ix + spr.width - vx) * sx);
+      const bottom = Math.round((iy + spr.height - vy) * sy);
+      const dw = Math.max(1, right - dx);
+      const dh = Math.max(1, bottom - dy);
+      if (dw <= 0 || dh <= 0) continue;
 
-      if (dx < 0) { const c = -dx; sx += c; sw -= c; dx = 0; }
-      if (dy < 0) { const c = -dy; sy += c; sh -= c; dy = 0; }
-      if (dx + sw > vw) sw = vw - dx;
-      if (dy + sh > vh) sh = vh - dy;
-      if (sw <= 0 || sh <= 0) continue;
-
-      ctx.drawImage(spr.img, sx, sy, sw, sh, dx, dy, sw, sh);
+      const tile = makeTile(spr.img, 0, 0, spr.width, spr.height, dw, dh);
+      ctx.drawImage(tile, 0, 0, dw, dh, dx, dy, dw, dh);
     }
   }
 }
@@ -283,7 +312,6 @@ export function drawGrid(ctx, scale, roomW, roomH) {
   ctx.save();
   ctx.strokeStyle = "rgba(128, 128, 128, 0.15)";
   ctx.lineWidth = 0.5;
-
   const gs = GRID_SIZE * scale;
   for (let x = 0; x <= roomW * scale; x += gs) {
     ctx.beginPath();
@@ -297,7 +325,6 @@ export function drawGrid(ctx, scale, roomW, roomH) {
     ctx.lineTo(roomW * scale, y);
     ctx.stroke();
   }
-
   ctx.restore();
 }
 

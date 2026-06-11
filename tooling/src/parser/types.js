@@ -6,4 +6,4 @@ export const TI84_H = 64;
 
 export const GRID_SIZE = 8;
 
-export const DEFAULT_SCALE = 2;
+export const VIEWPORT_SCALES = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 3.5, 4, 4.5, 5];
