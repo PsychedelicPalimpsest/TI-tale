@@ -106,23 +106,72 @@ build_cache:
 @restore_sp: ld sp, 0000h
     ret
 
+; Copies 768*2 bytes QUICKLY. Assumes interupts are disabled
+; Inputs: 
+;  iy = source
+;  ix = destination
+; T-states: 23,769, or 15.47 per byte
+PUBLIC scrcpy
+scrcpy:
+    ld (@sp_restore+1), sp
+
+    ld d, ixh
+    ld e, ixl
+    ld hl, 108 * 14 ; 768 + 744, leaving 24 (12*2) left over
+    add hl, de
+
+    ld a, l
+    ld (@chk_low+1), a
+    ld a, h
+    ld (@chk_high+1), a
+
+    ld de, 14 ; Stride
+
+    @loop:
+        REPT 12
+            fastcpy_14s_stride
+        ENDR
+
+    @chk_low:
+        ld a, $00
+        cp ixl
+        jp nz, @loop ; Unlikely to fall through
+
+    @chk_high:
+        ld a, $00
+        cp ixh
+        jp nz, @loop
+
+        ld de, 12
+        fastcpy_12s_stride \ fastcpy_12s_stride
+
+@sp_restore: ld sp, 0000h
+    ret
 
 
-PUBLIC rot_screenblit
-rot_screenblit:
-
+; Rotating blit into the 96x64 screen buffer layout.
+;
 ; Inputs:
-; hl=Output Buffer + 768*2
-; de=Input buffer  + 768*2 + 2
-; bc=Input buffer stride
-; a=Bits to rotate
-rotblit_screen:
-    or a
-    ; jr z, @fast_path
-    cp 5
-    jp c, @lessthen_5
-    add -5
-    jp _using_right
+;   HL = output buffer + 768*2
+;   DE = end of input display region
+;        (= input buffer + 64*(stride-14))
+;   BC = input buffer stride
+;   A  = rotate count in bits (0..7)
+;
+; Outputs:
+;   Writes 64 rows × 12 bytes to the output buffer, backwards from HL.
+;
+; Clobbers:
+;   AF, BC, DE, HL, IX, IY
+PUBLIC scrot_blit
+scrot_blit:
+    ; Rotation=0 means we can quickly copy it into place via stack
+    or a \ jr z, @fast_path
+
+    ; Rotation greater 4 can be optimized by using a different shift method
+    cp 5 \ jp c, @lessthen_5
+        add -5
+        jp _using_right
 
 @lessthen_5:
     neg
@@ -142,7 +191,6 @@ rotblit_screen:
 
     ; Z88dk macros
     ld ix, hl ; output into dst
-
     ld iy, de ; input into src
 
 
@@ -152,7 +200,7 @@ rotblit_screen:
     ld (@sp_restore+1), sp
 
 @copy_loop:
-REPT 4
+REPT 8
     fastcpy_12_samestridebackwards
     fastcpy_12backwards
 ENDR
@@ -171,13 +219,11 @@ ENDR
     
 
 
-
 macro _leftmethod label
     ld e, $0
     ld a, (hl)
-label:
-    jr $+2 ; SMC: Rot amount
-    REPT 4
+    label: jr $+2 ; SMC: Rot amount
+    REPT 4   ; This method uses an extra layer to allow rot by a nibble
         rla
         rl e
     endr
@@ -185,8 +231,7 @@ endm
 macro _rightmethod label
     ld e, (hl)
     xor a
-label:
-    jr $+2 ; SMC: Rot amount
+    label: jr $+2 ; SMC: Rot amount
     REPT 3
         rr e
         rra

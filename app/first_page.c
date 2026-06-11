@@ -27,10 +27,10 @@ int main(){
     ld hl, _screen_buffer + 768*2
     ld de, end_bg
     ld bc, 0
-    ld a, 7
+    ld a, 0
 
-    EXTERN rot_screenblit
-    call rot_screenblit
+    EXTERN scrot_blit
+    call scrot_blit
 #endasm
 
   greyscale_swap();

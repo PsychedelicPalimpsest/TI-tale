@@ -44,6 +44,51 @@ MACRO fastcpy_12
     push af
   ENDM
 
+; Copies 12 bytes with the stack.
+; 
+; Inputs: 
+;  iy = source
+;  ix = destination
+;  de = destination offset (typically 12)
+; Outputs:
+;  iy += de'
+;  iy += de
+;  sp = ix + 12
+; 
+; Clobbers: af, bc, hl, af', bc', hl'
+; Perserves: de, de`
+; t-states: 192
+MACRO fastcpy_12s_stride
+    ld sp, iy
+
+    pop af
+    pop bc
+    pop hl
+    
+    ex af, af' ; flags free to clobber 
+    add ix, de ; dst += dst_offset (12)
+    add iy, de ; src += stride
+    exx
+
+    pop af
+    pop bc
+    pop hl
+
+    ld sp, ix
+
+    push hl
+    push bc
+    push af
+
+    exx
+    ex af, af'
+
+    push hl
+    push bc
+    push af
+  ENDM
+
+; t-states: 200
 MACRO fastcpy_12backwards
     exx
     add iy, de ; src += stride
@@ -77,19 +122,6 @@ MACRO fastcpy_12backwards
     add ix, de ; dst += dst_offset (12)
   ENDM
 
-; Copies 12 bytes with the stack.
-; 
-; Inputs: 
-;  iy = source
-;  ix = destination
-;  de = offset (typically 12)
-; Outputs:
-;  iy += de'
-;  iy += de
-;  sp = ix + 12
-; 
-; Clobbers: af, bc, hl, af', bc', hl'
-; Perserves: de, de`
 ; t-states: 192
 macro fastcpy_12_samestridebackwards
     add iy, de ; src += dst_offset (12)
