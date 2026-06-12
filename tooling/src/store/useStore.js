@@ -56,6 +56,8 @@ const store = create((set, get) => ({
   selectedAsset: null,
   redrawnSprites: [],
   redrawnBackgrounds: [],
+  showOnlyRedrawn: false,
+  useRedrawn: false,
 
   roomList: [],
 
@@ -84,6 +86,8 @@ const store = create((set, get) => ({
 
   selectAsset: (asset) => set({ selectedAsset: asset }),
   closeAsset: () => set({ selectedAsset: null }),
+  toggleShowOnlyRedrawn: () => set((s) => ({ showOnlyRedrawn: !s.showOnlyRedrawn })),
+  toggleUseRedrawn: () => set((s) => ({ useRedrawn: !s.useRedrawn })),
 
   loadRoom: async (file) => {
     if (!file) return;

@@ -25,6 +25,10 @@ export default function RoomExplorer() {
     showTiles,
     showInstances,
     autoGen,
+    showOnlyRedrawn,
+    useRedrawn,
+    redrawnSprites,
+    redrawnBackgrounds,
   } = useStore();
 
   const vpW = Math.round(TI84_W * viewportScale);
@@ -49,7 +53,10 @@ export default function RoomExplorer() {
     setRendering(true);
     let cancelled = false;
 
-    renderRoom(octx, roomData, { scale, showTiles, showInstances, autoGen, tiSW, tiSH })
+    renderRoom(octx, roomData, {
+      scale, showTiles, showInstances, autoGen, tiSW, tiSH,
+      showOnlyRedrawn, useRedrawn, redrawnSprites, redrawnBackgrounds,
+    })
       .then(() => {
         if (cancelled || gen !== genRef.current) return;
         if (showGrid) drawGrid(octx, scale, roomData.width, roomData.height);
@@ -64,6 +71,7 @@ export default function RoomExplorer() {
 
     return () => { cancelled = true; };
   }, [roomData, scale, showTiles, showInstances, showGrid, autoGen, tiSW, tiSH,
+     showOnlyRedrawn, useRedrawn, redrawnSprites, redrawnBackgrounds,
      viewportX, viewportY, vpW, vpH, showViewport]);
 
   const clampViewport = useCallback((vx, vy) => {

@@ -624,3 +624,126 @@ html, body, #root {
   margin-left: auto;
   font-style: italic;
 }
+
+/* Redraw versions (per-zoom-level) */
+
+.asset-editor-redraws {
+  background: #0d0d0d;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 8px 10px;
+}
+
+.asset-editor-redraws-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: #888;
+  letter-spacing: 0.05em;
+  margin-bottom: 6px;
+}
+
+.asset-editor-redraws-empty {
+  font-size: 11px;
+  color: #555;
+  font-style: italic;
+}
+
+.asset-editor-redraws-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.asset-editor-redraw-thumb {
+  position: relative;
+  background: #000;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: border-color 0.1s;
+}
+
+.asset-editor-redraw-thumb:hover {
+  border-color: #4a9eff;
+}
+
+.asset-editor-redraw-thumb.active {
+  border-color: #4caf50;
+  box-shadow: 0 0 0 1px #4caf50 inset;
+}
+
+.asset-editor-redraw-thumb-canvas {
+  background: #000;
+  min-height: 48px;
+  max-height: 96px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.asset-editor-redraw-thumb-canvas canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.asset-editor-redraw-thumb-label {
+  font-size: 10px;
+  color: #aaa;
+  font-family: ui-monospace, monospace;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-editor-redraw-thumb-delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid #3a3a3a;
+  color: #aaa;
+  width: 18px;
+  height: 18px;
+  font-size: 14px;
+  line-height: 1;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.asset-editor-redraw-thumb-delete:hover:not(:disabled) {
+  background: #6a2a2a;
+  color: #fff;
+  border-color: #8a3a3a;
+}
+
+.asset-editor-redraw-thumb-delete:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.asset-editor-upload-label {
+  background: #1a1a1a;
+  color: #d4d4d4;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 11px;
+  width: 140px;
+}
+
+.asset-editor-upload-label:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -206,8 +206,63 @@ function drawInstance(ctx, spr, inst, scale, autoGen, tiSW, tiSH) {
   }
 }
 
+function hasRedrawn(name, list) {
+  if (!list) return false;
+  for (const r of list) if (r.name === name) return true;
+  return false;
+}
+
+// Pre-load the redrawn images for the assets that need them.
+// `kind` is "sprites" or "backgrounds". `entries` is the per-asset list of
+// {name, label}. Returns a map from asset name -> Image (first available redraw).
+async function loadRedrawnImages(entries, kind) {
+  if (!entries || entries.length === 0) return {};
+  // Group labels by name and pick the first available per name.
+  const byName = {};
+  for (const e of entries) {
+    if (!byName[e.name]) byName[e.name] = e.label;
+  }
+  const results = await Promise.all(
+    Object.entries(byName).map(async ([name, label]) => {
+      const url = `/redrawn/${kind}/${name}_${label}.png`;
+      try {
+        const head = await fetch(url, { method: "HEAD" });
+        if (!head.ok) return [name, null];
+        const img = await loadImage(`${url}?t=${Date.now()}-${Math.random()}`);
+        return [name, img];
+      } catch {
+        return [name, null];
+      }
+    })
+  );
+  const out = {};
+  for (const [name, img] of results) if (img) out[name] = img;
+  return out;
+}
+
+function drawRedrawnBadge(ctx, x, y, w, h, color = "#4caf50") {
+  // 1-px green outline around an asset's bounding box on the room canvas.
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  // Slight inset so the outline doesn't fight with neighbouring tiles
+  ctx.strokeRect(x + 0.5, y + 0.5, Math.max(0, w - 1), Math.max(0, h - 1));
+  ctx.restore();
+}
+
 export async function renderRoom(ctx, roomData, opts = {}) {
-  const { scale = 1, showTiles = true, showInstances = true, autoGen = false, tiSW = 1, tiSH = 1 } = opts;
+  const {
+    scale = 1,
+    showTiles = true,
+    showInstances = true,
+    autoGen = false,
+    tiSW = 1,
+    tiSH = 1,
+    useRedrawn = false,
+    showOnlyRedrawn = false,
+    redrawnSprites = [],
+    redrawnBackgrounds = [],
+  } = opts;
   const { width, height, tiles, instances } = roomData;
 
   ctx.canvas.width = width * scale;
@@ -215,10 +270,22 @@ export async function renderRoom(ctx, roomData, opts = {}) {
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
+  // Pre-load redrawn images if useRedrawn or showOnlyRedrawn is on.
+  const needRedrawn = useRedrawn || showOnlyRedrawn;
+  const redrawnBgImgs = needRedrawn
+    ? await loadRedrawnImages(redrawnBackgrounds, "backgrounds")
+    : {};
+  const redrawnSprImgs = needRedrawn
+    ? await loadRedrawnImages(redrawnSprites, "sprites")
+    : {};
+
   const bgCache = new Map();
 
   if (showTiles && tiles.length > 0) {
-    const sortedTiles = [...tiles].sort((a, b) => (b.depth || 0) - (a.depth || 0));
+    const visibleTiles = showOnlyRedrawn
+      ? tiles.filter((t) => redrawnBgImgs[t.bgName])
+      : tiles;
+    const sortedTiles = [...visibleTiles].sort((a, b) => (b.depth || 0) - (a.depth || 0));
     const byBg = {};
     for (const t of sortedTiles) {
       if (!byBg[t.bgName]) byBg[t.bgName] = [];
@@ -226,28 +293,57 @@ export async function renderRoom(ctx, roomData, opts = {}) {
     }
     const bgNames = Object.keys(byBg);
     const bgResults = await Promise.all(
-      bgNames.map(async (name) => ({ name, img: await getBgImage(name, bgCache) }))
+      bgNames.map(async (name) => {
+        const img = (useRedrawn && redrawnBgImgs[name])
+          ? redrawnBgImgs[name]
+          : await getBgImage(name, bgCache);
+        return { name, img, isRedrawn: useRedrawn && !!redrawnBgImgs[name] };
+      })
     );
-    for (const { name, img } of bgResults) {
+    for (const { name, img, isRedrawn } of bgResults) {
       if (!img) continue;
       for (const t of byBg[name]) {
         drawTile(ctx, img, t, scale, autoGen, tiSW, tiSH);
+        if (isRedrawn) {
+          drawRedrawnBadge(ctx, t.x * scale, t.y * scale, t.w * scale, t.h * scale);
+        }
       }
     }
   }
 
   if (showInstances && instances.length > 0) {
+    const visibleInstances = showOnlyRedrawn
+      ? instances.filter((i) => redrawnSprImgs[i.objName])
+      : instances;
     const objSpriteCache = new Map();
-    const uniqueObjs = [...new Set(instances.map(i => i.objName))];
+    const uniqueObjs = [...new Set(visibleInstances.map(i => i.objName))];
     const spriteResults = await Promise.all(
-      uniqueObjs.map(async (name) => ({ name, data: await getObjSprite(name, objSpriteCache) }))
+      uniqueObjs.map(async (name) => {
+        if (useRedrawn && redrawnSprImgs[name]) {
+          // Need sprite metadata (xorig, yorig, width, height) for the redrawn
+          // image too. We re-use the metadata from the original sprite.
+          const orig = await getObjSprite(name, objSpriteCache);
+          if (!orig) return { name, data: null, isRedrawn: false };
+          return { name, data: { ...orig, img: redrawnSprImgs[name] }, isRedrawn: true };
+        }
+        return { name, data: await getObjSprite(name, objSpriteCache), isRedrawn: false };
+      })
     );
     const spriteLookup = {};
-    for (const { name, data } of spriteResults) spriteLookup[name] = data;
-    for (const inst of instances) {
-      const spr = spriteLookup[inst.objName];
-      if (!spr || !spr.width || !spr.height) continue;
-      drawInstance(ctx, spr, inst, scale, autoGen, tiSW, tiSH);
+    for (const { name, data, isRedrawn } of spriteResults) {
+      spriteLookup[name] = { data, isRedrawn };
+    }
+    for (const inst of visibleInstances) {
+      const entry = spriteLookup[inst.objName];
+      if (!entry || !entry.data || !entry.data.width || !entry.data.height) continue;
+      drawInstance(ctx, entry.data, inst, scale, autoGen, tiSW, tiSH);
+      if (entry.isRedrawn) {
+        const dx = (inst.x - entry.data.xorig) * scale;
+        const dy = (inst.y - entry.data.yorig) * scale;
+        const dw = entry.data.width * scale;
+        const dh = entry.data.height * scale;
+        drawRedrawnBadge(ctx, dx, dy, dw, dh);
+      }
     }
   }
 }

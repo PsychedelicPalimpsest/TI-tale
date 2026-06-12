@@ -80,9 +80,20 @@ function serveRawAssets() {
 
         if (req.url === "/api/redrawn-list") {
           try {
-            const list = (dir) => fs.readdirSync(dir, { withFileTypes: true })
-              .filter(d => d.isFile() && d.name.toLowerCase().endsWith(".png"))
-              .map(d => d.name.replace(/\.png$/i, ""));
+            // Each redraw file is named `<name>_<label>.png` where label is
+            // either a `<W>x<H>` size string or a custom user string.
+            // The base name (the first `_`-delimited token) is the asset name.
+            const list = (dir) => {
+              if (!fs.existsSync(dir)) return [];
+              return fs.readdirSync(dir, { withFileTypes: true })
+                .filter(d => d.isFile() && d.name.toLowerCase().endsWith(".png"))
+                .map(d => d.name.replace(/\.png$/i, ""))
+                .map((base) => {
+                  const usi = base.lastIndexOf("_");
+                  if (usi < 1) return { name: base, label: "original" };
+                  return { name: base.slice(0, usi), label: base.slice(usi + 1) };
+                });
+            };
             res.setHeader("Content-Type", "application/json");
             res.end(JSON.stringify({
               sprites: list(path.join(redrawnRoot, "sprites")),
@@ -102,17 +113,18 @@ function serveRawAssets() {
           req.on("data", (chunk) => { body += chunk; });
           req.on("end", () => {
             try {
-              const { kind, name, data } = JSON.parse(body);
+              const { kind, name, label, data } = JSON.parse(body);
               if (!["sprites", "backgrounds"].includes(kind)) throw new Error("invalid kind");
               if (!/^[A-Za-z0-9_\-]+$/.test(name)) throw new Error("invalid name");
+              const safeLabel = String(label || "1x").replace(/[^A-Za-z0-9_\-]/g, "_").slice(0, 64) || "1x";
               const m = /^data:image\/png;base64,(.+)$/.exec(data || "");
               if (!m) throw new Error("expected data URL of PNG");
               const buf = Buffer.from(m[1], "base64");
-              const dest = path.join(redrawnRoot, kind, `${name}.png`);
+              const dest = path.join(redrawnRoot, kind, `${name}_${safeLabel}.png`);
               fs.mkdirSync(path.dirname(dest), { recursive: true });
               fs.writeFileSync(dest, buf);
               res.setHeader("Content-Type", "application/json");
-              res.end(JSON.stringify({ ok: true, path: `/redrawn/${kind}/${name}.png` }));
+              res.end(JSON.stringify({ ok: true, path: `/redrawn/${kind}/${name}_${safeLabel}.png`, label: safeLabel }));
             } catch (e) {
               res.statusCode = 400;
               res.setHeader("Content-Type", "application/json");
@@ -127,10 +139,12 @@ function serveRawAssets() {
           req.on("data", (chunk) => { body += chunk; });
           req.on("end", () => {
             try {
-              const { kind, name } = JSON.parse(body);
+              const { kind, name, label } = JSON.parse(body);
               if (!["sprites", "backgrounds"].includes(kind)) throw new Error("invalid kind");
               if (!/^[A-Za-z0-9_\-]+$/.test(name)) throw new Error("invalid name");
-              const dest = path.join(redrawnRoot, kind, `${name}.png`);
+              const safeLabel = String(label || "").replace(/[^A-Za-z0-9_\-]/g, "_").slice(0, 64);
+              if (!safeLabel) throw new Error("label required");
+              const dest = path.join(redrawnRoot, kind, `${name}_${safeLabel}.png`);
               if (fs.existsSync(dest)) fs.unlinkSync(dest);
               res.setHeader("Content-Type", "application/json");
               res.end(JSON.stringify({ ok: true }));

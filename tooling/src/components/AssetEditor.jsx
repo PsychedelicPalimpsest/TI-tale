@@ -6,14 +6,20 @@ import { loadImage } from "../renderer/room-canvas.js";
 const KIND_LABEL = { sprite: "Sprite", background: "Background" };
 
 export default function AssetEditor() {
-  const { selectedAsset, closeAsset, redrawnSprites, redrawnBackgrounds, fetchRedrawn } = useStore();
+  const {
+    selectedAsset, closeAsset,
+    redrawnSprites, redrawnBackgrounds,
+    fetchRedrawn,
+  } = useStore();
   const [original, setOriginal] = useState(null);
   const [dithered, setDithered] = useState(null);
-  const [redrawn, setRedrawn] = useState(null);
+  const [redraws, setRedraws] = useState([]);
+  const [activeLabel, setActiveLabel] = useState(null);
   const [originalMeta, setOriginalMeta] = useState(null);
   const [error, setError] = useState(null);
-  const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [uploadLabel, setUploadLabel] = useState("");
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -21,7 +27,8 @@ export default function AssetEditor() {
     setError(null);
     setOriginal(null);
     setDithered(null);
-    setRedrawn(null);
+    setRedraws([]);
+    setActiveLabel(null);
     setOriginalMeta(null);
 
     let cancelled = false;
@@ -36,9 +43,8 @@ export default function AssetEditor() {
         const dt = makeDithered(img);
         if (cancelled) return;
         setDithered(dt);
-        const r = await loadRedrawnIfExists(selectedAsset);
-        if (cancelled) return;
-        setRedrawn(r);
+        // Pick a default active label from the bit-crunch size.
+        setActiveLabel(`${dt.width}x${dt.height}`);
       } catch (e) {
         if (!cancelled) setError(String(e.message || e));
       }
@@ -50,6 +56,37 @@ export default function AssetEditor() {
   useEffect(() => {
     fetchRedrawn();
   }, [fetchRedrawn]);
+
+  // Whenever selectedAsset changes OR the store's redraw list updates,
+  // reload the per-asset redraws from disk.
+  useEffect(() => {
+    if (!selectedAsset) return;
+    let cancelled = false;
+    (async () => {
+      const entries = selectedAsset.kind === "sprite" ? redrawnSprites : redrawnBackgrounds;
+      const mine = entries.filter((e) => e.name === selectedAsset.name);
+      const loaded = [];
+      for (const e of mine) {
+        const img = await loadRedrawnByLabel(selectedAsset, e.label);
+        if (cancelled) return;
+        if (img) loaded.push({ label: e.label, img });
+      }
+      if (cancelled) return;
+      setRedraws(loaded);
+      setActiveLabel((cur) => {
+        if (cur && loaded.some((r) => r.label === cur)) return cur;
+        const tw = Math.round(dithered?.width ?? 0);
+        const th = Math.round(dithered?.height ?? 0);
+        return (
+          loaded.find((r) => r.label === `${tw}x${th}`)?.label
+          || loaded.find((r) => r.label === "1x")?.label
+          || loaded[0]?.label
+          || null
+        );
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [redrawnSprites, redrawnBackgrounds, selectedAsset, dithered]);
 
   const onDownload = useCallback(() => {
     if (!dithered) return;
@@ -65,13 +102,14 @@ export default function AssetEditor() {
     downloadCanvas(original, name);
   }, [original, selectedAsset]);
 
-  const onDownloadRedrawn = useCallback(() => {
-    if (!redrawn) return;
-    const w = redrawn.naturalWidth ?? redrawn.width;
-    const h = redrawn.naturalHeight ?? redrawn.height;
-    const name = sizedName(selectedAsset.name, w, h, "redrawn");
-    downloadCanvas(redrawn, name);
-  }, [redrawn, selectedAsset]);
+  const onDownloadRedraw = useCallback((label) => {
+    const r = redraws.find((x) => x.label === label);
+    if (!r) return;
+    const w = r.img.naturalWidth ?? r.img.width;
+    const h = r.img.naturalHeight ?? r.img.height;
+    const name = sizedName(selectedAsset.name, w, h, `redraw_${label}`);
+    downloadCanvas(r.img, name);
+  }, [redraws, selectedAsset]);
 
   const onUploadClick = () => fileInputRef.current?.click();
 
@@ -83,28 +121,31 @@ export default function AssetEditor() {
     setError(null);
     try {
       const dataUrl = await readFileAsDataURL(file);
+      const dims = await imageDimensions(dataUrl);
+      const label = (uploadLabel || `${dims.width}x${dims.height}`).trim();
       const res = await fetch("/api/redrawn-upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           kind: selectedAsset.kind === "sprite" ? "sprites" : "backgrounds",
           name: selectedAsset.name,
+          label,
           data: dataUrl,
         }),
       });
       const out = await res.json();
       if (!res.ok) throw new Error(out.error || "upload failed");
       await fetchRedrawn();
-      const fresh = await loadImage(`/redrawn/${out.path.split("/").slice(2).join("/")}?t=${Date.now()}`);
-      setRedrawn(fresh);
+      setActiveLabel(out.label);
+      setUploadLabel("");
     } catch (err) {
       setError(String(err.message || err));
     } finally {
       setUploading(false);
     }
-  }, [selectedAsset, fetchRedrawn]);
+  }, [selectedAsset, uploadLabel, fetchRedrawn]);
 
-  const onRemoveRedrawn = useCallback(async () => {
+  const onRemoveRedraw = useCallback(async (label) => {
     if (!selectedAsset) return;
     setBusy(true);
     try {
@@ -114,12 +155,12 @@ export default function AssetEditor() {
         body: JSON.stringify({
           kind: selectedAsset.kind === "sprite" ? "sprites" : "backgrounds",
           name: selectedAsset.name,
+          label,
         }),
       });
       const out = await res.json();
       if (!res.ok) throw new Error(out.error || "delete failed");
       await fetchRedrawn();
-      setRedrawn(null);
     } catch (err) {
       setError(String(err.message || err));
     } finally {
@@ -129,9 +170,9 @@ export default function AssetEditor() {
 
   if (!selectedAsset) return null;
 
-  const hasRedrawn = redrawn != null;
   const targetW = dithered?.width || 0;
   const targetH = dithered?.height || 0;
+  const activeRedraw = redraws.find((r) => r.label === activeLabel);
 
   return (
     <div className="asset-editor">
@@ -160,8 +201,12 @@ export default function AssetEditor() {
           <div className="asset-editor-frames">
             <Frame label="Original" canvas={original} scale={zoomFor(original, 220)} />
             <Frame label={`Bit-crunched (${targetW}×${targetH})`} canvas={dithered} scale={zoomFor(dithered, 220)} />
-            {hasRedrawn ? (
-              <Frame label="Your redraw" canvas={redrawn} scale={zoomFor(redrawn, 220)} />
+            {activeRedraw ? (
+              <Frame
+                label={`Redraw (${activeRedraw.label})`}
+                canvas={activeRedraw.img}
+                scale={zoomFor(activeRedraw.img, 220)}
+              />
             ) : (
               <div className="asset-editor-empty">
                 <div className="asset-editor-empty-text">No redraw yet</div>
@@ -176,10 +221,37 @@ export default function AssetEditor() {
             <button onClick={onDownloadOriginal} disabled={!original} title="Download original PNG (full colour)">
               Download original
             </button>
-            {hasRedrawn && (
-              <button onClick={onDownloadRedrawn} disabled={busy} title="Download your current redraw">
+            {activeRedraw && (
+              <button
+                onClick={() => onDownloadRedraw(activeRedraw.label)}
+                disabled={busy}
+                title="Download the active redraw"
+              >
                 Download redraw
               </button>
+            )}
+          </div>
+
+          <div className="asset-editor-redraws">
+            <div className="asset-editor-redraws-label">
+              Redraw versions ({redraws.length})
+            </div>
+            {redraws.length === 0 ? (
+              <div className="asset-editor-redraws-empty">none yet</div>
+            ) : (
+              <div className="asset-editor-redraws-grid">
+                {redraws.map((r) => (
+                  <RedrawThumb
+                    key={r.label}
+                    canvas={r.img}
+                    label={r.label}
+                    active={r.label === activeLabel}
+                    onClick={() => setActiveLabel(r.label)}
+                    onDelete={() => onRemoveRedraw(r.label)}
+                    disabled={busy}
+                  />
+                ))}
+              </div>
             )}
           </div>
 
@@ -192,14 +264,17 @@ export default function AssetEditor() {
               onChange={onFileChange}
             />
             <button onClick={onUploadClick} disabled={uploading}>
-              {uploading ? "Uploading…" : hasRedrawn ? "Replace redraw" : "Upload redraw"}
+              {uploading ? "Uploading…" : "Upload redraw"}
             </button>
-            {hasRedrawn && (
-              <button onClick={onRemoveRedrawn} disabled={busy} className="asset-editor-remove">
-                Remove
-              </button>
-            )}
-            <span className="asset-editor-hint">PNG, {targetW}×{targetH} recommended</span>
+            <input
+              type="text"
+              className="asset-editor-upload-label"
+              placeholder={`label (e.g. ${targetW}x${targetH}, 2x, draft)`}
+              value={uploadLabel}
+              onChange={(e) => setUploadLabel(e.target.value)}
+              disabled={uploading}
+            />
+            <span className="asset-editor-hint">PNG, defaults to {targetW}×{targetH}</span>
           </div>
         </>
       )}
@@ -238,6 +313,44 @@ function Frame({ label, canvas, scale }) {
       </div>
     </div>
   );
+}
+
+function RedrawThumb({ canvas, label, active, onClick, onDelete, disabled }) {
+  if (!canvas) return null;
+  return (
+    <div className={`asset-editor-redraw-thumb ${active ? "active" : ""}`}>
+      <div className="asset-editor-redraw-thumb-canvas" onClick={onClick}>
+        <canvas
+          ref={(el) => {
+            if (!el) return;
+            if (el.width !== canvas.width) el.width = canvas.width;
+            if (el.height !== canvas.height) el.height = canvas.height;
+            const ctx = el.getContext("2d");
+            ctx.clearRect(0, 0, el.width, el.height);
+            ctx.drawImage(canvas, 0, 0);
+          }}
+          style={{
+            width: canvas.width * thumbZoom(canvas),
+            height: canvas.height * thumbZoom(canvas),
+            imageRendering: "pixelated",
+          }}
+        />
+      </div>
+      <div className="asset-editor-redraw-thumb-label">{label}</div>
+      <button
+        className="asset-editor-redraw-thumb-delete"
+        onClick={onDelete}
+        disabled={disabled}
+        title="Delete this redraw"
+      >×</button>
+    </div>
+  );
+}
+
+function thumbZoom(canvas) {
+  const longest = Math.max(canvas.width, canvas.height);
+  if (longest <= 0) return 1;
+  return Math.max(1, Math.min(8, Math.floor(96 / longest)));
 }
 
 function zoomFor(canvas, maxDim) {
@@ -286,23 +399,31 @@ async function fetchMeta(asset) {
   };
 }
 
-async function loadRedrawnIfExists(asset) {
+async function loadRedrawnByLabel(asset, label) {
   const kind = asset.kind === "sprite" ? "sprites" : "backgrounds";
-  const url = `/redrawn/${kind}/${asset.name}.png`;
+  const url = `/redrawn/${kind}/${asset.name}_${label}.png`;
   try {
-    const res = await fetch(url, { method: "HEAD" });
+    const res = await fetch(url);
     if (!res.ok) return null;
-    return await loadImage(`${url}?t=${Date.now()}`);
+    const blob = await res.blob();
+    // Use a blob URL — works in environments where a plain `new Image()`
+    // would refuse to decode. Avoids the cache too.
+    const blobUrl = URL.createObjectURL(blob);
+    const img = await new Promise((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("decode failed"));
+      i.src = blobUrl;
+      setTimeout(() => reject(new Error("decode timeout")), 3000);
+    });
+    URL.revokeObjectURL(blobUrl);
+    return img;
   } catch {
     return null;
   }
 }
 
 function downloadCanvas(canvasOrImg, filename) {
-  // Always rasterize to a canvas, then download as a self-contained PNG data URL.
-  // Using the asset URL directly would download whatever the server serves
-  // (could be an HTML fallback page if the file is missing) and wouldn't be
-  // a portable PNG the user could open in any image editor.
   const w = canvasOrImg.naturalWidth ?? canvasOrImg.width;
   const h = canvasOrImg.naturalHeight ?? canvasOrImg.height;
   if (!w || !h) {
@@ -335,5 +456,14 @@ function readFileAsDataURL(file) {
     r.onload = () => resolve(r.result);
     r.onerror = () => reject(new Error("failed to read file"));
     r.readAsDataURL(file);
+  });
+}
+
+async function imageDimensions(dataUrl) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+    img.onerror = () => reject(new Error("could not read image dimensions"));
+    img.src = dataUrl;
   });
 }

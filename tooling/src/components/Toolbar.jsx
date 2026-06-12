@@ -12,6 +12,8 @@ export default function Toolbar() {
     showInstances, toggleInstances,
     autoGen, toggleAutoGen,
     showPreview, togglePreview,
+    showOnlyRedrawn, toggleShowOnlyRedrawn,
+    useRedrawn, toggleUseRedrawn,
     roomData,
     viewportX,
     viewportY,
@@ -131,6 +133,29 @@ export default function Toolbar() {
         <label className="toggle-label">
           <input type="checkbox" checked={showInstances} onChange={toggleInstances} />
           Instances
+        </label>
+      </div>
+
+      <div className="toolbar-group toolbar-separator" />
+
+      <div className="toolbar-group">
+        <label className="toggle-label">
+          <input
+            type="checkbox"
+            checked={showOnlyRedrawn}
+            onChange={toggleShowOnlyRedrawn}
+            title="Hide everything that has no redrawn version"
+          />
+          Redrawn only
+        </label>
+        <label className="toggle-label">
+          <input
+            type="checkbox"
+            checked={useRedrawn}
+            onChange={toggleUseRedrawn}
+            title="Use redrawn assets instead of originals (where available)"
+          />
+          Use redrawn
         </label>
       </div>
 

@@ -4,11 +4,12 @@ import TIPreview from "./TIPreview";
 import AssetEditor from "./AssetEditor";
 
 export default function Layout({ children }) {
-  const { fetchRoomList, loadRoom, roomFile, roomList, showPreview, selectedAsset, selectAsset } = useStore();
+  const { fetchRoomList, fetchRedrawn, loadRoom, roomFile, roomList, showPreview, selectedAsset, selectAsset } = useStore();
   const [selected, setSelected] = useState("");
 
   useEffect(() => {
     fetchRoomList();
+    fetchRedrawn();
   }, []);
 
   useEffect(() => {
