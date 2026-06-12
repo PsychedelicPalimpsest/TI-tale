@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import fs from "fs";
 import path from "path";
+import crypto from "crypto";
 
 const ENV_FILE = path.resolve("../.env");
 let undertaleRoot = "";
@@ -131,6 +132,60 @@ function serveRawAssets() {
               res.end(JSON.stringify({ error: String(e.message || e) }));
             }
           });
+          return;
+        }
+
+        if (req.url === "/api/download" && req.method === "POST") {
+          const tmpDir = path.resolve("app/assets/tmp-download");
+          let body = "";
+          req.on("data", (chunk) => { body += chunk; });
+          req.on("end", () => {
+            try {
+              const { data, filename } = JSON.parse(body);
+              const m = /^data:image\/png;base64,(.+)$/.exec(data || "");
+              if (!m) throw new Error("expected PNG data URL");
+              const buf = Buffer.from(m[1], "base64");
+              const safeName = String(filename || "download.png").replace(/[^A-Za-z0-9_\-. ]/g, "_");
+              const token = crypto.randomUUID();
+              const fname = `${token}/${safeName}`;
+              const dest = path.join(tmpDir, fname);
+              fs.mkdirSync(path.dirname(dest), { recursive: true });
+              fs.writeFileSync(dest, buf);
+              try {
+                const now = Date.now();
+                for (const e of fs.readdirSync(tmpDir, { withFileTypes: true })) {
+                  const fp = path.join(tmpDir, e.name);
+                  if (now - fs.statSync(fp).mtimeMs > 300_000) {
+                    fs.rmSync(fp, { recursive: true, force: true });
+                  }
+                }
+              } catch {}
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ url: `/api/download/${fname}`, filename: safeName }));
+            } catch (e) {
+              res.statusCode = 400;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: String(e.message || e) }));
+            }
+          });
+          return;
+        }
+
+        if (req.url.startsWith("/api/download/") && req.method === "GET") {
+          const tmpDir = path.resolve("app/assets/tmp-download");
+          const rel = stripQuery(req.url.slice("/api/download/".length));
+          const p = path.join(tmpDir, rel);
+          if (!p.startsWith(tmpDir)) { res.statusCode = 404; res.end(); return; }
+          try {
+            const buf = fs.readFileSync(p);
+            res.setHeader("Content-Type", "image/png");
+            res.setHeader("Cache-Control", "no-store");
+            res.setHeader("Content-Disposition", `attachment; filename="${path.basename(rel)}"`);
+            res.end(buf);
+          } catch {
+            res.statusCode = 404;
+            res.end("not found");
+          }
           return;
         }
 

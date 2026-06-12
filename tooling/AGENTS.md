@@ -60,6 +60,8 @@ A custom Vite middleware plugin in `vite.config.js` mounts read-only and writeab
 - `/api/redrawn-list` → JSON of `{sprites: [{name,label}], backgrounds: [{name,label}]}` for all redraw files on disk.
 - `/api/redrawn-upload` (POST) → writes a base64-encoded PNG to `/redrawn/<kind>/<name>_<label>.png`. Body: `{kind: "sprites"|"backgrounds", name, label, data: "data:image/png;base64,..."}`.
 - `/api/redrawn-delete` (POST) → removes a single redraw file. Body: `{kind, name, label}`.
+- `/api/download` (POST) → stores a base64 PNG to a temp dir and returns a URL with the filename in its path plus a `Content-Disposition: attachment` header. Body: `{data: "data:image/png;base64,...", filename: "bg_ruins_80x80_bitcrunch.png"}`. Response: `{url: "/api/download/<uuid>/<filename>", filename}`.
+- `/api/download/<...>` (GET) → serves the temp PNG with `Content-Type: image/png` and `Content-Disposition: attachment; filename="..."` so browsers and test runners download it with the correct name.
 
 The dev server reads `../.env` once at startup for the `UNDERTALE` path; restart Vite if it changes.
 

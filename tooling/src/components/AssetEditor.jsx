@@ -513,21 +513,23 @@ function downloadCanvas(canvasOrImg, filename) {
   can.height = h;
   const ctx = can.getContext("2d");
   ctx.drawImage(canvasOrImg, 0, 0);
-  // Use a blob URL — `data:` URLs are sometimes downloaded with a
-  // generated UUID name instead of the `download` attribute. A blob
-  // URL is honored reliably across browsers and test runners.
-  can.toBlob((blob) => {
-    if (!blob) return;
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = safeName;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    // Defer revoke so the browser has time to start the download.
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }, "image/png");
+  const url = can.toDataURL("image/png");
+  fetch("/api/download", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ data: url, filename: safeName }),
+  })
+    .then((r) => r.json())
+    .then((out) => {
+      if (!out.url) return;
+      const a = document.createElement("a");
+      a.href = out.url;
+      a.download = out.filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    })
+    .catch(() => {});
 }
 
 function sizedName(base, w, h, suffix) {
