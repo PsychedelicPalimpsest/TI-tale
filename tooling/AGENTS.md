@@ -61,7 +61,8 @@ A custom Vite middleware plugin in `vite.config.js` mounts read-only and writeab
 - `/api/redrawn-upload` (POST) → writes a base64-encoded PNG to `/redrawn/<kind>/<name>_<label>.png`. Body: `{kind: "sprites"|"backgrounds", name, label, data: "data:image/png;base64,..."}`.
 - `/api/redrawn-delete` (POST) → removes a single redraw file. Body: `{kind, name, label}`.
 - `/api/download` (POST) → stores a base64 PNG to a temp dir and returns a URL with the filename in its path plus a `Content-Disposition: attachment` header. Body: `{data: "data:image/png;base64,...", filename: "bg_ruins_80x80_bitcrunch.png"}`. Response: `{url: "/api/download/<uuid>/<filename>", filename}`.
-- `/api/download/<...>` (GET) → serves the temp PNG with `Content-Type: image/png` and `Content-Disposition: attachment; filename="..."` so browsers and test runners download it with the correct name.
+- `/api/download/<...>` (GET) → serves the temp PNG with `Content-Type: image/png` and `Content-Disposition: attachment; filename="..."` so browsers download it with the correct name. Temp files auto-clean after 5 minutes.
+- **Download strategy** --- `AssetEditor.jsx`'s `downloadCanvas()` tries `window.showSaveFilePicker()` first (native Save-As dialog with the correct filename, completely bypasses Playwright download interception). On any failure (cancel, interception, unsupported browser) it falls back to the `/api/download` POST → GET flow with an `<a download>` element.
 
 The dev server reads `../.env` once at startup for the `UNDERTALE` path; restart Vite if it changes.
 

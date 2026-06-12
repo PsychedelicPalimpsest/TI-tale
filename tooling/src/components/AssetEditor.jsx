@@ -500,7 +500,7 @@ async function loadRedrawnByLabel(asset, label) {
   }
 }
 
-function downloadCanvas(canvasOrImg, filename) {
+async function downloadCanvas(canvasOrImg, filename) {
   const w = canvasOrImg.naturalWidth ?? canvasOrImg.width;
   const h = canvasOrImg.naturalHeight ?? canvasOrImg.height;
   if (!w || !h) {
@@ -513,6 +513,27 @@ function downloadCanvas(canvasOrImg, filename) {
   can.height = h;
   const ctx = can.getContext("2d");
   ctx.drawImage(canvasOrImg, 0, 0);
+
+  const blob = await new Promise((r) => can.toBlob(r, "image/png"));
+  if (!blob) { console.warn("downloadCanvas: empty blob"); return; }
+
+  // Native save dialog --- bypasses download interception entirely.
+  // If showSaveFilePicker is unavailable or throws (user cancel, Playwright
+  // interception, etc.), fall through to the server-based <a download>.
+  try {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: safeName,
+      types: [{ description: "PNG Image", accept: { "image/png": [".png"] } }],
+    });
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return;
+  } catch (e) {
+    // User cancelled, Playwright intercepted, or browser doesn't support
+    // the File System Access API. Fall through to the link-based download.
+  }
+
   const url = can.toDataURL("image/png");
   fetch("/api/download", {
     method: "POST",
