@@ -20,7 +20,10 @@ export default function AssetEditor() {
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [uploadLabel, setUploadLabel] = useState("");
+  const [dragOver, setDragOver] = useState(false);
+  const [dropNotice, setDropNotice] = useState(null);
   const fileInputRef = useRef(null);
+  const dragCounter = useRef(0);
 
   useEffect(() => {
     if (!selectedAsset) return;
@@ -113,16 +116,15 @@ export default function AssetEditor() {
 
   const onUploadClick = () => fileInputRef.current?.click();
 
-  const onFileChange = useCallback(async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
+  const doUpload = useCallback(async (file, labelOverride) => {
     if (!file || !selectedAsset) return;
     setUploading(true);
     setError(null);
     try {
       const dataUrl = await readFileAsDataURL(file);
       const dims = await imageDimensions(dataUrl);
-      const label = (uploadLabel || `${dims.width}x${dims.height}`).trim();
+      const explicitLabel = (labelOverride ?? uploadLabel ?? "").trim();
+      const label = explicitLabel || `${dims.width}x${dims.height}`;
       const res = await fetch("/api/redrawn-upload", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -138,12 +140,62 @@ export default function AssetEditor() {
       await fetchRedrawn();
       setActiveLabel(out.label);
       setUploadLabel("");
+      setDropNotice(`Uploaded as ${out.label}.png`);
+      setTimeout(() => setDropNotice(null), 2500);
     } catch (err) {
       setError(String(err.message || err));
     } finally {
       setUploading(false);
     }
   }, [selectedAsset, uploadLabel, fetchRedrawn]);
+
+  const onFileChange = useCallback((e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) doUpload(file);
+  }, [doUpload]);
+
+  // Drag-and-drop upload ------------------------------------------------
+
+  const onDragEnter = useCallback((e) => {
+    if (!selectedAsset) return;
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    dragCounter.current += 1;
+    if (dragCounter.current === 1) setDragOver(true);
+  }, [selectedAsset]);
+
+  const onDragOver = useCallback((e) => {
+    if (!selectedAsset) return;
+    if (!hasFiles(e)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  }, [selectedAsset]);
+
+  const onDragLeave = useCallback((e) => {
+    if (!selectedAsset) return;
+    e.preventDefault();
+    dragCounter.current = Math.max(0, dragCounter.current - 1);
+    if (dragCounter.current === 0) setDragOver(false);
+  }, [selectedAsset]);
+
+  const onDrop = useCallback((e) => {
+    if (!selectedAsset) return;
+    e.preventDefault();
+    dragCounter.current = 0;
+    setDragOver(false);
+    const files = e.dataTransfer?.files;
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    if (!file.type.startsWith("image/")) {
+      setError(`Not an image: ${file.name || file.type}`);
+      return;
+    }
+    // Allow the filename (without extension) to seed the upload label so
+    // dropping a file named "frisk_2x.png" produces a label "frisk_2x".
+    const stem = (file.name || "").replace(/\.[^.]+$/, "").trim();
+    doUpload(file, stem || null);
+  }, [selectedAsset, doUpload]);
 
   const onRemoveRedraw = useCallback(async (label) => {
     if (!selectedAsset) return;
@@ -175,7 +227,13 @@ export default function AssetEditor() {
   const activeRedraw = redraws.find((r) => r.label === activeLabel);
 
   return (
-    <div className="asset-editor">
+    <div
+      className={`asset-editor ${dragOver ? "drag-over" : ""}`}
+      onDragEnter={onDragEnter}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+    >
       <div className="asset-editor-header">
         <div className="asset-editor-title">
           <span className="asset-editor-kind">{KIND_LABEL[selectedAsset.kind]}</span>
@@ -274,12 +332,31 @@ export default function AssetEditor() {
               onChange={(e) => setUploadLabel(e.target.value)}
               disabled={uploading}
             />
-            <span className="asset-editor-hint">PNG, defaults to {targetW}×{targetH}</span>
+            <span className="asset-editor-hint">PNG, defaults to {targetW}×{targetH} · or drag a file in</span>
           </div>
+          {dropNotice && (
+            <div className="asset-editor-drop-notice">{dropNotice}</div>
+          )}
         </>
+      )}
+      {dragOver && (
+        <div className="asset-editor-drop-overlay">
+          <div className="asset-editor-drop-overlay-inner">
+            <div className="asset-editor-drop-icon">⤓</div>
+            <div className="asset-editor-drop-title">Drop PNG to upload</div>
+            <div className="asset-editor-drop-hint">
+              The filename (minus extension) becomes the label.
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
+}
+
+function hasFiles(e) {
+  if (!e.dataTransfer) return false;
+  return Array.from(e.dataTransfer.types || []).includes("Files");
 }
 
 function Frame({ label, canvas, scale }) {

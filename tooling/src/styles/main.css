@@ -747,3 +747,54 @@ html, body, #root {
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Drag-and-drop upload */
+
+.asset-editor.drag-over {
+  outline: 2px dashed #4caf50;
+  outline-offset: -2px;
+}
+
+.asset-editor-drop-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(20, 20, 20, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 10;
+  border-radius: 6px;
+}
+
+.asset-editor-drop-overlay-inner {
+  text-align: center;
+  color: #b6e2b6;
+  padding: 24px;
+}
+
+.asset-editor-drop-icon {
+  font-size: 40px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.asset-editor-drop-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.asset-editor-drop-hint {
+  font-size: 11px;
+  color: #888;
+}
+
+.asset-editor-drop-notice {
+  background: #1a3a1a;
+  border: 1px solid #2a5a2a;
+  color: #b6e2b6;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+}
