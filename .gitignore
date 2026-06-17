@@ -8,4 +8,6 @@ out*
 *.lib
 .playwright-mcp/
 tooling/node_modules/
+tooling/app/assets
 tooling/dist/
+

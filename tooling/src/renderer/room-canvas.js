@@ -145,9 +145,7 @@ function drawTile(ctx, img, tile, scale, autoGen, tiSW, tiSH) {
     const tw = Math.max(1, Math.round(tile.w * tiSW));
     const th = Math.max(1, Math.round(tile.h * tiSH));
     const dithered = makeTile(img, tile.xo, tile.yo, tile.w, tile.h, tw, th);
-    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(dithered, 0, 0, tw, th, dx, dy, dw, dh);
-    ctx.imageSmoothingEnabled = true;
     return;
   }
 
@@ -179,18 +177,16 @@ function drawInstance(ctx, spr, inst, scale, autoGen, tiSW, tiSH) {
     const tw = Math.max(1, Math.round(spr.width * tiSW));
     const th = Math.max(1, Math.round(spr.height * tiSH));
     const dithered = makeTile(spr.img, 0, 0, spr.width, spr.height, tw, th);
-    ctx.imageSmoothingEnabled = false;
     if (inst.rotation === 0 && inst.scaleX === 1 && inst.scaleY === 1) {
-      ctx.drawImage(dithered, 0, 0, dw, dh, dx, dy, dw, dh);
+      ctx.drawImage(dithered, 0, 0, tw, th, dx, dy, dw, dh);
     } else {
       ctx.save();
       ctx.translate(inst.x * scale, inst.y * scale);
       ctx.rotate((inst.rotation * Math.PI) / 180);
       ctx.scale(inst.scaleX, inst.scaleY);
-      ctx.drawImage(dithered, 0, 0, dw, dh, -spr.xorig * scale, -spr.yorig * scale, dw, dh);
+      ctx.drawImage(dithered, 0, 0, tw, th, -spr.xorig * scale, -spr.yorig * scale, dw, dh);
       ctx.restore();
     }
-    ctx.imageSmoothingEnabled = true;
     return;
   }
 
@@ -267,6 +263,7 @@ export async function renderRoom(ctx, roomData, opts = {}) {
 
   ctx.canvas.width = width * scale;
   ctx.canvas.height = height * scale;
+  ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
@@ -361,6 +358,7 @@ export async function renderViewportRegion(ctx, roomData, opts = {}) {
 
   ctx.canvas.width = OUT_W;
   ctx.canvas.height = OUT_H;
+  ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = "#000000";
   ctx.fillRect(0, 0, OUT_W, OUT_H);
 
