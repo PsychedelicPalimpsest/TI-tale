@@ -212,6 +212,83 @@ function serveRawAssets() {
           return;
         }
 
+        const exportCfgDir = path.resolve("app/assets/export-configs");
+
+        if (req.url === "/api/export-config-list") {
+          try {
+            const files = fs.existsSync(exportCfgDir)
+              ? fs.readdirSync(exportCfgDir).filter((f) => f.endsWith(".json")).map((f) => f.replace(/\.json$/i, ""))
+              : [];
+            res.setHeader("Content-Type", "application/json");
+            res.end(JSON.stringify(files));
+            return;
+          } catch {
+            res.statusCode = 500;
+            res.end("[]");
+            return;
+          }
+        }
+
+        if (req.url === "/api/export-config-save" && req.method === "POST") {
+          let body = "";
+          req.on("data", (chunk) => { body += chunk; });
+          req.on("end", () => {
+            try {
+              const { name, config } = JSON.parse(body);
+              const safe = String(name || "").replace(/[^A-Za-z0-9_\- ]/g, "_").slice(0, 64);
+              if (!safe) throw new Error("name required");
+              const dest = path.join(exportCfgDir, `${safe}.json`);
+              fs.mkdirSync(path.dirname(dest), { recursive: true });
+              fs.writeFileSync(dest, JSON.stringify(config, null, 2));
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ ok: true }));
+            } catch (e) {
+              res.statusCode = 400;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: String(e.message || e) }));
+            }
+          });
+          return;
+        }
+
+        if (req.url === "/api/export-config-delete" && req.method === "POST") {
+          let body = "";
+          req.on("data", (chunk) => { body += chunk; });
+          req.on("end", () => {
+            try {
+              const { name } = JSON.parse(body);
+              const safe = String(name || "").replace(/[^A-Za-z0-9_\- ]/g, "_").slice(0, 64);
+              if (!safe) throw new Error("name required");
+              const dest = path.join(exportCfgDir, `${safe}.json`);
+              if (fs.existsSync(dest)) fs.unlinkSync(dest);
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ ok: true }));
+            } catch (e) {
+              res.statusCode = 400;
+              res.setHeader("Content-Type", "application/json");
+              res.end(JSON.stringify({ error: String(e.message || e) }));
+            }
+          });
+          return;
+        }
+
+        if (req.url.startsWith("/api/export-config/") && req.method === "GET") {
+          const rel = decodeURIComponent(stripQuery(req.url.slice("/api/export-config/".length)));
+          const safe = rel.replace(/[^A-Za-z0-9_\- ]/g, "_").slice(0, 64);
+          const p = path.join(exportCfgDir, `${safe}.json`);
+          if (!p.startsWith(exportCfgDir)) { res.statusCode = 404; res.end(); return; }
+          try {
+            const buf = fs.readFileSync(p);
+            res.setHeader("Content-Type", "application/json");
+            res.setHeader("Cache-Control", "no-store");
+            res.end(buf);
+          } catch {
+            res.statusCode = 404;
+            res.end(JSON.stringify({ error: "not found" }));
+          }
+          return;
+        }
+
         next();
       });
     },

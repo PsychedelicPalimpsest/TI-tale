@@ -2,14 +2,24 @@
 ALIGN 256
 bitset_lookup:
 REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-  ; When the 0-ith col is dirty, the highest bit is set
- DEFW 1 << (15-val)
+    ; When the 0-ith col is dirty, the highest bit is set
+    DEFW (1 << (15-val + 1)) - 1
 ENDR
+    DEFW 0
+
+bitset_lookup2:
+REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+    ; When the 0-ith col is dirty, the highest bit is set
+    DEFW 1 << (15-val)
+ENDR
+
+
+
 
 ; Takes a location on the screen buffer, and marks that col as dirty.
 ; Inputs: hl = Location on screen
 ; Clobbers: hl, a
-; T-states: 124
+; T-states: 131
 
 PUBLIC mark_col_dirty
 mark_col_dirty:
@@ -17,8 +27,8 @@ mark_col_dirty:
   add hl, hl ; Get col bits into high byte
   ld a, h
   sub ((_screen_buffer*2) >> 8) & 0xFF
-  and %1111 ; Stupid bounds checking, just keeps the input within the lookup table
   add a
+  add $22 ; Get to the second table
 
 ;hl = Location in lookup table
   ld h, bitset_lookup >> 8
@@ -36,6 +46,58 @@ mark_col_dirty:
   ld (dirty_cols+1), a 
 
   ret
+
+;Inputs: 
+; hl = location on screen
+; a  = height
+
+PUBLIC mark_region_dirty
+mark_region_dirty:
+; 4 rows to one bitset item
+    rrca
+    and %01111110
+    ld b, a
+    
+
+    add hl, hl
+    ld a, h
+    sub ((_screen_buffer*2) >> 8) & 0xFF
+    add a
+    ld c, a
+
+    add b  
+
+    ld l, a
+
+    ld h, bitset_lookup >> 8
+    ld b, h
+
+    ld a, (dirty_cols)
+    ld e, a
+    ld a, (bc)
+    xor (hl)
+    or e
+    ld (dirty_cols), a
+    
+    inc c \ inc l ; Due to alignment no overflow is possible
+    
+    ld a, (dirty_cols+1)
+    ld e, a
+    ld a, (bc)
+    xor (hl)
+    or e
+    ld (dirty_cols+1), a
+
+    ret
+
+
+
+
+
+
+
+
+
 
 
 ; Inputs: 

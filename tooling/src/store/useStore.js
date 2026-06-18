@@ -59,6 +59,11 @@ const store = create((set, get) => ({
   showOnlyRedrawn: false,
   useRedrawn: false,
 
+  showExporter: false,
+  exportBgLevel: 0,
+  exportIncludeTiles: true,
+  exportInstanceToggles: {},
+
   roomList: [],
 
   fetchRoomList: async () => {
@@ -89,6 +94,75 @@ const store = create((set, get) => ({
   toggleShowOnlyRedrawn: () => set((s) => ({ showOnlyRedrawn: !s.showOnlyRedrawn })),
   toggleUseRedrawn: () => set((s) => ({ useRedrawn: !s.useRedrawn })),
 
+  toggleExporter: () => set((s) => {
+    if (!s.showExporter && s.roomData) {
+      const toggles = {};
+      const uniqueObjs = [...new Set(s.roomData.instances.map((i) => i.objName))];
+      for (const name of uniqueObjs) toggles[name] = true;
+      return { showExporter: true, exportInstanceToggles: toggles };
+    }
+    // Closing — auto-save config
+    if (s.showExporter) {
+      get().saveRoomConfig();
+    }
+    return { showExporter: false };
+  }),
+  setExportBgLevel: (level) => set({ exportBgLevel: level }),
+  setExportIncludeTiles: (v) => set({ exportIncludeTiles: v }),
+  toggleExportObjectType: (objName) =>
+    set((s) => ({
+      exportInstanceToggles: {
+        ...s.exportInstanceToggles,
+        [objName]: !s.exportInstanceToggles[objName],
+      },
+    })),
+  toggleAllExportObjectTypes: () =>
+    set((s) => {
+      const toggles = { ...s.exportInstanceToggles };
+      const allOn = Object.values(toggles).every((v) => v);
+      for (const k of Object.keys(toggles)) toggles[k] = !allOn;
+      return { exportInstanceToggles: toggles };
+    }),
+  saveRoomConfig: async () => {
+    const s = get();
+    if (!s.roomFile) return;
+    const name = s.roomFile.replace(/\.room\.gmx$/i, "");
+    const cfg = {
+      bgLevel: s.exportBgLevel,
+      includeTiles: s.exportIncludeTiles,
+      instanceToggles: s.exportInstanceToggles,
+      viewportScale: s.viewportScale,
+    };
+    try {
+      await fetch("/api/export-config-save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, config: cfg }),
+      });
+    } catch (e) {
+      console.error("Failed to save room config", e);
+    }
+  },
+  loadRoomConfig: async (roomFile) => {
+    if (!roomFile) return;
+    const name = roomFile.replace(/\.room\.gmx$/i, "");
+    try {
+      const res = await fetch(`/api/export-config/${encodeURIComponent(name)}`);
+      if (!res.ok) return;
+      const cfg = await res.json();
+      set({
+        exportBgLevel: cfg.bgLevel ?? 0,
+        exportIncludeTiles: cfg.includeTiles ?? true,
+        exportInstanceToggles: cfg.instanceToggles ?? {},
+      });
+      if (cfg.viewportScale != null) {
+        get().setViewportScale(cfg.viewportScale);
+      }
+    } catch {
+      // No config for this room is fine
+    }
+  },
+
   loadRoom: async (file) => {
     if (!file) return;
     set({ roomFile: file, loading: true, error: null, roomData: null });
@@ -104,6 +178,7 @@ const store = create((set, get) => ({
         viewportY: 0,
         viewportScale: 1,
       });
+      get().loadRoomConfig(file);
     } catch (e) {
       set({ error: e.message, loading: false });
     }

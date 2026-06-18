@@ -2,9 +2,10 @@ import React, { useState, useEffect } from "react";
 import useStore from "../store/useStore";
 import TIPreview from "./TIPreview";
 import AssetEditor from "./AssetEditor";
+import BackgroundExporter from "./BackgroundExporter";
 
 export default function Layout({ children }) {
-  const { fetchRoomList, fetchRedrawn, loadRoom, roomFile, roomList, showPreview, selectedAsset, selectAsset } = useStore();
+  const { fetchRoomList, fetchRedrawn, loadRoom, roomFile, roomList, showPreview, selectedAsset, selectAsset, showExporter, toggleExporter } = useStore();
   const [selected, setSelected] = useState("");
 
   useEffect(() => {
@@ -57,6 +58,7 @@ export default function Layout({ children }) {
         )}
       </div>
       {selectedAsset && <AssetEditorOverlay />}
+      {showExporter && <BackgroundExporterOverlay />}
     </div>
   );
 }
@@ -68,6 +70,18 @@ function AssetEditorOverlay() {
     <div className="asset-editor-overlay" onClick={closeAsset}>
       <div className="asset-editor-modal" onClick={(e) => e.stopPropagation()}>
         <AssetEditor />
+      </div>
+    </div>
+  );
+}
+
+function BackgroundExporterOverlay() {
+  const { showExporter, toggleExporter } = useStore();
+  if (!showExporter) return null;
+  return (
+    <div className="background-exporter-overlay" onClick={toggleExporter}>
+      <div className="background-exporter-modal" onClick={(e) => e.stopPropagation()}>
+        <BackgroundExporter />
       </div>
     </div>
   );

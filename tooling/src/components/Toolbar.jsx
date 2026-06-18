@@ -14,6 +14,7 @@ export default function Toolbar() {
     showPreview, togglePreview,
     showOnlyRedrawn, toggleShowOnlyRedrawn,
     useRedrawn, toggleUseRedrawn,
+    toggleExporter, saveRoomConfig,
     roomData,
     viewportX,
     viewportY,
@@ -42,6 +43,12 @@ export default function Toolbar() {
     const n = parseFloat(raw);
     if (!Number.isFinite(n)) return;
     setViewportScale(n);
+    saveRoomConfig();
+  };
+
+  const handlePresetChange = (e) => {
+    setViewportScale(parseFloat(e.target.value));
+    saveRoomConfig();
   };
 
   const handleCustomBlur = () => {
@@ -81,7 +88,7 @@ export default function Toolbar() {
         <select
           className="viewport-scale-select"
           value={isPreset ? viewportScale : ""}
-          onChange={(e) => setViewportScale(parseFloat(e.target.value))}
+          onChange={handlePresetChange}
         >
           <option value="" disabled>&mdash; custom &mdash;</option>
           {VIEWPORT_SCALES.map((s) => {
@@ -157,6 +164,14 @@ export default function Toolbar() {
           />
           Use redrawn
         </label>
+      </div>
+
+      <div className="toolbar-group toolbar-separator" />
+
+      <div className="toolbar-group">
+        <button className="toolbar-export-btn" onClick={toggleExporter} title="Export background as TI .bin">
+          Export .bin
+        </button>
       </div>
 
       {roomData && (

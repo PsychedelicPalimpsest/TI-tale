@@ -798,3 +798,341 @@ html, body, #root {
   border-radius: 4px;
   font-size: 12px;
 }
+
+/* Background Exporter */
+
+.background-exporter-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.background-exporter-modal {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  border-radius: 8px;
+  width: 880px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.background-exporter {
+  padding: 16px;
+}
+
+.background-exporter-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.background-exporter-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a9eff;
+}
+
+.background-exporter-room {
+  font-size: 11px;
+  color: #666;
+  font-family: monospace;
+}
+
+.background-exporter-error {
+  background: #3a1a1a;
+  border: 1px solid #5a2a2a;
+  color: #ff8888;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+
+.background-exporter-columns {
+  display: flex;
+  gap: 16px;
+}
+
+.background-exporter-settings {
+  flex: 0 0 260px;
+  min-width: 0;
+}
+
+.background-exporter-section {
+  margin-bottom: 12px;
+}
+
+.background-exporter-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #aaa;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.background-exporter-bulk-btn {
+  background: none;
+  border: 1px solid #444;
+  color: #888;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.background-exporter-bulk-btn:hover {
+  border-color: #666;
+  color: #ccc;
+}
+
+.background-exporter-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 12px;
+  color: #ccc;
+}
+
+.background-exporter-field select {
+  background: #252525;
+  border: 1px solid #444;
+  color: #ddd;
+  padding: 3px 6px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.background-exporter-value {
+  color: #4a9eff;
+  font-family: monospace;
+}
+
+.background-exporter-instance-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.background-exporter-instance-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 4px;
+  font-size: 11px;
+  color: #bbb;
+}
+
+.background-exporter-instance-item:hover {
+  background: #222;
+}
+
+.background-exporter-instance-count {
+  color: #666;
+  font-size: 10px;
+}
+
+.background-exporter-empty {
+  color: #555;
+  font-size: 11px;
+  padding: 6px;
+  text-align: center;
+}
+
+.background-exporter-export-btn {
+  width: 100%;
+  padding: 8px;
+  background: #2a4a2a;
+  border: 1px solid #3a6a3a;
+  color: #b6e2b6;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.background-exporter-export-btn:hover {
+  background: #3a5a3a;
+}
+
+.background-exporter-export-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.background-exporter-autosave {
+  margin-top: 8px;
+  font-size: 10px;
+  color: #555;
+  text-align: center;
+}
+
+/* Preview */
+
+.background-exporter-preview {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.background-exporter-preview-label {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 6px;
+}
+
+.background-exporter-preview-box {
+  flex: 1;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+.background-exporter-preview-canvas {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.background-exporter-preview-loading {
+  color: #555;
+  font-size: 12px;
+}
+
+.background-exporter-config {
+  margin-top: 12px;
+  border-top: 1px solid #2a2a2a;
+  padding-top: 8px;
+}
+
+.background-exporter-config summary {
+  color: #888;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.background-exporter-config summary:hover {
+  color: #aaa;
+}
+
+.background-exporter-config-body {
+  padding-top: 8px;
+}
+
+.background-exporter-config-save {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.background-exporter-config-input {
+  flex: 1;
+  background: #252525;
+  border: 1px solid #444;
+  color: #ddd;
+  padding: 4px 6px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+.background-exporter-config-save button {
+  background: #2a4a2a;
+  border: 1px solid #3a6a3a;
+  color: #b6e2b6;
+  padding: 4px 10px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.background-exporter-config-save button:hover {
+  background: #3a5a3a;
+}
+
+.background-exporter-config-save button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.background-exporter-config-list {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.background-exporter-config-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 11px;
+  color: #bbb;
+}
+
+.background-exporter-config-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.background-exporter-config-actions button {
+  background: #252525;
+  border: 1px solid #444;
+  color: #ccc;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-family: inherit;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.background-exporter-config-actions button:hover {
+  border-color: #666;
+  color: #fff;
+}
+
+.background-exporter-config-delete {
+  color: #ff8888 !important;
+}
+
+.background-exporter-config-delete:hover {
+  background: #3a1a1a !important;
+  border-color: #5a2a2a !important;
+}
+
+/* Toolbar export button */
+
+.toolbar-export-btn {
+  background: #2a4a2a;
+  border: 1px solid #3a6a3a;
+  color: #b6e2b6;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.toolbar-export-btn:hover {
+  background: #3a5a3a;
+  border-color: #4a7a4a;
+}
