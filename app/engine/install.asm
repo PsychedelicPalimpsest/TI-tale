@@ -33,11 +33,8 @@ start_of_install:
   ; NOTE: ALWAYS KEEP THIS FIRST. is saves <256 bytes due to alignment
 INCLUDE "installed/sprite_system.asm"
 
-INCLUDE "installed/sprite_blit.asm"
-
 INCLUDE "installed/game_tick.asm"
 INCLUDE "installed/greyscale.asm"
-INCLUDE "installed/screenbg_blit.asm"
 INCLUDE "installed/greyscale_swap.asm"
 INCLUDE "installed/rand.asm"
 
