@@ -1,102 +1,86 @@
 ; KEEP ME FIRST
 ALIGN 256
-bitset_lookup:
-REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-    ; When the 0-ith col is dirty, the highest bit is set
-    DEFW (1 << (15-val + 1)) - 1
-ENDR
-    DEFW 0
 
-bitset_lookup2:
-REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-    ; When the 0-ith col is dirty, the highest bit is set
-    DEFW 1 << (15-val)
-ENDR
+to_run:
+macro _gen x
+    DEFB ((x)/3*2) + (runs&0xFF)
+
+    IF x+1 != 48
+        _gen x+1
+    ENDIF
+endm
+_gen 0
+
+runs:
+macro _gen2 x
+    DEFW (1<<(x))-1
+    IF x != 0
+        _gen2 x-1
+    ENDIF
+endm
+_gen2 16
 
 
+; We split the screen into 16 different segments. Laid out as groups of 4 rows. 
+; Since rows are 12 bytes, we need a small lookup sable to divide by 3 quickly,
+; and another is used to quickly compute byte runs
+;
+
+MACRO hl_to_run
+    add hl, hl
+    add hl, hl
+    add hl, hl
+
+    ld a, -((_screen_buffer>>8) *8) & 0xFF
+    add h
+    ld h, to_run>>8
+    ld l, a
+
+    ld l, (hl)
+endm
 
 
 ; Takes a location on the screen buffer, and marks that col as dirty.
 ; Inputs: hl = Location on screen
-; Clobbers: hl, a
-; T-states: 131
 
 PUBLIC mark_col_dirty
 mark_col_dirty:
-; a=2*col number
-  add hl, hl ; Get col bits into high byte
-  ld a, h
-  sub ((_screen_buffer*2) >> 8) & 0xFF
-  add a
-  add $22 ; Get to the second table
-
-;hl = Location in lookup table
-  ld h, bitset_lookup >> 8
-  ld l, a
-
-; Do the high byte
-  ld a, (dirty_cols)
-  or (hl)
-  ld (dirty_cols), a
-
-; Do the low byte
-  inc l ; Due to alignment cannot carry
-  ld a, (dirty_cols+1)
-  or (hl)
-  ld (dirty_cols+1), a 
-
-  ret
+    ld b, 0
 
 ;Inputs: 
 ; hl = location on screen
-; a  = height
+; b  = height
 
 PUBLIC mark_region_dirty
 mark_region_dirty:
-; 4 rows to one bitset item
+    hl_to_run
+    ex hl, de
+
+    ld a, b
+
+    and 3^0xFF
     rrca
-    and %01111110
-    ld b, a
-    
 
-    add hl, hl
-    ld a, h
-    sub ((_screen_buffer*2) >> 8) & 0xFF
-    add a
-    ld c, a
+    add e
+    add 2
 
-    add b  
-
+    ld h, d
     ld l, a
 
-    ld h, bitset_lookup >> 8
-    ld b, h
-
-    ld a, (dirty_cols)
-    ld e, a
-    ld a, (bc)
+    ld bc, (dirty_cols)
+    
+    ld a, (de)
     xor (hl)
-    or e
+    or b
     ld (dirty_cols), a
-    
-    inc c \ inc l ; Due to alignment no overflow is possible
-    
-    ld a, (dirty_cols+1)
-    ld e, a
-    ld a, (bc)
+
+    inc e \ inc l
+
+    ld a, (de)
     xor (hl)
-    or e
+    or c
     ld (dirty_cols+1), a
-
     ret
-
-
-
-
-
-
-
-
 
 
 
@@ -376,7 +360,9 @@ _using_right: _rot_scr _rightmethod
 ; hl = the output location advanced to the next row, directly under the placed sprite
 public norot3x2_blit
 norot3x2_blit:
-    ld (@height_loop+1), a
+    push hl
+    ld (@height_loop+1),           a
+    ld (@height_pre_mark_dirty+1), a
 
 ; this is the amount of bytes needed to get to the next row.
 ; 24 - 2*w = 2*(-w + 12)
@@ -422,8 +408,12 @@ norot3x2_blit:
 
     dec ixh
     jp nz, @height_loop
-    ret
 
+    pop hl ; Restore height
+@height_pre_mark_dirty:
+    ld a, 00h ; SMC: restore height
+
+    jp mark_region_dirty ; Tail call
 
 ; Inputs:
 ; hl = Input location
@@ -432,6 +422,9 @@ norot3x2_blit:
 ; ixh = Height
 public norot2x2_blit
 norot2x2_blit:
+    push hl
+    ld ixl, ixh
+
     add a
     ld (@height_loop+1), a
 
@@ -454,7 +447,10 @@ norot2x2_blit:
 
     dec ixh
     jp nz, @height_loop
-    ret
+
+    pop hl ; restore old start loc
+    ld a, ixl ; Restore height
+    jp mark_region_dirty ; Tail call
 
 
 

@@ -111,7 +111,7 @@ endm
   ex de, hl
   ld hl, (dirty_cols)
 
-  ld b, 12
+  ld b, 16
 @col_loop:
 ; Advance the diry bitset, if the carry is set,
 ; we know that col is dirty
@@ -124,20 +124,17 @@ endm
   ex de, hl
   exx
 
+  ld a, 48
+  add e
+  ld (@end_of_block+1), a
+  ld (@sp_restore+1),   sp
   di
-  ld (@sp_restore+1), sp
   ld sp, hl
 
 ; Phase generation goal: for each phase, we want a patern of
 ; Phase 1: 1 2 3
 ; Phase 2: 2 3 1
 ; Phase 3: 3 1 2
-
-  PIXEL_UP M1, M2, M3
-  PIXEL_DOWN M2, M3, M1
-  PIXEL_UP M3, M1, M2
-  PIXEL_DOWN M1, M2, M3
-
 
 @dirty_cell_loop:
 ; Big code size, but this code is so hot it is needed
@@ -150,16 +147,16 @@ REPT 2
   PIXEL_UP M3, M1, M2
   PIXEL_DOWN M1, M2, M3
 ENDR
-  ; Check if the phase buffer%64 is zero, if so, we have looped
-  ; back around to the next col
-  ld a, 63
-  and e
+
+@end_of_block:
+  ld a, 00h ; SMC: End of block
+  cp e
   jp nz, @dirty_cell_loop
 
   ld hl, sp ; Note: z88dk macro
 
-  ; Self modifying code
-@sp_restore: ld sp, 0000h
+@sp_restore:
+  ld sp, 0000h ; SMC: restore sp
   ei
 
 @post_pixels:
@@ -191,7 +188,7 @@ ENDR
   ld h, a
   ld l, e
 
-  ld bc, 64
+  ld bc, 48
 @nondirty_copy_loop1:
   ldi \ ldi \ ldi \ ldi
   ldi \ ldi \ ldi \ ldi
@@ -208,7 +205,7 @@ ENDR
 ; Now, we are at the next phase + 64, to save cycles, we can use the ldd
 ; instruction, which copies backward (decs de, hl, bc)
 
-  ld bc, 64
+  ld bc, 48
 @nondirty_copy_loop2:
   ldd \ ldd \ ldd \ ldd
   ldd \ ldd \ ldd \ ldd
@@ -221,7 +218,7 @@ ENDR
   inc h \ inc h \ inc h
   inc d \ inc d \ inc d
 
-  ld bc, 64
+  ld bc, 48
 @nondirty_copy_loop3:
   ldi \ ldi \ ldi \ ldi
   ldi \ ldi \ ldi \ ldi
