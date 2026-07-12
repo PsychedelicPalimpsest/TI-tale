@@ -1,9 +1,6 @@
 ; Takes the greyscale screen bufer, and converts them into optimized phased buffers
 ; for the greyscale IRQ. Then, swaps the buffer used by the greyscale IRQ
 ;
-; NOTE: Although designed for mode 7 lcd drawing (left to right), mode 5
-;       works perfectly fine! (Although the dirty col system gets weird)
-;
 ; T-State Analysis:
 ;   T_total = 416 + 7502*D + 3395*C + 122*S
 ;   where D+C+S = 12 columns

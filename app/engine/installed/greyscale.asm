@@ -31,6 +31,8 @@ PUBLIC _grey_count, grey_timingX6
 
 defc grey_timingX6 = greyc_x6+1
 
+; This is a pretty accurate timer, but note it changes based on how
+; the user calibrates their display
 defc _grey_count=greyscale_tick+1
 
 ; The long count, this is only rarly hit (once per secound). 
@@ -113,32 +115,29 @@ after_phases:
     ld a, $1 ; 8bit mode
     out (10h), a
 
-    ld a, $7 ; Move up to down 
+    ld a, $5 ; Move up to down 
     out (10h), a
 
-    
-    ld d, 80h  ; d = row + 80h
+    ld a, $80   ; Row 0
+    out (10h), a
 
     ld c, 11h  ; Port to write to (for outi),  
-row_loop:
-    ld a, d ; Set col (saved in d)
+    ld e, $20
+
+
+screen_loop:
+    ld a, e \ inc e ; Set col
     out (10h), a
 
-
-    ld a, 20h ; Go to beginning of row
-    out (10h), a
-
-; Unrolled write loop (12 entries)
-REPT 12
+; Unrolled write loop, 64 bytes for 64 rows (128 bytes)
+REPT 64
     outi ; out (c), (hl) \ inc (hl), dec b
 endr
+    ld a, $20 + 12
+    cp e
+    jp nz, screen_loop
+    
 
-
-
-    inc d
-    ld a, 80h + ymax -1
-    sub a, d
-    jp nc, row_loop
 
     ret
 
