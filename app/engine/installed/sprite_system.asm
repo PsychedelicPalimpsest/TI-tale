@@ -16,192 +16,75 @@ ENDR
 
 
 
-; Takes a location on the screen buffer, and marks that col as dirty.
-; Inputs: hl = Location on screen
-; Clobbers: hl, a
-; T-states: 131
-
-PUBLIC mark_col_dirty
-mark_col_dirty:
-; a=2*col number
-  add hl, hl ; Get col bits into high byte
-  ld a, h
-  sub (_screen_buffer*2) >> 8
-  add a
-  add bitset_lookup2 & 0xFF ; Get to the second table
-
-;hl = Location in lookup table
-  ld h, bitset_lookup >> 8
-  ld l, a
-
-; Do the high byte
-  ld a, (dirty_cols)
-  or (hl)
-  ld (dirty_cols), a
-
-; Do the low byte
-  inc l ; Due to alignment cannot carry
-  ld a, (dirty_cols+1)
-  or (hl)
-  ld (dirty_cols+1), a 
-
-  ret
-
-;Inputs: 
-; hl = location on screen
-; a  = height
-
-PUBLIC mark_region_dirty
-mark_region_dirty:
-; 4 rows to one bitset item
-    rrca
-    and %01111110
-    ld b, a
-    
-
-    add hl, hl
-    ld a, h
-    sub ((_screen_buffer*2) >> 8) & 0xFF
-    add a
-    ld c, a
-
-    add b  
-
-    ld l, a
-
-    ld h, bitset_lookup >> 8
-    ld b, h
-
-    ld a, (dirty_cols)
-    ld e, a
-    ld a, (bc)
-    xor (hl)
-    or e
-    ld (dirty_cols), a
-    
-    inc c \ inc l ; Due to alignment no overflow is possible
-    
-    ld a, (dirty_cols+1)
-    ld e, a
-    ld a, (bc)
-    xor (hl)
-    or e
-    ld (dirty_cols+1), a
-
-    ret
-
-
-
-; Takes an object, and generates the sprite rotation cache.
-; NOTE: Disabling interrupts is a MUST
 ; Inputs:
-;  de =  Input location
-;  hl =  Pixel width (1 for monochrome, 2 for opaque greyscale, 3 for greyscale with transparency)
-;  hl'=  Output location
-;  de'=  (Width + Pixel Width)*height - Pixel Width 
-;  a  =  Width (bytes, not pixels)
-;  c  =  Height (typically 8 for tiles)
-PUBLIC gen_cache
-gen_cache:
-    ld (@height_loop+1), a
-    ld (@restore_sp+1),  sp
-    ld sp, hl
-
-@height_loop: ld b, $00
-@width_loop:
-    ld a, (de)
-    inc de
-    exx
-        ld (@reset_hl+1), hl
-
-        ld b, $0
-        ld c, a
-        REPT 7
-            ld a, (hl)
-            or c
-            ld (hl),a 
-
-            add hl, sp 
-
-            ld (hl), b
-            
-            add hl, de
-
-            srl c
-            rr  b
-        endr
-@reset_hl: ld hl, 0000
-    inc hl
-    exx
-    djnz @width_loop
-
-    ; This adds in an extra padding byte to the end of each row
-    exx \ add hl, sp \ exx
-
-
-    dec c
-    jp nz, @height_loop
-    
-@restore_sp: ld sp, 0000h
-    ret
-
-
-
-
-; Inputs:
-; hl = Tile addr
-; de = Screen location
-tile_cpy:
-    ld (@sp_restore+1), sp   
-    ld sp, hl
-    ex hl, de
-; sp is now the tile addr
-; hl is now the screen addr
-
-REPT 8
-    pop de
-    ld (hl), e \ inc l ; Due to alignment, no overflows should occur within a col
-    ld (hl), d \ inc l ; and if your tile is between two cols, thats a bug!
-ENDR
-
-
-@sp_restore:
-    ld sp, $0000
-    ret
-
-; Inputs:
-; hl = Screen location
-; de = Tile addr
+; hl = Input
+; de = Output
+; bc = Width*Height*Pixel Width aka total sprite size
+; a  = Height*Pixel Width 
+; ixl = Width in cols
+; Interupts must be disabled
+;
 ; Outputs:
-; hl = Screen location 
-tile_blend:
-REPT 8
-    ld a, (de) ; Transparency byte 
-    ld c, a
-
-    inc de
-
-; shuffle in light byte
-    ld a, (de)
-    xor (hl)
-    and c
-    xor (hl)
-    ld (hl), a
-   
-    ; Micro optimization: HL has alignment garentees
-    inc l \ inc de 
-
-; shuffle in dark byte
-    ld a, (de)
-    xor (hl)
-    and c
-    xor (hl)
-    ld (hl), a
+;  de  = End of cache entry 
+;  hl  = One sprite rotation before de
+;  ixl = Zero
+PUBLIC build_cache_for
+build_cache_for:
+    push de
+        ldir ; Copy in the first sprite rotation
+        ex de, hl
+    pop de
 
 
-    inc l \ inc de
-ENDR
+    ld (@sp_restore+1),   sp
+    ld (@reset_height+1),  a
+
+    ld ($+3+1), a ; Set low byte of sp
+    ld sp, 0000h
+
+    or a ; Reset carry
+@reset_height:
+    ld b, 0
+    @height_loop:
+        REPT 7 
+            ; Inner loop runs: 7*Width*Height*Pixel Width times
+            
+            ld a, (de) ; Main pixel
+            ld c, 0    ; Carry out pixel
+
+            rra 
+            rr c
+
+            or (hl)
+            ld (hl), a
+            
+            add hl, sp
+                ld (hl), c
+            sbc hl, sp ; The carry flag _should_ never be set
+
+            inc hl
+            inc de
+        endr
+    djnz @height_loop   
+
+    dec ixl
+    jp nz, @reset_height
+
+
+@sp_restore:    ld sp, 0000h
     ret
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
