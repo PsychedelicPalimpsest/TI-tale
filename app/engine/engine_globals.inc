@@ -20,6 +20,9 @@ RDEF engine_globals,    cur_room_addr,     2
 RDEF engine_globals,    sprite_cache_size,     2
 
 
+RDEF engine_globals,    cur_ti_small_font,     2
+RDEF engine_globals,    cur_ti_large_font,     2
+
 
 RDEF engine_globals, sprite_cache_tail, 2
 
