@@ -40,6 +40,11 @@ INCLUDE "installed/rand.asm"
 
 INCLUDE "installed/audio_engine.asm"
 
+PUBLIC restore_sp_and_ret
+restore_sp_and_ret:
+    ld sp, 0000h
+    ret
+
     end_of_install:
 DEPHASE
 

@@ -215,6 +215,80 @@ norot3x2_blit:
     jp nz, @reset_height
     ret
 
+; Inputs:
+; hl' = Ouput buffer
+; de' = Input buffer
+; HL  = Pixel mode. H for light byte, L for dark byte. If the byte is 00h, xors input on,
+;       if 2Fh will xor by ~input, if AFh will do nothing. Do not use anything else
+; ixl= Input width in cols
+; a  = Input Height 
+; c  = Ouput Height*PixelWidth
+; N  = Pixel Width, MUST be 2 or 3 
+;
+; Outputs:
+; hl' = Output buffer AFTER last written pixel
+; de' = Input buffer AFTER last read pixel
+; hl  = Untouched
+MACRO _norot1xN_xorblit N
+    ld (@height_reset+1), a
+
+    REPT N-1
+        add a
+    endr
+    ; Calculate the stride
+    ; H-h = -h + H
+    neg
+    add c
+    ld (@output_stride+1), a
+
+    
+    ld a, h
+    ld (@lo), a
+
+    ld a, l
+    ld (@do), a
+
+    exx
+
+@height_reset: ld b, $0
+@height_loop:
+    IF 3=N
+        inc hl 
+    endif
+    
+; Light pixel
+    ld a, (de)
+@lo:nop ; nop or cpl, patched on the fly
+    xor (hl)
+    ld (hl), a
+    inc hl
+
+; Dark pixel
+    ld a, (de)
+@do:nop 
+    xor (hl)
+    ld (hl), a
+    inc hl
+
+    inc de
+    djnz @height_loop
+    
+@output_stride:
+    ld bc, 0000h
+    add hl, bc
+
+    dec ixl
+    jp nz, @height_reset
+    ret
+endm
+
+
+
+PUBLIC norot1x2_xorblit
+norot1x2_xorblit: _norot1xN_xorblit 2
+
+PUBLIC norot1x3_xorblit
+norot1x3_xorblit: _norot1xN_xorblit 3
 
 
 
