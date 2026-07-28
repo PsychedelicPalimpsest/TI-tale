@@ -1,0 +1,13 @@
+# Made for https://github.com/PsychedelicPalimpsest/asm-lsp-z88dk
+# when combined with https://github.com/PsychedelicPalimpsest/helix-z80 gives me
+# helix z80 support
+
+[default_config]
+assembler = "z80asm"
+instruction_set = "z80"
+
+[opts]
+compiler = "z88dk-z80asm"
+diagnostics = true
+default_diagnostics = true
+include_dirs = ["app/"]
