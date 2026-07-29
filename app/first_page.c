@@ -9,20 +9,42 @@ extern void greyscale_swap();
 
 int main(){
 #asm
-    ld hl, _screen_buffer
-    ld d, 128
-    ld c, 0b111
+   ld hl, _screen_buffer+1
+   ld (hl), $ff
+   dec hl
+
+   ld de, _screen_buffer+2
+   ld bc, 768*2-2
+   ldir
+
+
+
+    ld hl, _screen_buffer-128+2 
+    ld e, 128
+    ld c, 0b101
+    ld b, 2
     exx
-    ld hl, 'A'*8
-    ld a, 0
 
-    EXTERN char_x2blit
-    call char_x2blit
+    REPTC C, "Hello World!"
+      ld hl, C*8
 
-    ld hl, -1
-    ld (_screen_buffer+7*2), hl
+      EXTERN char_x2blit
+      call char_x2blit
+    endr
 
-#endasm
+    ld hl, _screen_buffer-128+16 
+    ld e, 128
+    ld c, 0b010
+    ld b, 2
+    exx
+
+    REPTC c, "Hello  World!"
+      ld hl, c*8
+
+      EXTERN char_x2blit
+      call char_x2blit
+    endr
+    #endasm
   greyscale_swap();
 
   while (1);

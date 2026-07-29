@@ -109,6 +109,7 @@ wh_copy_sprite:
 ;
 ; Outputs:
 ; bc = zero
+; a  = unchanged
 
 PUBLIC rotate_plane
 rotate_plane:
@@ -154,6 +155,8 @@ rotate_plane:
     jp nz, @height_reset
 
 @restore_sp: ld sp, 0000h
+
+    ld a, (@rot_amount+1) ; Restore a
     ret
 
 
