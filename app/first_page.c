@@ -36,6 +36,28 @@ int main(){
   greyscale_swap();
 
   while (1);
+
+
+  #asm
+  start_sprite:
+  db 2 ; Width
+  db 8 ; Height
+
+  REPT 4
+    db 0xF0, 0x0F, 0x0F, 0xF0
+    db 0x0F, 0xF0, 0xF0, 0x0F
+  ENDR
+
+
+  
+
+
+
+  end_sprite:
+
+
+
+  #endasm
 }
 
 

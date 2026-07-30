@@ -27,10 +27,8 @@ RDEF engine_globals,    cur_camy_plush,           2
 ; bg_sprites  - comes first, after engine globals
 
 RDEF engine_globals, bg_fill_color,   2 
-RDEF engine_globals, bg_sprites_size, 2 ; Size in bytes
 
-RDEF engine_globals, fg_sprites, 2      ; bg_sprites+bg_sprites_size  
-RDEF engine_globals, fg_sprites_size, 2
+RDEF engine_globals, sprite_pool_head, 2
 
 
 ; Simply the arguments for norot3x2_blit, gets precomputed whenever things change
@@ -46,11 +44,8 @@ RDEF engine_globals,    layer_foregound,  768*2
 
 DEFC engine_globals_end = engine_globals
 
-DEFC bg_sprites = engine_globals_end
-; Then the background sprites
 
 
-; START: Dynamically sized
 
 
 #ENDIF

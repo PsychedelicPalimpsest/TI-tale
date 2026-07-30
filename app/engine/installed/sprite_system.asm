@@ -1,3 +1,5 @@
+; This file contains some of the ugliest code ever written. 
+
 ; KEEP ME FIRST
 ALIGN 256
 bitset_lookup:
@@ -14,12 +16,109 @@ REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
 ENDR
 
 
-; Build the cache contents for a sprite. Please note this should NOT be used directly
 ; Inputs:
 ; hl = Input
 ; de = Output
-; bc = Width*Height*Pixel Width aka total sprite size
-; a  = Height*Pixel Width 
+; bc = Length
+MACRO norot2x3_cpy
+    LOCAL @loop2x3
+
+    ; bc *= 2
+    sla c
+    rl b    
+
+    ld a, 0xFF
+@loop2x3:
+    ld (de), a
+    inc de
+    ldi \ ldi
+    jp pe, @loop2x3
+endm
+
+; Inputs:
+; hl = Input
+; de = Output
+; bc = Length
+MACRO norot3x3_cpy
+    push bc
+    push bc
+    ldir
+    pop bc
+    ldir
+    pop bc
+    ldir
+endm
+
+
+
+
+
+
+; Take a sprite from the disk format and generate the sprite cache data entry 
+; Input:
+; hl = Input sprite
+; Output:
+; de = Sprite data entry
+MACRO _new_sprite_cache_entry N
+    ld de, (sprite_pool_head)
+    push de
+
+    ld b, (hl) ; Width (cols)
+    inc hl
+    ld c, (hl) ; Height
+    dec hl
+
+    ld ixl, b ; Save width for build_cache
+    ld a,   c ; Save height for build_cache
+    ex af, af'
+
+    ldi ; Copy width and height over
+    ldi
+
+    push de
+    push hl
+        ld l, b
+        ld d, $0
+        ld e, c
+    
+        call mul_16_16x8_fast
+        ld bc, hl
+    pop hl
+    pop de
+
+
+    ld a, b
+    ld (de), a
+    inc de
+    
+    ld a, c
+    ld (de), a
+    inc de
+    
+
+    ex af, af'
+    call build_cache##N##x
+    ld (sprite_pool_head), de
+    pop de
+    ret
+endm
+
+
+PUBLIC new_sprite_cache_entry2x
+new_sprite_cache_entry2x:_new_sprite_cache_entry 2
+
+PUBLIC new_sprite_cache_entry3x
+new_sprite_cache_entry3x:_new_sprite_cache_entry 3
+
+
+
+
+; Build the cache contents for a spritex2.  Please note this should NOT be used directly
+; Inputs:
+; hl = Input
+; de = Output
+; bc = Width*Height
+; a  = Height
 ; ixl = Width in cols
 ; Interupts must be disabled
 ;
@@ -27,14 +126,46 @@ ENDR
 ;  de  = End of cache entry 
 ;  hl  = One sprite rotation before de
 ;  ixl = Zero
-PUBLIC build_cache_for
-build_cache_for:
+PUBLIC build_cache2x
+build_cache2x:
     push de
-        ldir ; Copy in the first sprite rotation
+        norot2x3_cpy
         ex de, hl
+
+        ; A*=3 (pixel width)
+        ld d, a
+        add a
+        add d
     pop de
+    jp build_cache_rejoin
 
+; Build the cache contents for a spritex3.  Please note this should NOT be used directly
+; Inputs:
+; hl = Input
+; de = Output
+; bc = Width*Height
+; a  = Height
+; ixl = Width in cols
+; Interupts must be disabled
+;
+; Outputs:
+;  de  = End of cache entry 
+;  hl  = One sprite rotation before de
+;  ixl = Zero
+PUBLIC build_cache3x
+build_cache3x:
+    push de
+        norot3x3_cpy
+        ex de, hl
 
+        ; A*=3 aka pixel width
+        ld d, a
+        add a
+        add d
+    pop de
+    
+
+build_cache_rejoin:
     ld (@sp_restore+1),   sp
     ld (@reset_height+1),  a
 
@@ -158,7 +289,6 @@ rotate_plane:
 
     ld a, (@rot_amount+1) ; Restore a
     ret
-
 
 
 ; Blits a sprite to the screen
@@ -674,6 +804,12 @@ calculate_rl:
             ld a, (hl)
             ld (@sprite_size+2), a
             inc hl
+
+            ; Get the base sprite data location
+            ld a, (hl)
+            inc hl
+            ld h, (hl)
+            ld l, a
 
         ld (@base_sprite_location+1), hl
         

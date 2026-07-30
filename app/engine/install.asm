@@ -40,6 +40,29 @@ INCLUDE "installed/rand.asm"
 
 INCLUDE "installed/audio_engine.asm"
 
+; Fastest possible 16x8 multiplication routine
+PUBLIC mul_16_16x8_fast
+mul_16_16x8_fast:
+   ; enter :  l = 8-bit multiplier
+   ;         de = 16-bit multiplicand
+   ; exit  : hl = 16-bit product
+   ; uses  : af, hl
+
+   ld a,l
+   ld hl,0
+
+   ; Repeat this block 8 times
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+
+   ret
+
 PUBLIC restore_sp_and_ret
 restore_sp_and_ret:
     ld sp, 0000h
