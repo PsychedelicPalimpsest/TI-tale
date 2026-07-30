@@ -32,18 +32,6 @@ int main(){
       call char_x2blit
     endr
 
-    ld hl, _screen_buffer-128+16 
-    ld e, 128
-    ld c, 0b010
-    ld b, 2
-    exx
-
-    REPTC c, "Hello  World!"
-      ld hl, c*8
-
-      EXTERN char_x2blit
-      call char_x2blit
-    endr
     #endasm
   greyscale_swap();
 

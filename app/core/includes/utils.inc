@@ -120,7 +120,15 @@ macro add_hl_a
 @s1:
 endm
 
-
+; hl = -hl (24 t-states)
+macro neghl
+    xor  a
+    sub  l
+    ld   l, a
+    sbc  a, a
+    sub  h
+    ld   h, a
+endm
 
 ; Modified for constants (29 t-states)
 ; hl = nn + a

@@ -165,17 +165,25 @@ rotate_plane:
 ; Inputs:
 ; de = Input sprite
 ; hl = Output location on screen
-; ixl  = Width in cols
-; a  = Height
+; ixl  = Width in cols (can be truncated)
+; a  = Full Height (what the sprite actually is)
+; b  = Height truncation (cols to remove from bottom)
 public norot3x2_blit
 norot3x2_blit:
+    sub b
     ld (@reset_height+1), a
+
+    ld a, b
+    add a
+    add b
+    ld (@adj_ptr), a
 
     ; Calculate the diff to get to the next col
     ; The screen is 64 pixel tall, *2 for the grayscale
     ; 128-2a = 2(-a + 64)
 
     cpl ; Saves 4 cycles by using cpl instead of neg, needing me to add on to 64
+@height_adj:
     add 64+1
     add a
     ld (@advance_col+1), a
@@ -209,6 +217,12 @@ norot3x2_blit:
                ; Overflow happens when the low byte is 1111 1111, an odd byte, meaning from going from 
                ; a light pixel to a dark pixel.
     djnz @height_loop
+
+    ex de, hl
+    @adj_ptr:
+        ld c, 00h ; SMC
+        add hl, bc
+    ex de, hl
 
 @advance_col: 
     ld c, 00h ; SMC
@@ -341,3 +355,422 @@ scrcpy:
     ei
     ret
 
+; Fill a 768*2 screen quickly
+; Input:
+; hl = screen buffer + 768*2 (after the screen in question)
+; de = Fill color
+;
+; T-states: 8,660
+PUBLIC scrset
+scrset:
+    ld (@sp_restore+1), sp
+    di
+    ld sp, hl
+
+    ld b, 768*2 /64/2
+    @loop:
+        REPT 64
+            push de
+        ENDR
+        djnz @loop
+
+
+
+@sp_restore: ld sp, 0000h
+    ei
+    ret
+
+
+
+        
+; Inputs:
+; hl - sprite entry
+; Outputs:
+; ixl - Width truncation
+; ixh - Height truncation
+; hl - Offset in screen [0, 768*2)
+; b  - x truncation
+; c  - y truncation
+; a  - Rotation [0, 7]
+required_truncation:
+    ld c, (hl)
+    inc hl
+    ld b, (hl)
+    inc hl
+    push bc ; Save X
+
+    ld e, (hl)
+    inc hl
+    ld d, (hl)
+    inc hl    
+
+    ex de, hl
+        add hl, bc
+        ld bc, (cur_camx_plusw)
+        sub hl, bc
+        ld ixl, $0
+        jp p,@after_width_truncation 
+
+        ld a, l
+        ld ixl, a
+@after_width_truncation:
+    ex de, hl
+
+    ld c, (hl)
+    inc hl
+    ld b, (hl)
+    inc hl
+    push bc ; Save Y
+
+    ld e, (hl)
+    inc hl
+    ld d, (hl)
+    inc hl        
+       
+
+    ex de, hl
+        add hl, bc
+        ld bc, (cur_camy_plush)
+        sub hl, bc
+        ld ixh, $0
+        jp p,@after_height_truncation 
+
+        ld a, l
+        ld ixh, a
+
+@after_height_truncation:
+    pop bc ; Y
+    pop hl ; X
+
+    ; Fall through into coords_to_screen_offsets with:
+    ;   hl = X position
+    ;   bc = Y position
+
+
+
+
+
+; Take coords (two signed 16-bit ints) and calculate the offset
+; within a screen. This assumes the sprite is on the screen
+; Inputs:
+; hl - X position
+; bc - Y position
+; 
+; Outputs:
+; hl - Offset in screen [0, 768*2)
+; b  - x truncation
+; c  - y truncation
+; a  - Rotation [0, 7]
+coords_to_screen_offsets:
+    ld de, (cur_camx)
+    sub hl, de
+
+    
+    ex af, af' ; Store flags
+        ; Bit offset (magically works with negatives)
+        ld a, 7
+        and l ; Stored lower byte
+    ex af, af' ; Save for later; restore flags
+
+    jp p, @positive_diff
+    ; diff = (-diff + 7) = (7 - diff)
+        ld a, 7
+        sub l
+        ld l, a
+
+        sbc  a, a
+        sub  h
+        ld   h, a
+        
+        REPT 3
+            srl h
+            rr  l
+        endr
+        ld d, l ; x-truncation 
+
+        ld h, 0 ; x-offset
+        ld l, h
+        jp @handle_y
+@positive_diff:
+    ld a, 7 ^ 0xFF
+    and l
+    ld l, a
+
+
+    REPT 4
+        add hl, hl
+    endr
+
+
+    ld d, $0 ; X-truncation
+@handle_y:
+    push de ; Save x truncation
+    push hl  ; Save x offset
+
+    ld hl, bc
+    ld de, (cur_camy)
+    sub hl, de
+
+    jp p, @positive_ydiff
+        ld bc, $0
+
+        ld a, l
+        neg
+        ld d, a
+        jp @cleanup
+@positive_ydiff:
+    ld b, $0 
+    ld c, l
+    
+    ld d, $0
+
+@cleanup:
+    pop hl     ; x_offset * 128
+    add hl, bc ; + y_offset
+
+    pop bc
+    ld c, d
+    ex af, af' ; bit rotation
+    ret
+
+
+
+
+    
+; Based on a sprite at HL, checks if it is on screen. 
+; Setting the carry flag if so
+;
+; Restores: HL
+; Clobbers: BC, AF, DE
+PUBLIC is_sprite_on_screen
+is_sprite_on_screen:
+    ; Sprite placement possibilites:
+    ; 1. The sprite is too far X to be seen (sx > cx+cw)
+    ; 2. The sprite is too far the other X direction to be seen
+    ;    (cx > sx + sw)
+    ; 3. The sprite is too far Y to be seen (sy > cy+ch)
+    ; 4. The sprite is too far the other Y direction to be seen
+    ;    (cy > sy+sh)
+    push hl
+
+    ; Check 1:
+    
+        ; X
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        inc hl
+        ex de, hl
+            ld hl, (cur_camx_plusw)
+            or a \ sbc hl, bc
+            jp c, @no
+        ex de, hl
+   
+    ; Check 2:
+        ; X : comes from check 1
+        ; 
+        ; Width
+        ld e, (hl)
+        inc hl
+        ld d, (hl)
+        inc hl
+
+        ex de, hl
+            add hl, bc ; Assume no carry
+ 
+            ld bc, (cur_camx)
+            sbc hl, bc
+            jp c, @no
+        ex de, hl
+
+    ; Check 3:
+        ; Y
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        inc hl
+        ex de, hl
+            ld hl, (cur_camy_plush)
+            or a \ sbc hl, bc
+            jp c, @no
+        ex de, hl       
+    ; Check 4:
+        ; Height
+        ld e, (hl)
+        inc hl
+        ld d, (hl)
+
+        ex de, hl
+            add hl, bc ; Assume no carry
+
+            ld bc, (cur_camy)
+            sbc hl, bc
+            jp c, @no
+    scf
+
+    pop hl
+    ret
+
+@no:
+    or a
+
+    pop hl
+    ret
+
+
+
+
+reset_carry_retpop:
+    pop af
+reset_carry_ret:
+    or a
+    ret
+
+; Calculate the renderlist entry for a sprite, it updates a sprites exiting entry
+; if one is found, otherise it uses the provided one
+; Inputs:
+; hl = Sprite list entry
+; de = Render list entry
+; ; Outputs:
+; Carry flag is set iff renderlist was incremented
+; de = possibly advanced entry list
+calculate_rl:
+    ld a, (hl)
+
+    rra    
+    ret nc ; Sprite is disabled
+    inc hl
+    push de ; Save render list entry for later
+        call is_sprite_on_screen
+        jp nc, reset_carry_retpop
+
+    push hl
+        inc hl \ inc hl
+        ; Width for later
+            ld a, (hl)
+            ld (@add_in_width+1), a
+            inc hl
+
+            ld a, (hl)
+            ld (@add_in_width+2), a
+            inc hl
+        
+        inc hl \ inc hl
+        ; Height for later
+             ld a, (hl)
+            ld (@true_height+1), a
+            inc hl
+
+            ld a, (hl)
+            ld (@true_height+2), a
+            inc hl       
+
+
+        ; Load in the full sprite size for later
+            ld a, (hl)
+            ld (@sprite_size+1), a
+            inc hl
+
+            ld a, (hl)
+            ld (@sprite_size+2), a
+            inc hl
+
+        ld (@base_sprite_location+1), hl
+        
+    pop hl
+    pop de
+
+; A sprites cached list entry trumps all else
+    ld a, c
+    or c
+    jp z, @after_de_set
+        ld bc, de
+@after_de_set:
+    ld iy, bc
+
+    ; hl from pop
+    call required_truncation
+; Outputs:
+; ixl - Width truncation
+; ixh - Height truncation
+; hl - Offset in screen [0, 768*2)
+; b  - x truncation
+; c  - y truncation
+; a  - Rotation [0, 7]
+
+    ld (iy+2), l ; Screen offset can be passed in
+    ld (iy+3), h
+
+    ; Combine the y truncation together
+    ld a, ixh  ; Height truncation
+    add c      ; Presprite y truncation  
+    ld (iy+6), a
+    
+    push bc ; X-y truncation
+        exx
+
+        ; Calculate the full sprites location in the cache
+    @base_sprite_location:
+        ld hl, 0000h ; Sprite locationi
+    @sprite_size:
+        ld de, 0000h ; Full sprite size
+
+        ; Add de a times to hl
+        cpl
+        add 7+1 ; 1 is added to use cpl instead of neg
+        ld (@loop_jr+1), a
+
+    @loop_jr:
+        jr $+2 ; SMC: Patched jump amount
+        REPT 7
+            add hl, de
+        endr
+
+
+    pop bc ; X-Y truncation
+        ld d, $0
+        ld e, c
+
+        add hl, bc ; Add in the Y truncation
+
+    @add_in_width:
+        ld de, 0000h ; SMC: Width stored from earlier
+
+        ld a, 24 ; Bytes needed to skip add loop
+        sub b
+        ld (@x_truncation_jr+1), a
+
+    @x_truncation_jr:
+        jr $+2
+
+        REPT 24
+            add hl, de
+        endr
+
+        ld (iy+0), l ; Input sprite
+        ld (iy+1), h
+
+        ; Divide width by 8 to get col width
+        ld a, e
+        REPT 3
+            srl d
+            rra
+        endr
+        sub ixl ; Subtract width truncation
+        ld (iy+4), a
+
+    @true_height:
+        ld bc, 0000h
+        ld (iy+5), c ; Pass in full height (This can safely be truncated)
+
+    ret
+
+; de = Input sprite
+; hl = Output location on screen
+; ixl  = Width in cols (can be truncated)
+; a  = Full Height (what the sprite actually is)
+; b  = Height truncation (cols to remove from bottom)
+
+
+    
+    

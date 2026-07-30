@@ -92,27 +92,29 @@ MACRO _char_blit N
     push hl ; Save output location for final restore
     exx
 
-    ; Set the color mode based on c
-        ld hl, $0000
+; Set the color mode based on c
+    ld hl, $0000
 
-        push bc ; Save color mode
+    push bc ; Save color mode
 
-            ld a, c    ; Color mode
-            rra        ; Get bit 0 (dark color) 
-            jp c, @after_dark
-                ld l, $af ; Do nothing to that bit
-    @after_dark:
-            rra        ; Get bit 1 (light color)
-            jp c, @after_light
-                ld h, $af ; Do nothing to that bit
-    @after_light:
+    ld a, c    ; Color mode
+    rra        ; Get bit 0 (dark color) 
+    jp c, @after_dark
+        ld l, $af ; Do nothing to that bit
+@after_dark:
+    rra        ; Get bit 1 (light color)
+    jp c, @after_light
+        ld h, $af ; Do nothing to that bit
+@after_light:
 
-            ld ixl, 2 ; Width (cols)
-            ld a, 7   ; Height
-            ld c, e   ; Output height
-        
-            EXTERN norot1x##N##_xorblit
-            call norot1x##N##_xorblit
+    ld ixl, 2 ; Width (cols)
+    ld a, 7   ; Height
+    ld c, e   ; Output height
+
+    di ; Prevent evil things from happening
+        EXTERN norot1x##N##_xorblit
+        call norot1x##N##_xorblit
+    ei
 
 
         
