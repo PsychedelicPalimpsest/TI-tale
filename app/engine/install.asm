@@ -37,8 +37,13 @@ INCLUDE "installed/game_tick.asm"
 INCLUDE "installed/greyscale.asm"
 INCLUDE "installed/greyscale_swap.asm"
 INCLUDE "installed/rand.asm"
+INCLUDE "installed/tasks.asm"
 
 INCLUDE "installed/audio_engine.asm"
+
+
+
+
 
 ; Fastest possible 16x8 multiplication routine
 PUBLIC mul_16_16x8_fast
@@ -63,10 +68,16 @@ mul_16_16x8_fast:
 
    ret
 
+
+
 PUBLIC restore_sp_and_ret
 restore_sp_and_ret:
     ld sp, 0000h
     ret
+
+; Small helper function
+PUBLIC __hl 
+__hl: jp (hl)
 
     end_of_install:
 DEPHASE
