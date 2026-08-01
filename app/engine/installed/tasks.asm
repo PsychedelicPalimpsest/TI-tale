@@ -14,6 +14,13 @@
 #define _raw(XXXX) XXXX
 #define _label(YYYY) task##_raw(YYYY)##_raw(:)
 
+
+
+PUBLIC yield, yield_shadow, yield_raw
+PUBLIC task1, task2, task3, task4
+PUBLIC __current_task
+
+
 REPTI NUM, 1, 2, 3, 4
 _label(NUM)
 	db $00     ; Type: 0 for unused, 1 for conditional, 2 for unconditional
@@ -24,8 +31,6 @@ endr
 
 
 DEFC __current_task = __next_task+1
-
-
 
 
 

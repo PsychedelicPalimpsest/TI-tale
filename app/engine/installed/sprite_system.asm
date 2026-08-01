@@ -485,6 +485,46 @@ scrcpy:
     ei
     ret
 
+
+; Copy a screen who needs a custom height stride
+; iy = source
+; ix = destination
+; hl = stride
+PUBLIC scrcpy_stride
+scrcpy_stride:
+    ld (@stride+1), hl
+
+    ld a, 12
+    ld (@loop_counter+1), a
+    ld (@sp_restore+1), sp
+    di
+
+@loop:
+    ld de, 14
+    REPT 7
+        fastcpy_14s_stride_backwards
+    endr
+
+    fastcpy_14s_stridenuke_backwards
+
+    ld de, 16
+    fastcpy_16s_stridenuke_backwards
+
+@stride: ld de, 0000h ; Stride
+    add iy, de
+    add ix, de
+    
+
+@loop_counter:
+    ld a, $0
+    dec a
+    ld (@loop_counter+1), a
+    jp nz, @loop
+
+@sp_restore: ld sp, 0000h
+    ei
+    ret
+
 ; Fill a 768*2 screen quickly
 ; Input:
 ; hl = screen buffer + 768*2 (after the screen in question)

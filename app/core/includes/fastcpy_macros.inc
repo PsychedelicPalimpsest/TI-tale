@@ -88,6 +88,32 @@ MACRO fastcpy_12s_stride
     push af
   ENDM
 
+
+; 142 t-states
+MACRO fastcpy_8s_stride
+    ld sp, iy
+
+    pop bc
+    pop hl
+    
+    add ix, de ; dst += dst_offset (12)
+    add iy, de ; src += stride
+    exx
+
+    pop bc
+    pop hl
+
+    ld sp, ix
+
+    push hl
+    push bc
+
+    exx
+
+    push hl
+    push bc
+  ENDM
+
 ; t-states: 200
 MACRO fastcpy_12backwards
     exx
@@ -196,6 +222,150 @@ MACRO fastcpy_14s_stride
     exx
     ex af, af'
 
+    push hl
+    push bc
+    push af
+  ENDM
+
+
+
+; Copies 14 bytes with the stack. Used de
+; for the stride for BOTH dst and src
+; 
+; Inputs: 
+;  iy = source
+;  ix = destination
+;  de = source and destination stride
+; Outputs:
+;  iy += de
+;  iy += de
+;  sp = ix + 14
+; 
+; Clobbers: af, bc, hl, af', bc', hl', de'
+; Perserves: de, de`
+; t-states: 213 
+MACRO fastcpy_14s_stride_backwards
+    add iy, de ; src += stride
+    add ix, de ; dst += stride
+    ld sp, iy
+
+    pop af
+    pop bc
+    pop hl
+    
+    ex af, af' ; flags free to clobber 
+    exx
+
+    pop af
+    pop bc
+    pop hl
+    pop de
+
+    ld sp, ix
+
+    push de 
+    push hl
+    push bc
+    push af
+
+    exx
+    ex af, af'
+
+    push hl
+    push bc
+    push af
+  ENDM
+
+
+; Copies 14 bytes with the stack. Used de
+; for the stride for BOTH dst and src
+; 
+; Inputs: 
+;  iy = source
+;  ix = destination
+;  de = source and destination stride
+; Outputs:
+;  iy += de
+;  iy += de
+;  sp = ix + 14
+; 
+; Clobbers: af, bc, hl, af', bc', hl', de'
+; t-states: 205 
+MACRO fastcpy_14s_stridenuke_backwards
+    add iy, de ; src += stride
+    add ix, de ; dst += stride
+    ld sp, iy
+
+    pop af
+    pop bc
+    pop hl
+    pop de
+    
+    exx
+
+    pop bc
+    pop hl
+    pop de
+
+    ld sp, ix
+
+    push de 
+    push hl
+    push bc
+
+    exx
+
+    push de
+    push hl
+    push bc
+    push af
+  ENDM
+
+
+; Copies 16 bytes with the stack. Used de
+; for the stride for BOTH dst and src
+; 
+; Inputs: 
+;  iy = source
+;  ix = destination
+;  de = source and destination stride
+; Outputs:
+;  iy += de
+;  ix += de
+;  sp = ix - 16  (where ix is updated ix + de)
+; 
+; Clobbers: af, bc, de, hl, af', bc', de', hl'
+; Preserves: None (all general registers clobbered)
+; t-states: 234
+MACRO fastcpy_16s_stridenuke_backwards
+    add iy, de ; src += stride
+    add ix, de ; dst += stride
+    ld sp, iy
+
+    pop af
+    pop bc
+    pop hl
+    pop de
+    
+    ex af, af' ; flags free to clobber 
+    exx
+
+    pop af
+    pop bc
+    pop hl
+    pop de
+
+    ld sp, ix
+
+    push de 
+    push hl
+    push bc
+    push af
+
+    exx
+    ex af, af'
+
+    push de
     push hl
     push bc
     push af
