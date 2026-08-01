@@ -45,10 +45,13 @@ INCLUDE "installed/audio_engine.asm"
 
 
 
-; Fastest possible 16x8 multiplication routine
+; Fastest possible 16x8 multiplication routine (kind of)
+; Best case:    240 
+; Worst case:   288
+; Average:      264
 PUBLIC mul_16_16x8_fast
 mul_16_16x8_fast:
-   ; enter :  l = 8-bit multiplier
+   ; enter : l = 8-bit multiplier
    ;         de = 16-bit multiplicand
    ; exit  : hl = 16-bit product
    ; uses  : af, hl

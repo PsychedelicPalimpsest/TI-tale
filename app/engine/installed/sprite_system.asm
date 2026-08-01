@@ -16,6 +16,115 @@ REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
 ENDR
 
 
+
+; Take a sprite from the disk format and generate the sprite cache data entry 
+; Input:
+; hl = Input sprite
+; Output:
+; de = Sprite cache entry
+MACRO _new_sprite_cache_entry N
+    ld de, (sprite_pool_head)
+    push de ; Old sprite cache head
+
+    ld b, (hl) ; Width (cols)
+    inc hl
+    ld c, (hl) ; Height
+    dec hl
+
+    ld ixl, b ; Save width for build_cache
+    ld a,   c ; Save height for build_cache
+    ex af, af'
+
+    push hl ; Input sprite
+        ; Flags entry (default to not being displayed)
+        xor a
+        ld (de), a
+        inc de
+        
+        ; Init X, Width, Y, Height fields
+        ld (de), a
+        inc de
+        ld (de), a
+        inc de
+
+        ld l, b ; Width *=8
+        inc l ; build_cache extends by one col
+        REPT 3
+            sla l
+            rla
+        endr
+
+        ex de, hl
+            ; Width in pixel
+            ld (hl), e
+            inc hl
+            ld (hl), a
+            inc hl
+
+            ; Y 
+            xor a
+            ld (hl), a
+            inc hl
+            ld (hl), a
+            inc hl
+
+            ; Height
+            ld (hl), c
+            inc hl
+
+            ; RL entry
+            ld (hl), a
+            inc hl
+            ld (hl), a
+            inc hl
+        ex de, hl
+    push de 
+        ld l, b
+        ld d, $0
+        ld e, c
+    
+        ; Width*height
+        call mul_16_16x8_fast
+        ld bc, hl
+    pop de
+
+    ; Ptr for each sprite entry
+    ld hl, 8*2
+    add hl, de
+
+    ld ixh, 8
+    @loop:
+        ld a, l
+        ld (de), a
+        inc de
+
+        ld a, h
+        ld (de), a
+        inc de    
+
+        add hl, bc
+
+        dec ixh
+        jp nz, @loop 
+    
+    pop hl ; Input sprite
+    ex af, af'
+    call build_cache##N##x
+    ld (sprite_pool_head), de
+    pop de ; Old head
+    ret
+endm
+
+
+PUBLIC new_sprite_cache_entry2x
+new_sprite_cache_entry2x:_new_sprite_cache_entry 2
+
+PUBLIC new_sprite_cache_entry3x
+new_sprite_cache_entry3x:_new_sprite_cache_entry 3
+
+
+
+; Add alpha channel to a sprite
 ; Inputs:
 ; hl = Input
 ; de = Output
@@ -54,76 +163,9 @@ endm
 
 
 
-; Take a sprite from the disk format and generate the sprite cache data entry 
-; Input:
-; hl = Input sprite
-; Output:
-; de = Sprite data entry
-MACRO _new_sprite_cache_entry N
-    ld de, (sprite_pool_head)
-    push de
-
-    ld b, (hl) ; Width (cols)
-    inc hl
-    ld c, (hl) ; Height
-    dec hl
-
-    ld ixl, b ; Save width for build_cache
-    ld a,   c ; Save height for build_cache
-    ex af, af'
-
-    ldi ; Copy width and height over
-    ldi
-
-    push hl
-    push de
-        ld l, b
-        ld d, $0
-        ld e, c
-    
-        ; Width*height
-        call mul_16_16x8_fast
-        ld bc, hl
-    pop de
-
-    ; Ptr for each sprite entry
-    ld hl, 8*2
-    add hl, de
-
-    ld ixl, 8
-    @loop:
-        ld a, l
-        ld (de), a
-        inc de
-
-        ld a, h
-        ld (de), a
-        inc de    
-
-        add hl, bc
-
-        dec ixl
-        jp nz, @loop 
-    
-    pop hl
-    ex af, af'
-    call build_cache##N##x
-    ld (sprite_pool_head), de
-    pop de
-    ret
-endm
-
-
-PUBLIC new_sprite_cache_entry2x
-new_sprite_cache_entry2x:_new_sprite_cache_entry 2
-
-PUBLIC new_sprite_cache_entry3x
-new_sprite_cache_entry3x:_new_sprite_cache_entry 3
-
-
-
-
-; Build the cache contents for a spritex2.  Please note this should NOT be used directly
+; Build the cache contents for a spritex2.
+; This extends the buffer by one col for rotation carry out
+; Please note this should NOT be used directly
 ; Inputs:
 ; hl = Input
 ; de = Output
@@ -148,7 +190,9 @@ build_cache2x:
     pop de
     jp build_cache_rejoin
 
-; Build the cache contents for a spritex3.  Please note this should NOT be used directly
+; Build the cache contents for a spritex3.
+; This extends the buffer by one col for rotation carry out
+; Please note this should NOT be used directly
 ; Inputs:
 ; hl = Input
 ; de = Output
@@ -162,7 +206,7 @@ build_cache2x:
 ;  hl  = One sprite rotation before de
 ;  ixl = Zero
 build_cache3x:
-    push de
+    push de ; Original output
         norot3x3_cpy
         ex de, hl
 
@@ -171,47 +215,87 @@ build_cache3x:
         add a
         add d
     pop de
-    
+
+    ; Coming in:
+    ; hl = after the first rotation buffer
+    ; de = first rotation buffer
+    ; bc = zero
+    ; stack 
 
 build_cache_rejoin:
-    ld (@sp_restore+1),   sp
-    ld (@reset_height+1),  a
+    ld (@restore_sp+1), sp
+    ld (@height_reset1+1), a
+    ld (@height_reset2+1), a
+    ld (@set_sp+1), a
 
-    ld (@sp_set+1), a ; Set low byte of sp
-@sp_set: 
-    ld sp, 0000h  ; SMC
 
-    or a ; Reset carry
-@reset_height:
-    ld b, 00h ; SMC
-    @height_loop:
-        REPT 7 
-            ; Inner loop runs: 7*Width*Height*Pixel Width times
-            
-            ld a, (de) ; Main pixel
-            ld c, 0    ; Carry out pixel
+    ; Extend the rotation buffer with a blank col
+    push de
+        ld c, a
+        ld de, hl
+        ld (hl), 0
 
-            rra 
-            rr c
+        dec c ; Off by one error
+        inc de
+        ldir
+    pop de
 
+    
+@set_sp: ld sp, 0000h
+
+    ld a, ixl
+    ld (@width_reset+2), a
+
+
+
+    MACRO _cell is_first
+        ld a, (de)
+        ld c, 0
+
+        rra
+        rr c
+
+        ; Don't take a carry on the first col 
+        if 0=is_first
             or (hl)
-            ld (hl), a
-            
-            add hl, sp
-                ld (hl), c
-            sbc hl, sp ; The carry flag _should_ never be set
+        endif
+        ld (hl), a
+        add hl, sp
+            ld (hl), c
+        sbc hl, sp ; Carry flag will never be set with valid args
 
-            inc hl
-            inc de
-        endr
-    djnz @height_loop   
+        inc hl
+        inc de
+    endm
 
+    ld iyl, 7 ; 7 Rotations
+
+@height_reset1: ld b, 00h
+@loop1:
+        _cell 1
+    djnz @loop1
+
+@width_reset:   ld ixl, 00h
+@height_reset2: ld b, 00h
+@loop2:
+        _cell 0
+    djnz @loop2
     dec ixl
-    jp nz, @reset_height
+    jp nz, @height_reset2
 
+    ; Skip the last col
+    add hl, sp
+    ex de, hl
+        add hl, sp
+    ex de, hl
+    dec iyl
+    jp nz, @height_reset1
 
-@sp_restore:    ld sp, 0000h ; SMC
+@restore_sp:
+    ld sp, 0000h
     ret
+    
+
 
 
 ; Copies a sprite based on width and height
@@ -298,6 +382,44 @@ rotate_plane:
     ld a, (@rot_amount+1) ; Restore a
     ret
 
+
+no_render:
+    add hl, de
+    exx
+    ret
+
+; Input:
+; hl' = Render list entry
+; de' = 6
+; Output:
+; hl' = Next RL entry
+;
+; All shadow registers perserved
+PUBLIC blit_rl_entry
+blit_rl_entry:
+    ld (@restore_sp+1), sp
+
+    di
+    exx
+        xor a
+        or (hl)
+        jr z, no_render ; Likely to fall through
+        
+        ld sp, hl
+        add hl, de
+    exx
+    inc sp
+
+    pop de
+    pop hl
+    pop ix
+        ld a, ixh
+    pop bc
+        ld b, c
+@restore_sp:
+    ld sp, 0000h
+    ei
+    ; Fall through to norot3x2_blit    
 
 ; Blits a sprite to the screen
 ; Inputs:
@@ -605,10 +727,9 @@ required_truncation:
 
 
     ; Height
+    ld d, $0
     ld e, (hl)
     inc hl
-    ld d, (hl)
-    inc hl        
        
 
     ex de, hl
@@ -817,46 +938,41 @@ reset_carry_ret:
 ; ; Outputs:
 ; Carry flag is set iff renderlist was incremented
 ; de = possibly advanced entry list
+PUBLIC calculate_rl
 calculate_rl:
     ld a, (hl)
 
     rra    
     ret nc ; Sprite is disabled
     inc hl
+
     push de ; Save render list entry for later
         call is_sprite_on_screen
         jp nc, reset_carry_retpop
 
     push hl
-        inc hl \ inc hl
+        inc hl \ inc hl ; Skip X
+
         ; Width for later
-            ld a, (hl)
-            ld (@add_in_width+1), a
-            inc hl
+        ld de, @add_in_width+1
+        ldi \ ldi
 
-            ld a, (hl)
-            ld (@add_in_width+2), a
-            inc hl
         
-        inc hl \ inc hl
-        ; Height for later
-             ld a, (hl)
-            ld (@true_height+1), a
-            inc hl
+        inc hl \ inc hl ; Skip Y
 
-            ld a, (hl)
-            ld (@true_height+2), a
-            inc hl       
+        ; Height for later
+        ld a, (hl)
+        ld (@true_height+1), a
+        inc hl       
 
           
-            ; Get the base sprite data table
-            ld a, (hl)
-            inc hl
-            ld h, (hl)
-            ld l, a
+        ; Get the base sprite data table
+        ld de, @sprite_rot_table+1
+        ldi \ ldi
 
-        ld (@sprite_rot_table+1), hl
-        
+        ld b, (hl)
+        inc hl
+        ld c, (hl)
     pop hl
     pop de
 
@@ -866,6 +982,10 @@ calculate_rl:
     jp z, @after_de_set
         ld bc, de
 @after_de_set:
+    ld a, 1 ; Mark as render-able
+    ld (bc), a
+    inc bc
+    
     ld iy, bc
 
     ; hl from pop
@@ -945,7 +1065,7 @@ calculate_rl:
         ld (iy+4), a
 
     @true_height:
-        ld bc, 0000h
+        ld c, 00h
         ld (iy+5), c ; Pass in full height (This can safely be truncated to a byte)
 
     ret

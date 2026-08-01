@@ -8,38 +8,42 @@ extern void greyscale_swap();
 
 
 int main(){
-#asm
-   ld hl, _screen_buffer+1
-   ld (hl), $ff
-   dec hl
+  #asm
+  INCLUDE "engine/engine_globals.inc"
 
-   ld de, _screen_buffer+2
-   ld bc, 768*2-2
-   ldir
+  ld hl, engine_globals_end
+  ld (sprite_pool_head), hl
+
+  ld hl, sprite
+
+  EXTERN new_sprite_cache_entry2x
+  call new_sprite_cache_entry2x
+  ; de = cache entry
+
+  ex de, hl
+  ld a, 1
+  ld (hl), a ; Render
+
+  ld de, engine_globals_end + $500
+  EXTERN calculate_rl
+  call calculate_rl
+  
 
 
+  ld hl, engine_globals_end + $500
+  exx
+  EXTERN blit_rl_entry
+  call blit_rl_entry
+  
 
-    ld hl, _screen_buffer-128+2 
-    ld e, 128
-    ld c, 0b101
-    ld b, 2
-    exx
-
-    REPTC C, "Hello World!"
-      ld hl, C*8
-
-      EXTERN char_x2blit
-      call char_x2blit
-    endr
-
-    #endasm
+  #endasm
   greyscale_swap();
 
   while (1);
 
 
   #asm
-  start_sprite:
+  sprite:
   db 2 ; Width
   db 8 ; Height
 
@@ -47,14 +51,6 @@ int main(){
     db 0xF0, 0x0F, 0x0F, 0xF0
     db 0x0F, 0xF0, 0xF0, 0x0F
   ENDR
-
-
-  
-
-
-
-  end_sprite:
-
 
 
   #endasm
