@@ -75,27 +75,37 @@ MACRO _new_sprite_cache_entry N
     ldi ; Copy width and height over
     ldi
 
-    push de
     push hl
+    push de
         ld l, b
         ld d, $0
         ld e, c
     
+        ; Width*height
         call mul_16_16x8_fast
         ld bc, hl
-    pop hl
     pop de
 
+    ; Ptr for each sprite entry
+    ld hl, 8*2
+    add hl, de
 
-    ld a, b
-    ld (de), a
-    inc de
-    
-    ld a, c
-    ld (de), a
-    inc de
-    
+    ld ixl, 8
+    @loop:
+        ld a, l
+        ld (de), a
+        inc de
 
+        ld a, h
+        ld (de), a
+        inc de    
+
+        add hl, bc
+
+        dec ixl
+        jp nz, @loop 
+    
+    pop hl
     ex af, af'
     call build_cache##N##x
     ld (sprite_pool_head), de
@@ -126,7 +136,6 @@ new_sprite_cache_entry3x:_new_sprite_cache_entry 3
 ;  de  = End of cache entry 
 ;  hl  = One sprite rotation before de
 ;  ixl = Zero
-PUBLIC build_cache2x
 build_cache2x:
     push de
         norot2x3_cpy
@@ -152,7 +161,6 @@ build_cache2x:
 ;  de  = End of cache entry 
 ;  hl  = One sprite rotation before de
 ;  ixl = Zero
-PUBLIC build_cache3x
 build_cache3x:
     push de
         norot3x3_cpy
@@ -563,12 +571,14 @@ scrset:
 ; c  - y truncation
 ; a  - Rotation [0, 7]
 required_truncation:
+    ; X
     ld c, (hl)
     inc hl
     ld b, (hl)
     inc hl
     push bc ; Save X
 
+    ; Width
     ld e, (hl)
     inc hl
     ld d, (hl)
@@ -586,12 +596,15 @@ required_truncation:
 @after_width_truncation:
     ex de, hl
 
+    ; Y
     ld c, (hl)
     inc hl
     ld b, (hl)
     inc hl
     push bc ; Save Y
 
+
+    ; Height
     ld e, (hl)
     inc hl
     ld d, (hl)
@@ -835,23 +848,14 @@ calculate_rl:
             ld (@true_height+2), a
             inc hl       
 
-
-        ; Load in the full sprite size for later
-            ld a, (hl)
-            ld (@sprite_size+1), a
-            inc hl
-
-            ld a, (hl)
-            ld (@sprite_size+2), a
-            inc hl
-
-            ; Get the base sprite data location
+          
+            ; Get the base sprite data table
             ld a, (hl)
             inc hl
             ld h, (hl)
             ld l, a
 
-        ld (@base_sprite_location+1), hl
+        ld (@sprite_rot_table+1), hl
         
     pop hl
     pop de
@@ -866,7 +870,6 @@ calculate_rl:
 
     ; hl from pop
     call required_truncation
-; Outputs:
 ; ixl - Width truncation
 ; ixh - Height truncation
 ; hl - Offset in screen [0, 768*2)
@@ -877,33 +880,29 @@ calculate_rl:
     ld (iy+2), l ; Screen offset can be passed in
     ld (iy+3), h
 
-    ; Combine the y truncation together
-    ld a, ixh  ; Height truncation
-    add c      ; Presprite y truncation  
-    ld (iy+6), a
+    ex af, af' ; Rotation
+        ; Combine the y truncation together
+        ld a, ixh  ; Height truncation
+        add c      ; Presprite y truncation  
+        ld (iy+6), a
     
-    push bc ; X-y truncation
+    ex af, af' ; Rotation
+
         exx
 
-        ; Calculate the full sprites location in the cache
-    @base_sprite_location:
-        ld hl, 0000h ; Sprite locationi
-    @sprite_size:
-        ld de, 0000h ; Full sprite size
+    ; Get the sprites location (via lookup table) from rotation
+    @sprite_rot_table:
+        ld hl, 0000h ; Rotation table
+        add a ; *2 for ptr size
+        add_hl_a 
 
-        ; Add de a times to hl
-        cpl
-        add 7+1 ; 1 is added to use cpl instead of neg
-        ld (@loop_jr+1), a
+        ; Lookup sprite entry
+        ld a, (hl)
+        inc hl
+        ld h, (hl)
+        ld l, a
+        
 
-    @loop_jr:
-        jr $+2 ; SMC: Patched jump amount
-        REPT 7
-            add hl, de
-        endr
-
-
-    pop bc ; X-Y truncation
         ld d, $0
         ld e, c
 
@@ -912,41 +911,41 @@ calculate_rl:
     @add_in_width:
         ld de, 0000h ; SMC: Width stored from earlier
 
-        ld a, 24 ; Bytes needed to skip add loop
+        ; *=3 for pixel size (alph, light, dark)
+        push hl
+            ld hl, de
+            add hl, hl
+            add hl, de
+            ex de, hl
+        pop hl
+
+        ld a, 12 ; Bytes needed to skip loop
         sub b
         ld (@x_truncation_jr+1), a
 
     @x_truncation_jr:
         jr $+2
 
-        REPT 24
+        REPT 12 ; Max truncation amount (size of screen)
             add hl, de
         endr
 
         ld (iy+0), l ; Input sprite
         ld (iy+1), h
 
-        ; Divide width by 8 to get col width
-        ld a, e
+        ; Divid width by 8 to get col width
+        ld hl, (@add_in_width+1)
+        ld a, l
         REPT 3
-            srl d
+            srl h
             rra
         endr
+
         sub ixl ; Subtract width truncation
         ld (iy+4), a
 
     @true_height:
         ld bc, 0000h
-        ld (iy+5), c ; Pass in full height (This can safely be truncated)
+        ld (iy+5), c ; Pass in full height (This can safely be truncated to a byte)
 
     ret
-
-; de = Input sprite
-; hl = Output location on screen
-; ixl  = Width in cols (can be truncated)
-; a  = Full Height (what the sprite actually is)
-; b  = Height truncation (cols to remove from bottom)
-
-
-    
-    

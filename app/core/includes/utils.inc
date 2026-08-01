@@ -113,6 +113,7 @@ macro ld_hl_a
 endm
 
 macro add_hl_a
+    LOCAL @s1
     add a, l
     ld l, a
     jr nc, @s1
