@@ -82,9 +82,16 @@ MACRO _new_sprite_cache_entry N
         ld l, b
         ld d, $0
         ld e, c
-    
+
         ; Width*height
         call mul_16_16x8_fast
+        ld (@reset_bc+1), hl
+        
+        add hl, de ; Add in another copy of the height (to account for the extra col)
+        ld de, hl
+        ; *=3
+        add hl, hl
+        add hl, de
         ld bc, hl
     pop de
 
@@ -108,7 +115,12 @@ MACRO _new_sprite_cache_entry N
         jp nz, @loop 
     
     pop hl ; Input sprite
+    inc hl \ inc hl ; Skip width and height bytes
+
     ex af, af'
+@reset_bc:
+    ld bc, 0000h
+    
     call build_cache##N##x
     ld (sprite_pool_head), de
     pop de ; Old head
@@ -131,17 +143,18 @@ new_sprite_cache_entry3x:_new_sprite_cache_entry 3
 ; bc = Length
 MACRO norot2x3_cpy
     LOCAL @loop2x3
+    ex af, af'
+        ; bc *= 2
+        sla c
+        rl b    
 
-    ; bc *= 2
-    sla c
-    rl b    
-
-    ld a, 0xFF
-@loop2x3:
-    ld (de), a
-    inc de
-    ldi \ ldi
-    jp pe, @loop2x3
+        ld a, 0xFF
+    @loop2x3:
+        ld (de), a
+        inc de
+        ldi \ ldi
+        jp pe, @loop2x3
+    ex af, af'
 endm
 
 ; Inputs:
@@ -220,7 +233,8 @@ build_cache3x:
     ; hl = after the first rotation buffer
     ; de = first rotation buffer
     ; bc = zero
-    ; stack 
+    ; a = height*3
+    ; ixl = width in cols
 
 build_cache_rejoin:
     ld (@restore_sp+1), sp
@@ -235,16 +249,14 @@ build_cache_rejoin:
         ld de, hl
         ld (hl), 0
 
-        dec c ; Off by one error
+        dec c ; First byte is already written
         inc de
         ldir
+        ex de, hl
     pop de
 
     
 @set_sp: ld sp, 0000h
-
-    ld a, ixl
-    ld (@width_reset+2), a
 
 
 
@@ -268,35 +280,45 @@ build_cache_rejoin:
         inc de
     endm
 
-    ld iyl, 7 ; 7 Rotations
 
-@height_reset1: ld b, 00h
-@loop1:
+    ld a, ixl
+    dec a ; Account for the first col being done outside of the loop
+    ld (@width_reset+2), a
+
+    ld ixh, 7 ; 7 Rotations 
+
+@height_reset1:
+    ld b, 00h
+
+    @loop1:
         _cell 1
-    djnz @loop1
+        djnz @loop1
 
-@width_reset:   ld ixl, 00h
-@height_reset2: ld b, 00h
-@loop2:
-        _cell 0
-    djnz @loop2
-    dec ixl
-    jp nz, @height_reset2
+@width_reset:
+    ld ixl, 00h
+
+    @height_reset2:
+        ld b, 00h
+
+        @loop2:
+            _cell 0
+            djnz @loop2
+
+        dec ixl
+        jp nz, @height_reset2
 
     ; Skip the last col
     add hl, sp
     ex de, hl
         add hl, sp
     ex de, hl
-    dec iyl
+
+    dec ixh
     jp nz, @height_reset1
 
 @restore_sp:
     ld sp, 0000h
     ret
-    
-
-
 
 ; Copies a sprite based on width and height
 ; Inputs:

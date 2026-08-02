@@ -121,6 +121,26 @@ macro add_hl_a
 @s1:
 endm
 
+macro sub_hl_a
+    LOCAL @s1
+    sub a, l
+    ld l, a
+    jr nc, @s1
+    dec h
+@s1:
+endm
+
+
+
+macro sub_bc_a
+    LOCAL @s1
+    sub a, c
+    ld c, a
+    jr nc, @s1
+    dec b
+@s1:
+endm
+
 ; hl = -hl (24 t-states)
 macro neghl
     xor  a
