@@ -10,30 +10,40 @@ extern void greyscale_swap();
 int main(){
   #asm
   INCLUDE "engine/engine_globals.inc"
+    ld hl, engine_globals_end
+    ld (sprite_pool_head), hl
 
-  ld hl, engine_globals_end
-  ld (sprite_pool_head), hl
+    ld hl, 00
+    ld (cur_camx), hl
+    ld (cur_camy), hl
 
-  ld hl, sprite
+    ld hl, 12*8
+    ld (cur_camx_plusw), hl
 
-  EXTERN new_sprite_cache_entry2x
-  call new_sprite_cache_entry2x
-  ; de = cache entry
+    ld hl, 64
+    ld (cur_camy_plush), hl
 
-  ex de, hl
-  ld a, 1
-  ld (hl), a ; Render
+    ld hl, sprite
 
-  ld de, engine_globals_end + $500
-  EXTERN calculate_rl
-  call calculate_rl
+    EXTERN new_sprite_cache_entry2x
+    call new_sprite_cache_entry2x
+    ; de = cache entry
+
+    ex de, hl
+    ld a, 1
+    ld (hl), a ; Render
+
+    ld de, engine_globals_end + $500
+    ld bc, _screen_buffer
+    EXTERN calculate_rl
+    call calculate_rl
   
 
 
-  ld hl, engine_globals_end + $500
-  exx
-  EXTERN blit_rl_entry
-  call blit_rl_entry
+    ld hl, engine_globals_end + $500
+    exx
+    EXTERN blit_rl_entry
+    call blit_rl_entry
   
 
   #endasm

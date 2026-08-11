@@ -41,21 +41,25 @@ MACRO _new_sprite_cache_entry N
         ld (de), a
         inc de
         
-        ; Init X, Width, Y, Height fields
+    ; Init X, Width, Y, Height fields
         ld (de), a
         inc de
         ld (de), a
         inc de
 
+
+        inc b ; build_cache extends by one col
         ld l, b ; Width *=8
-        inc l ; build_cache extends by one col
         REPT 3
             sla l
             rla
         endr
 
         ex de, hl
-            ; Width in pixel
+            ; Width in cols
+            ld (hl), b
+            
+            ; Width in pixels
             ld (hl), e
             inc hl
             ld (hl), a
@@ -73,7 +77,7 @@ MACRO _new_sprite_cache_entry N
             inc hl
 
             ; RL entry
-            ld (hl), a
+            ld (hl), a ; A is still zero
             inc hl
             ld (hl), a
             inc hl
@@ -82,6 +86,8 @@ MACRO _new_sprite_cache_entry N
         ld l, b
         ld d, $0
         ld e, c
+
+        dec l ; Remove the extra col (this width is needed for sprite gen)
 
         ; Width*height
         call mul_16_16x8_fast
@@ -257,9 +263,6 @@ build_cache_rejoin:
 
     
 @set_sp: ld sp, 0000h
-
-
-
     MACRO _cell is_first
         ld a, (de)
         ld c, 0
@@ -722,21 +725,24 @@ required_truncation:
     inc hl
     push bc ; Save X
 
-    ; Width
+    inc hl ; Skip col width
+    
+    ; Pixel Width
     ld e, (hl)
     inc hl
     ld d, (hl)
     inc hl    
 
     ex de, hl
-        add hl, bc
+        ; X + pixel width
+        add hl, bc ; Assume no carry out
         ld bc, (cur_camx_plusw)
-        sub hl, bc
+        sbc hl, bc 
+        
         ld ixl, $0
-        jp p,@after_width_truncation 
-
-        ld a, l
-        ld ixl, a
+        jp m, @after_width_truncation 
+            ld a, l
+            ld ixl, a
 @after_width_truncation:
     ex de, hl
 
@@ -757,12 +763,12 @@ required_truncation:
     ex de, hl
         add hl, bc
         ld bc, (cur_camy_plush)
-        sub hl, bc
+        sbc hl, bc
         ld ixh, $0
-        jp p,@after_height_truncation 
+        jp m,@after_height_truncation 
 
-        ld a, l
-        ld ixh, a
+            ld a, l
+            ld ixh, a
 
 @after_height_truncation:
     pop bc ; Y
@@ -789,7 +795,7 @@ required_truncation:
 ; a  - Rotation [0, 7]
 coords_to_screen_offsets:
     ld de, (cur_camx)
-    sub hl, de
+    or a \ sbc hl, de
 
     
     ex af, af' ; Store flags
@@ -835,7 +841,7 @@ coords_to_screen_offsets:
 
     ld hl, bc
     ld de, (cur_camy)
-    sub hl, de
+    sbc hl, de
 
     jp p, @positive_ydiff
         ld bc, $0
@@ -887,14 +893,18 @@ is_sprite_on_screen:
         ld b, (hl)
         inc hl
         ex de, hl
+            ; CX+CW
             ld hl, (cur_camx_plusw)
             or a \ sbc hl, bc
             jp c, @no
         ex de, hl
    
     ; Check 2:
-        ; X : comes from check 1
-        ; 
+        ; X: comes from check 1 in bc
+        
+         
+        inc hl ; Ignore the col width
+        
         ; Width
         ld e, (hl)
         inc hl
@@ -957,6 +967,7 @@ reset_carry_ret:
 ; Inputs:
 ; hl = Sprite list entry
 ; de = Render list entry
+; bc = Screen to place the sprite on
 ; ; Outputs:
 ; Carry flag is set iff renderlist was incremented
 ; de = possibly advanced entry list
@@ -968,6 +979,8 @@ calculate_rl:
     ret nc ; Sprite is disabled
     inc hl
 
+    ld (@screen+1), bc
+
     push de ; Save render list entry for later
         call is_sprite_on_screen
         jp nc, reset_carry_retpop
@@ -975,9 +988,8 @@ calculate_rl:
     push hl
         inc hl \ inc hl ; Skip X
 
-        ; Width for later
-        ld de, @add_in_width+1
-        ldi \ ldi
+        ; Col width for later
+        ld (@add_in_width+1), a
 
         
         inc hl \ inc hl ; Skip Y
@@ -987,21 +999,21 @@ calculate_rl:
         ld (@true_height+1), a
         inc hl       
 
-          
-        ; Get the base sprite data table
-        ld de, @sprite_rot_table+1
-        ldi \ ldi
 
+        ld c, (hl)
+        inc hl
         ld b, (hl)
         inc hl
-        ld c, (hl)
+          
+        ; Get the base sprite data table
+        ld (@sprite_rot_table+1), hl 
     pop hl
     pop de
 
 ; A sprites cached list entry trumps all else
     ld a, c
     or c
-    jp z, @after_de_set
+    jp nz, @after_de_set
         ld bc, de
 @after_de_set:
     ld a, 1 ; Mark as render-able
@@ -1018,8 +1030,11 @@ calculate_rl:
 ; b  - x truncation
 ; c  - y truncation
 ; a  - Rotation [0, 7]
+@screen:
+    ld de, 0000h
+    add hl, de
 
-    ld (iy+2), l ; Screen offset can be passed in
+    ld (iy+2), l ; Screen offset can be passed in first
     ld (iy+3), h
 
     ex af, af' ; Rotation
@@ -1027,10 +1042,8 @@ calculate_rl:
         ld a, ixh  ; Height truncation
         add c      ; Presprite y truncation  
         ld (iy+6), a
-    
     ex af, af' ; Rotation
 
-        exx
 
     ; Get the sprites location (via lookup table) from rotation
     @sprite_rot_table:
@@ -1051,26 +1064,27 @@ calculate_rl:
         add hl, bc ; Add in the Y truncation
 
     @add_in_width:
-        ld de, 0000h ; SMC: Width stored from earlier
+        ld b, 00h ; SMC: Col width stored from earlier
+        ; TODO: UN-FUCK THIS SHIT
 
-        ; *=3 for pixel size (alph, light, dark)
-        push hl
-            ld hl, de
-            add hl, hl
-            add hl, de
-            ex de, hl
-        pop hl
+        ; *=3 for pixel size (alpha, light, dark)
+        ; push hl
+        ;     ld hl, de
+        ;     add hl, hl
+        ;     add hl, de
+        ;     ex de, hl
+        ; pop hl
 
-        ld a, 12 ; Bytes needed to skip loop
-        sub b
-        ld (@x_truncation_jr+1), a
+        ; ld a, 12 ; Bytes needed to skip loop
+        ; sub b
+        ; ld (@x_truncation_jr+1), a
 
     @x_truncation_jr:
-        jr $+2
+        ; jr $+2
 
-        REPT 12 ; Max truncation amount (size of screen)
-            add hl, de
-        endr
+        ; REPT 12 ; Max truncation amount (size of screen)
+        ;     add hl, de
+        ; endr
 
         ld (iy+0), l ; Input sprite
         ld (iy+1), h
