@@ -40,6 +40,7 @@ int main(){
   
 
 
+    ld de, 7
     ld hl, engine_globals_end + $500
     exx
     EXTERN blit_rl_entry
