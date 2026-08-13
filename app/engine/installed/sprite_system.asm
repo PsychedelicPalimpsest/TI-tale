@@ -755,6 +755,9 @@ scrset:
 
 
 
+set_carry_ret:
+    scf
+    ret
     
 
 ; Inputs:
@@ -790,6 +793,13 @@ sprite_truncation:
             sub l ; a = -global_x (truncated)
         @positive_globalx:
         ld ixl, a
+
+        ; global_x >= cam_w
+        ; ld bc, 96 ; width
+        ; or a
+        ; sbc hl, bc
+        ; add hl, bc
+        ; jr nc, set_carry_ret
     ex de, hl
 
 ; right_truncation  = global_x_ext <= cam_w ? 0 :  global_x_ext - cam_w
@@ -799,8 +809,15 @@ sprite_truncation:
     ex de, hl
         ; hl comes from global_x (above)
          
-        add hl, bc ; global_x_ext
-        ld bc, 96 ; 96 pixel wide: TODO: THIS MIGHT NEED ABSTRACTED OUT
+        ; add hl, bc ; global_x_ext
+        ; ld bc, 0
+        ; sbc hl, bc
+        ; jr z, set_carry_ret
+        ; jr m, set_carry_ret
+
+
+        
+        ld c, 96 ; 96 pixel wide: TODO: THIS MIGHT NEED ABSTRACTED OUT
 
         xor a \ sbc hl, bc
         jp m, @no_right_trunc
@@ -842,29 +859,6 @@ sprite_truncation:
     ; ex de, hl ; Not needed
     ex af, af'
     ret
-
-
-
-    
-; Based on a sprite at HL, checks if it is on screen. 
-; Setting the carry flag if so
-;
-; Restores: HL
-; Clobbers: BC, AF, DE
-PUBLIC is_sprite_on_screen
-is_sprite_on_screen:
-    ; Sprite placement possibilites:
-    ; 1. The sprite is too far X to be seen (sx > cx+cw)
-    ; 2. The sprite is too far the other X direction to be seen
-    ;    (cx > sx + sw)
-    ; 3. The sprite is too far Y to be seen (sy > cy+ch)
-    ; 4. The sprite is too far the other Y direction to be seen
-    ;    (cy > sy+sh)
-
-
-
-
-
 
 
 
