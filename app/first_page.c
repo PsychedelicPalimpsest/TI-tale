@@ -13,8 +13,9 @@ int main(){
     ld hl, engine_globals_end
     ld (sprite_pool_head), hl
 
-    ld hl, 00
+    ld hl, 06
     ld (cur_camx), hl
+    ld hl, 00
     ld (cur_camy), hl
 
     ld hl, 12*8
@@ -33,7 +34,7 @@ int main(){
     ld a, 1
     ld (hl), a ; Render
 
-    ld de, engine_globals_end + $500
+    ld de, engine_globals_end + 500h
     ld bc, _screen_buffer
     EXTERN calculate_rl
     call calculate_rl
@@ -46,6 +47,10 @@ int main(){
     EXTERN blit_rl_entry
     call blit_rl_entry
   
+    ld hl, -1
+    ld (_screen_buffer+8*2), hl
+    ld l, $0
+    ld (_screen_buffer+8*2+128), hl
 
   #endasm
   greyscale_swap();

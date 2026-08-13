@@ -242,88 +242,118 @@ build_cache3x:
     ; bc = zero
     ; a = height*3
     ; ixl = width in cols
-
 build_cache_rejoin:
-    ld (@restore_sp+1), sp
-    ld (@height_reset1+1), a
-    ld (@height_reset2+1), a
-    ld (@set_sp+1), a
-
-
-    ; Extend the rotation buffer with a blank col
+    ld iyh, 0 ; Set zero so we can put in sp easily
+    ld iyl, a
+        
     push de
         ld c, a
-        ld de, hl
+        dec c
+        
         ld (hl), 0
-
-        dec c ; First byte is already written
+        ld de, hl
         inc de
+
         ldir
         ex de, hl
     pop de
+    ; Now hl is at the end of the zero extended buffer
 
-    
-@set_sp: ld sp, 0000h
-    MACRO _cell is_first
-        ld a, (de)
-        ld c, 0
 
-        rra
-        rr c
+    ld (@reset_sp+1), sp
+    ld sp, iy
 
-        ; Don't take a carry on the first col 
-        if 0=is_first
-            or (hl)
+    add hl, sp ; This is for the _do_col convention (also resets cary on valid inputs)
+
+
+    ; Convention:
+    ; hl  = sp+operating cell aka one cell over
+    ; de  = copy from cell
+    ; iyl = height*3
+    ;
+    ; hl is assumed to never be able to overflow by adding sp
+    ;
+    ; **CARRY IS RESET**
+    MACRO _do_col is_first, is_last
+        LOCAL @cell_loop
+        ld b, iyl
+
+        ; Since the last col does NOT need to carry out, save time by pre-subing
+        ; hl
+
+        if 1==is_last
+            sbc hl, sp
         endif
-        ld (hl), a
-        add hl, sp
-            ld (hl), c
-        sbc hl, sp ; Carry flag will never be set with valid args
 
-        inc hl
-        inc de
+        @cell_loop:
+            ld a, (de)
+            rra
+
+            ; Copy carry flag into bit zero of (hl)
+            if 0==is_last
+                ld (hl), 0
+                rr (hl)
+            endif
+
+            if 0==is_last
+                sbc hl, sp
+            endif
+            if 0==is_first
+                or (hl)
+            endif
+            ld (hl), a
+            
+            if 0==is_last
+                add hl, sp
+            endif
+
+
+            inc hl
+            inc de
+            djnz @cell_loop
+
+        if 1==is_last
+            add hl, sp
+        endif
     endm
 
 
-    ld a, ixl
-    dec a ; Account for the first col being done outside of the loop
-    ld (@width_reset+2), a
+    ld ixh, 7
+    @rotation_loop:
+        _do_col 1, 0 
 
-    ld ixh, 7 ; 7 Rotations 
+        ld c, ixl
 
-@height_reset1:
-    ld b, 00h
+        dec c ; First col
+        jr z, @do_last_col ; Last col is implicit (always done)
 
-    @loop1:
-        _cell 1
-        djnz @loop1
+        @middle_loop:
+            _do_col 0, 0
 
-@width_reset:
-    ld ixl, 00h
 
-    @height_reset2:
-        ld b, 00h
+            dec c
+            jp nz, @middle_loop
+        
+    @do_last_col:        
+        _do_col 0, 1
 
-        @loop2:
-            _cell 0
-            djnz @loop2
-
-        dec ixl
-        jp nz, @height_reset2
-
-    ; Skip the last col
-    add hl, sp
-    ex de, hl
-        add hl, sp
-    ex de, hl
-
-    dec ixh
-    jp nz, @height_reset1
-
-@restore_sp:
+        dec ixh
+        jp nz, @rotation_loop
+    
+    
+    
+    
+@reset_sp:
     ld sp, 0000h
     ret
+    
+        
 
+
+
+
+
+  
 ; Copies a sprite based on width and height
 ; Inputs:
 ; hl = Ouput buffer
@@ -414,6 +444,7 @@ no_render:
     exx
     ret
 
+
 ; Input:
 ; hl' = Render list entry
 ; de' = 7
@@ -427,8 +458,7 @@ blit_rl_entry:
 
     di
     exx
-        xor a
-        or (hl)
+        bit 0, (hl)
         inc hl
 
         jr z, no_render ; Likely to fall through
@@ -704,165 +734,114 @@ scrset:
     ret
 
 
-
-        
-; Inputs:
-; hl - sprite entry+1 (skipping flags)
-; Outputs:
-; ixl - Width truncation
-; ixh - Height truncation
-; hl - Offset in screen [0, 768*2)
-; b  - x truncation
-; c  - y truncation
-; a  - Rotation [0, 7]
-required_truncation:
-    ; X
-    ld c, (hl)
-    inc hl
-    ld b, (hl)
-    inc hl
-    push bc ; Save X
-
-    inc hl ; Skip col width
-    
-    ; Pixel Width
-    ld e, (hl)
-    inc hl
-    ld d, (hl)
-    inc hl    
-
-    ex de, hl
-        ; X + pixel width
-        add hl, bc ; Assume no carry out
-        ld bc, (cur_camx_plusw)
-        sbc hl, bc 
-        
-        ld ixl, $0
-        jp m, @after_width_truncation 
-            ld a, l
-            ld ixl, a
-@after_width_truncation:
-    ex de, hl
-
-    ; Y
-    ld c, (hl)
-    inc hl
-    ld b, (hl)
-    inc hl
-    push bc ; Save Y
-
-
-    ; Height
-    ld d, $0
-    ld e, (hl)
-    inc hl
-       
-
-    ex de, hl
-        add hl, bc
-        ld bc, (cur_camy_plush)
-        sbc hl, bc
-        ld ixh, $0
-        jp m,@after_height_truncation 
-
-            ld a, l
-            ld ixh, a
-
-@after_height_truncation:
-    pop bc ; Y
-    pop hl ; X
-
-    ; Fall through into coords_to_screen_offsets with:
-    ;   hl = X position
-    ;   bc = Y position
-
-
-
-
-
-; Take coords (two signed 16-bit ints) and calculate the offset
-; within a screen. This assumes the sprite is on the screen
-; Inputs:
-; hl - X position
-; bc - Y position
+; Sprite Math Master Equations:
+; ----=====================----
+;
+; global_x     = sprite_x - cam_x
+; global_y     = sprite_y - cam_y
+; global_x_ext = global_x + sprite_w
+; global_y_ext = global_y + sprite_h
+;
+; left_truncation   = global_x     >= 0     ? 0 : -global_x
+; top_truncation    = global_y     >= 0     ? 0 : -global_y
+; right_truncation  = global_x_ext <= cam_w ? 0 :  global_x_ext - cam_w
+; bottom_truncation = global_y_ext <= cam_h ? 0 :  global_y_ext - cam_h
+;
+; is_on_screen = global_x < cam_w && global_x_ext > 0
+;                     && global_y < cam_h && global_y_ext > 0    
 ; 
-; Outputs:
-; hl - Offset in screen [0, 768*2)
-; b  - x truncation
-; c  - y truncation
-; a  - Rotation [0, 7]
-coords_to_screen_offsets:
-    ld de, (cur_camx)
-    or a \ sbc hl, de
+; is_off_screen = global_x >= cam_w || global_x_ext <= 0
+;                      || global_y >= cam_h || global_y_ext <= 0
+
+
 
     
-    ex af, af' ; Store flags
-        ; Bit offset (magically works with negatives)
-        ld a, 7
-        and l ; Stored lower byte
-    ex af, af' ; Save for later; restore flags
 
-    jp p, @positive_diff
-    ; diff = (-diff + 7) = (7 - diff)
-        ld a, 7
-        sub l
-        ld l, a
+; Inputs:
+; hl - Sprite Address + 1 (Flags skipped)
+; Ouputs:
+; ixl - left_truncation
+; ixh - top_truncation
+; iyl - right_truncation
+; iyh - bottom_truncation
+; a   - Rotation (based on position)
+sprite_truncation:
+    ; inc hl (sprite addr skipped)
 
-        sbc  a, a
-        sub  h
-        ld   h, a
+    ; First load in the X position (pixels)
+    ld e, (hl) \ inc hl
+    ld d, (hl) \ inc hl
+                 inc hl ; Skip col width
+    ld bc, (cur_camx)
+
+; left_truncation   = global_x     >= 0     ? 0 : -global_x
+    ex de, hl
+        xor a ; Reset carry, and zero out a!
+        sbc hl, bc
         
-        REPT 3
-            srl h
-            rr  l
-        endr
-        ld d, l ; x-truncation 
 
-        ld h, 0 ; x-offset
-        ld l, h
-        jp @handle_y
-@positive_diff:
-    ld a, 7 ^ 0xFF
-    and l
-    ld l, a
+        ; Handle bit rotation
+        ex af, af'
+            ld a, 7 ; magically, this works for both positive and negative values!!!
+            and l
+        ex af, af'
+        
+        jp p, @positive_globalx
+            sub l ; a = -global_x (truncated)
+        @positive_globalx:
+        ld ixl, a
+    ex de, hl
 
+; right_truncation  = global_x_ext <= cam_w ? 0 :  global_x_ext - cam_w
+    ; Pixel width
+    ld c, (hl) \ inc hl
+    ld b, (hl) \ inc hl
+    ex de, hl
+        ; hl comes from global_x (above)
+         
+        add hl, bc ; global_x_ext
+        ld bc, 96 ; 96 pixel wide: TODO: THIS MIGHT NEED ABSTRACTED OUT
 
-    REPT 4
-        add hl, hl
-    endr
+        xor a \ sbc hl, bc
+        jp m, @no_right_trunc
+            ld a, l
+        @no_right_trunc:
+        ld iyl, a
+    ex de, hl
 
+; top_truncation    = global_y     >= 0     ? 0 : -global_y
+    ; Y position
+    ld e, (hl) \ inc hl
+    ld d, (hl) \ inc hl
 
-    ld d, $0 ; X-truncation
-@handle_y:
-    push de ; Save x truncation
-    push hl  ; Save x offset
+    ld bc, (cur_camy)
+    ex de, hl
+        xor a
+        sbc hl, bc
 
-    ld hl, bc
-    ld de, (cur_camy)
-    sbc hl, de
+        jp p, @positive_global_y
+            sub l
+        @positive_global_y:
+        ld ixh, a
+    ex de, hl
 
-    jp p, @positive_ydiff
-        ld bc, $0
+; bottom_truncation = global_y_ext <= cam_h ? 0 :  global_y_ext - cam_h
+    ld b, 0    ; Height is only 8-bit (we only need 64 rows after all)
+    ld c, (hl) \ inc hl
+    ex de, hl
+        add hl, bc ; global_y_ext
+        ld c, 64
 
-        ld a, l
-        neg
-        ld d, a
-        jp @cleanup
-@positive_ydiff:
-    ld b, $0 
-    ld c, l
+        xor a
+        sbc hl, bc
+        jp m, @no_bottom_trunc
+            ld a, l
+        @no_bottom_trunc:
+        ld iyh, a
     
-    ld d, $0
-
-@cleanup:
-    pop hl     ; x_offset * 128
-    add hl, bc ; + y_offset
-
-    pop bc
-    ld c, d
-    ex af, af' ; bit rotation
+    ; ex de, hl ; Not needed
+    ex af, af'
     ret
-
 
 
 
@@ -881,84 +860,13 @@ is_sprite_on_screen:
     ; 3. The sprite is too far Y to be seen (sy > cy+ch)
     ; 4. The sprite is too far the other Y direction to be seen
     ;    (cy > sy+sh)
-    push hl
-
-    ; Check 1:
-    
-        ; X
-        ld c, (hl)
-        inc hl
-        ld b, (hl)
-        inc hl
-        ex de, hl
-            ; CX+CW
-            ld hl, (cur_camx_plusw)
-            or a \ sbc hl, bc
-            jp c, @no
-        ex de, hl
-   
-    ; Check 2:
-        ; X: comes from check 1 in bc
-        
-         
-        inc hl ; Ignore the col width
-        
-        ; Width
-        ld e, (hl)
-        inc hl
-        ld d, (hl)
-        inc hl
-
-        ex de, hl
-            add hl, bc ; Assume no carry
- 
-            ld bc, (cur_camx)
-            sbc hl, bc
-            jp c, @no
-        ex de, hl
-
-    ; Check 3:
-        ; Y
-        ld c, (hl)
-        inc hl
-        ld b, (hl)
-        inc hl
-        ex de, hl
-            ld hl, (cur_camy_plush)
-            or a \ sbc hl, bc
-            jp c, @no
-        ex de, hl       
-    ; Check 4:
-        ; Height
-        ld e, (hl)
-        inc hl
-        ld d, (hl)
-
-        ex de, hl
-            add hl, bc ; Assume no carry
-
-            ld bc, (cur_camy)
-            sbc hl, bc
-            jp c, @no
-    scf
-
-    pop hl
-    ret
-
-@no:
-    or a
-
-    pop hl
-    ret
 
 
 
 
-reset_carry_retpop:
-    pop af
-reset_carry_ret:
-    or a
-    ret
+
+
+
 
 ; Calculate the renderlist entry for a sprite, it updates a sprites exiting entry
 ; if one is found, otherise it uses the provided one
@@ -1019,6 +927,7 @@ calculate_rl:
     ld (de), a
     inc de
 
+@req_trunc:
     ld iy, de ; Z88DK macro
     call required_truncation
 
@@ -1052,8 +961,14 @@ calculate_rl:
     ld l, a
 
     ; Add in the y truncation
-    ld a, c
-    add_hl_a
+    ld d, $0
+    ld e, a
+
+    ; *3 for pixel size
+    add hl, de
+    add hl, de
+    add hl, de
+    
 
 
     ; X truncation amount
@@ -1062,33 +977,34 @@ calculate_rl:
     ld (@col_mult+1), a 
 
 
-@height:
-    ld a, 00h ; SMC: Height
-    ld (iy+5), a ; Full height
+    ; Width - x_truncation - width_truncation
+@col_width:
+    ld a, 00h ; SMC: set to the width
+    sub b
+    sub ixl
+    ld (iy+4), a
 
+   
 ; Add the y and height truncation (one should be zero, but this works)
     ld a, ixh
     add c
     ld (iy+6), a
 
-    
-    ; a = -x_truncation
-    xor a
-    sub b
-@col_width:
-    ld bc, 0000h ; SMC: low byte is set to the width
+    ; A single col is of size 3*h, therefore when adjusting for x truncation,
+    ; we need to add 3*h
+@height:
+    ld a, 00h ; SMC: Height
+    ld (iy+5), a ; Full height
 
-    ; Width = width - x_truc - w_truc
-    add c
-    sub ixl
-    ld (iy+4), a
-    
-    ex de, hl
-    ; *= 3
-        ld hl, bc
-        add hl, bc
-        add hl, bc
-    ex de, hl
+    ld d, $0
+    ld e, a
+
+    add a ; This is safe since the screen is 96 pixels tall
+    ld b, d
+    ld c, a
+
+    ex de, hl \ add hl, bc \ ex de, hl
+
 
     ; I know this looks slow, but mul_16_16x8_fast uses 240 cycles in the BEST case,
     ; and we know the col truncation amount is going to be mostly small (mostly 0-2 cols)
