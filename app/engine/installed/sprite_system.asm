@@ -755,9 +755,6 @@ scrset:
 
 
 
-set_carry_ret:
-    scf
-    ret
     
 
 ; Inputs:
@@ -793,13 +790,6 @@ sprite_truncation:
             sub l ; a = -global_x (truncated)
         @positive_globalx:
         ld ixl, a
-
-        ; global_x >= cam_w
-        ; ld bc, 96 ; width
-        ; or a
-        ; sbc hl, bc
-        ; add hl, bc
-        ; jr nc, set_carry_ret
     ex de, hl
 
 ; right_truncation  = global_x_ext <= cam_w ? 0 :  global_x_ext - cam_w
@@ -809,15 +799,8 @@ sprite_truncation:
     ex de, hl
         ; hl comes from global_x (above)
          
-        ; add hl, bc ; global_x_ext
-        ; ld bc, 0
-        ; sbc hl, bc
-        ; jr z, set_carry_ret
-        ; jr m, set_carry_ret
-
-
-        
-        ld c, 96 ; 96 pixel wide: TODO: THIS MIGHT NEED ABSTRACTED OUT
+        add hl, bc ; global_x_ext
+        ld bc, 96 ; 96 pixel wide: TODO: THIS MIGHT NEED ABSTRACTED OUT
 
         xor a \ sbc hl, bc
         jp m, @no_right_trunc
