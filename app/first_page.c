@@ -13,12 +13,18 @@ int main(){
     ld hl, engine_globals_end
     ld (sprite_pool_head), hl
 
-    ld hl, 06
+    EXTERN st_camera_width, st_camera_height
+    ld hl, 96
+    ld (st_camera_width), hl
+    ld l, 64
+    ld (st_camera_height), hl
+
+    ld hl, 03
     ld (cur_camx), hl
-    ld hl, 00
+    ld hl, -2
     ld (cur_camy), hl
 
-    ld hl, 12*8
+    ld hl, 12*8 + 6
     ld (cur_camx_plusw), hl
 
     ld hl, 64
@@ -41,16 +47,14 @@ int main(){
   
 
 
-    ld de, 7
+    ld de, 8
     ld hl, engine_globals_end + $500
     exx
     EXTERN blit_rl_entry
     call blit_rl_entry
   
     ld hl, -1
-    ld (_screen_buffer+8*2), hl
-    ld l, $0
-    ld (_screen_buffer+8*2+128), hl
+    ld (_screen_buffer+128), hl
 
   #endasm
   greyscale_swap();
@@ -61,7 +65,7 @@ int main(){
   #asm
   sprite:
   db 2 ; Width
-  db 8 ; Height
+  db 2 ; Height
 
   REPT 4
     db 0xF0, 0x0F, 0x0F, 0xF0
