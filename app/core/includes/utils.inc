@@ -32,6 +32,14 @@ MACRO CpHLDE
   add hl,de
 endm
 
+
+MACRO CpHLBC
+  or a
+  sbc hl,bc
+  add hl,bc
+endm
+
+
 macro min p1            ; Get min of p1 and a in a
     cp p1               ; Compare a with p1
     jr c, @s1          ; Skip if p1 > a

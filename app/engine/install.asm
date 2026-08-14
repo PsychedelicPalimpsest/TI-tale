@@ -72,6 +72,29 @@ mul_16_16x8_fast:
    ret
 
 
+; Fastest possible 16x4 multiplication routine (kind of)
+; Best case:    148
+; Worst case:   172
+; Average:      160
+PUBLIC mul_16_16x4_fast
+mul_16_16x4_fast:
+   ; enter : l = 8-bit value, low nibble (l & 0x0F) used as multiplier
+   ;         de = 16-bit multiplicand
+   ; exit  : hl = 16-bit product = de * (l & 0x0F)
+   ; uses  : af, hl
+
+   ld a,l
+   add a,a \ add a,a \ add a,a \ add a,a   ; shift low nibble of l into high nibble of a
+   ld hl,0
+
+   ; Repeat this block 4 times
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+
+   ret
+
 
 PUBLIC restore_sp_and_ret
 restore_sp_and_ret:

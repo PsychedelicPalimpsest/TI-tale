@@ -447,32 +447,36 @@ no_render:
 
 ; Input:
 ; hl' = Render list entry
-; de' = 7
+; de' = 8
 ; Output:
 ; hl' = Next RL entry
 ;
 ; All shadow registers perserved
 PUBLIC blit_rl_entry
 blit_rl_entry:
-    ld (@restore_sp+1), sp
-
-    di
     exx
         bit 0, (hl)
-        inc hl
-
-        jr z, no_render ; Likely to fall through
+        jr z, no_render     ; Likely to fall through
         
-        ld sp, hl
-        add hl, de
+        ld (@restore_sp+1), sp
+        di
+
+        ld sp, hl           ; SP = entry + 0 (aligned to entry boundary)
+        add hl, de          ; hl' = entry + 1 + 7 = entry + 8 (next entry)
     exx
 
-    pop de
-    pop hl
-    pop ix
-        ld a, ixh
-    pop bc ; B is a trash byte
-        ld b, c
+    ; Memory Layout:
+    ; +0: flags          +1: vert_trunc
+    ; +2: vis_width_cols +3: full_height
+    ; +4: data_ptr (word)
+    ; +6: screen_dest (word)
+
+    pop bc                  ; c = flags, b = vert_trunc (Height truncation)
+    pop ix                  ; ixl = vis_width_cols, ixh = full_height
+    ld a, ixh               ; a = full_height
+    pop de                  ; de = data_ptr (Input sprite pointer)
+    pop hl                  ; hl = screen_dest (Output screen location)
+
 @restore_sp:
     ld sp, 0000h
     ei
@@ -746,50 +750,88 @@ scrset:
 ; top_truncation    = global_y     >= 0     ? 0 : -global_y
 ; right_truncation  = global_x_ext <= cam_w ? 0 :  global_x_ext - cam_w
 ; bottom_truncation = global_y_ext <= cam_h ? 0 :  global_y_ext - cam_h
-;
+; 
 ; is_on_screen = global_x < cam_w && global_x_ext > 0
 ;                     && global_y < cam_h && global_y_ext > 0    
 ; 
 ; is_off_screen = global_x >= cam_w || global_x_ext <= 0
 ;                      || global_y >= cam_h || global_y_ext <= 0
+;
+; screen_location = (global_x > 0 ? global_x//8*cam_h*2: 0) + (global_y >= 0 ? global_y : 0)
+; sprite_offset   = sprite_h*left_truncation + top_truncation
 
 
 
+pop3x_scf_ret:
+    pop af
+pop2x_scf_ret:
+    pop af
+pop_scf_ret:
+    pop af
+    scf 
+    ret
     
+
+defc st_camera_width = (sprite_truncation@cam_width + 1)
+defc st_camera_height = (sprite_truncation@cam_height + 1)
 
 ; Inputs:
 ; hl - Sprite Address + 1 (Flags skipped)
+; st_camera_width, st_camera_height MUST be set
 ; Ouputs:
+; Carry flag is reset iff the sprite is on the screen, otherwise NO OTHER
+; OUTPUTS ARE VALID. 
+; 
 ; ixl - left_truncation
 ; ixh - top_truncation
 ; iyl - right_truncation
 ; iyh - bottom_truncation
+; hl  - Screen X position
+; de  - Screen Y position 
+; bc  - Sprite height
+; c'  - Sprite Width in cols
 ; a   - Rotation (based on position)
+PUBLIC sprite_truncation, st_camera_height, st_camera_width
 sprite_truncation:
     ; inc hl (sprite addr skipped)
 
     ; First load in the X position (pixels)
     ld e, (hl) \ inc hl
     ld d, (hl) \ inc hl
-                 inc hl ; Skip col width
+
+    ; Save col width for ret (b is trash)
+    ld c, (hl) \ inc hl
+    push bc
+    
     ld bc, (cur_camx)
 
 ; left_truncation   = global_x     >= 0     ? 0 : -global_x
     ex de, hl
         xor a ; Reset carry, and zero out a!
         sbc hl, bc
+        push hl
         
 
         ; Handle bit rotation
         ex af, af'
             ld a, 7 ; magically, this works for both positive and negative values!!!
-            and l
-        ex af, af'
+            and l   ; Also resets carry!
+        ex af, af'  ; Send rotation and reset carry flag to the shadow realm for ret!
         
         jp p, @positive_globalx
             sub l ; a = -global_x (truncated)
         @positive_globalx:
         ld ixl, a
+
+        ; Is on screen test:
+        ; global_x >= cam_w 
+@cam_width:
+        ld bc, 0000h ; SMC: Camera width
+        CpHLBC        
+        jp p, pop_scf_ret ; Likely to fall throught (but no jr p exists)
+
+        ld a, c ; Save width later (safe to truncate)
+        
     ex de, hl
 
 ; right_truncation  = global_x_ext <= cam_w ? 0 :  global_x_ext - cam_w
@@ -800,7 +842,17 @@ sprite_truncation:
         ; hl comes from global_x (above)
          
         add hl, bc ; global_x_ext
-        ld bc, 96 ; 96 pixel wide: TODO: THIS MIGHT NEED ABSTRACTED OUT
+        
+        ld b, 0 \ ld c, a ; Restore width 
+        
+        ; Is on screen test:
+        ; global_x_ext <= 0
+        ld a, l \ or h
+        jp z, pop_scf_ret
+
+        bit 7, h            ; Sign bit
+        jr nz, pop_scf_ret ; Likely to fall throught
+        
 
         xor a \ sbc hl, bc
         jp m, @no_right_trunc
@@ -816,21 +868,38 @@ sprite_truncation:
 
     ld bc, (cur_camy)
     ex de, hl
-        xor a
-        sbc hl, bc
+        xor a \ sbc hl, bc ; global_y
+        push hl
 
         jp p, @positive_global_y
             sub l
         @positive_global_y:
         ld ixh, a
+
+        ; Is on screen test: 
+        ; global_y >= cam_h
+@cam_height:
+        ld bc, 0000h ; SMC: Camera height
+        CpHLBC
+        jp p, pop2x_scf_ret
+        ld a, c ; Store for later
     ex de, hl
 
 ; bottom_truncation = global_y_ext <= cam_h ? 0 :  global_y_ext - cam_h
     ld b, 0    ; Height is only 8-bit (we only need 64 rows after all)
     ld c, (hl) \ inc hl
+    push bc
     ex de, hl
         add hl, bc ; global_y_ext
-        ld c, 64
+        ld b, 0 \ ld c, a ; Camera height
+
+        ; Is on screen test: 
+        ; global_y_ext <= 0
+        ld a, h \ or l
+        jr z, pop3x_scf_ret
+
+        bit 7, h
+        jr nz, pop3x_scf_ret
 
         xor a
         sbc hl, bc
@@ -839,11 +908,17 @@ sprite_truncation:
         @no_bottom_trunc:
         ld iyh, a
     
-    ; ex de, hl ; Not needed
-    ex af, af'
+    ex af, af' ; Rotation + reset carry flag
+    pop bc
+    pop de
+    pop hl
+    exx \ pop bc \ exx
     ret
 
 
+not_on_screen:
+    xor a
+    ret
 
 ; Calculate the renderlist entry for a sprite, it updates a sprites exiting entry
 ; if one is found, otherise it uses the provided one
@@ -851,6 +926,7 @@ sprite_truncation:
 ; hl = Sprite list entry
 ; de = Render list entry
 ; bc = Screen to place the sprite on
+; st_camera_width, st_camera_height MUST be set correctly
 ; ; Outputs:
 ; Zero is set iff renderlist was incremented
 ; de - Possibly incremented render list entry
@@ -861,160 +937,155 @@ calculate_rl:
 
     rra    
     ret nc ; Sprite is disabled
+
+    ld (@screen+1), bc
+
     inc hl
+    push hl ; Save for later
 
-    ld (@screen_placed_on+1), bc
+    ; Skip to rl entry
+    ld bc, 9+1-1 ; Plus high byte, minus the flag byte
+    add hl, bc
 
-    push hl
-        inc hl \ inc hl ; Skip X
-        ld a, (hl)
-        ld (@col_width+1), a
-
-        ; Advance, skip width, and Y
-        ld bc, 5        
-        add hl, bc
-        
-        ld a, (hl)
-        ld (@height+1), a
-        inc hl
-           
-        ld a, (hl)
-        or a
-
-        inc hl
-        jr z, @zero ; Likely to fall through
-            ; Endianess hack: This is correct
-            ld d, (hl)
-            dec hl
-            ld e, (hl)
-            inc hl
-        @zero:
-        inc hl
-        ld (@sprite_table+1), hl
-        
-
-    ex af, af' ; Send the zero flag to the shadow realm
-
+    ld a, (hl) 
+    or a   ; A valid rl entry CANNOT have a zero high byte
+    jp nz, @has_rl_entry
+    ; Has no rl entry
+        ld (hl), d
+        dec hl
+        ld (hl), e
+        inc hl \ inc hl
+        jp @de_set
+    @has_rl_entry:
+        ld d, a
+        dec hl
+        ld e, (hl)
+        inc hl \ inc hl
+@de_set:
+    push af ; Save zero flag for later
     
-    pop hl
-    
+    ld (@sprite_table+1), hl
 
-    ; Set the render flag
-    ld a, 1
-    ld (de), a
-    inc de
-
-@req_trunc:
-    ld iy, de ; Z88DK macro
-    call required_truncation
-
-
-    ; Outputs:
-    ; ixl - Width truncation
-    ; ixh - Height truncation
-    ; hl - Offset in screen [0, 768*2)
-    ; b  - x truncation
-    ; c  - y truncation
-    ; a  - Rotation [0, 7]
-
-    ; BaseSprite = *(after_rl_ptr + a*2)
-    ; SpriteAddr = BaseSprite + y_trunc + x_trunc*3*col_width 
-@screen_placed_on:
-    ld de, 0000h ; SMC: Screen we are placing it on
+    ld hl, 8 ; RL entry size
     add hl, de
-    ld (iy+2), l
-    ld (iy+3), h
+    ld (@set_sp+1), hl
+    
+
+    pop hl
+    call sprite_truncation
+    jr c, not_on_screen ; Likely to fall through
+    ex af, af' ; Save rotation for later
 
 
+    ld a, c
+    ld (@full_height+1), a
+
+
+    ld (@restore_sp+1), sp
+@set_sp: ld sp, 0000h
+    ; Now the stack is our output
+    push bc ; Save for later
+
+    bit 7, h
+    jp z, @positive_globalx_style64
+        ld hl, 0
+        jp @after_mult
+
+    @positive_globalx_style64:
+        ; Here, we are using a variation of the formula for the typical 64px tall screen
+        ; global_x /8 * 64 * 2 = global_x * 16 
+
+        ; Remove pesky inter col crap
+        ld a, ~7
+        and l
+        ld l, a
+
+        REPT 4
+            add hl, hl
+        endr
+        jp @after_mult
+
+    ; This can be SMC patched in via the jp instruction
+    @positive_globalx_style128:
+        ; Here, we are using a variation of the formula for the background 128px tall screen
+        ; global_x /8 * 128 * 2 = global_x * 32
+
+        ; Remove pesky inter col crap
+        ld a, ~7
+        and l
+        ld l, a
+
+        REPT 5
+            add hl, hl
+        endr
+@after_mult:
+
+    bit 7, d
+    jr nz, @screen
+        add hl, de
+@screen:
+    ld bc, 0000h ; SMC: Screen location
+    add hl, bc
+
+    pop bc  ; sprite height (legally must be < 256)
+    push hl ; Screen location
+
+    ld h, b ; Zero high byte
+    ld a, ixh \ ld l, a ; Top truncation as low
+
+    ld a, 12
+    sub ixl ; Left truncation
+    ld (@left_trunc_loop+1), a
+
+    ; This looks slow, but when you consider that truncations values must be lower
+    ; then 12, this always is better then mul_16_16x8_fast, and usually faster then
+    ; mul_16_16x4_fast (since zero truncation is the norm)
+    @left_trunc_loop:
+    jr $+2
+    REPT 12
+        add hl, bc
+    endr
+    ex de, hl
 
 @sprite_table:
-    ld hl, 0000h ; SMC: The sprite table
-    add a ; a *= 2 for ptr offset in the rotation table
+    ld hl, 0000h 
 
+    ex af, af'
+    add a
     add_hl_a
+
     ld a, (hl)
     inc hl
     ld h, (hl)
     ld l, a
-
-    ; Add in the y truncation
-    ld d, $0
-    ld e, a
-
-    ; *3 for pixel size
-    add hl, de
-    add hl, de
-    add hl, de
     
+    add hl, de ; Add in the offset
+    push hl
 
+    exx ; To get access to the width in cols
+    ld a, c
+    sub ixl ; Left truncation    
+    sub iyl ; right truncation
 
-    ; X truncation amount
-    ld a, 12 ; Bytes needed to totally skip the addition
-    sub b
-    ld (@col_mult+1), a 
+    ld c, a   ; Little endian: First byte is little
+@full_height:
+    ld b, 00h ; SMC: Full height 
+    push bc
 
+    ld a, ixh ; Top trunc
+    add iyh   ; Bottom trunc
+    
+    ld b, a
+    ld c, 1   ; Set the do-display flag
 
-    ; Width - x_truncation - width_truncation
-@col_width:
-    ld a, 00h ; SMC: set to the width
-    sub b
-    sub ixl
-    ld (iy+4), a
+    push bc
 
-   
-; Add the y and height truncation (one should be zero, but this works)
-    ld a, ixh
-    add c
-    ld (iy+6), a
+    @restore_sp: ld sp, 0000h
 
-    ; A single col is of size 3*h, therefore when adjusting for x truncation,
-    ; we need to add 3*h
-@height:
-    ld a, 00h ; SMC: Height
-    ld (iy+5), a ; Full height
-
-    ld d, $0
-    ld e, a
-
-    add a ; This is safe since the screen is 96 pixels tall
-    ld b, d
-    ld c, a
-
-    ex de, hl \ add hl, bc \ ex de, hl
-
-
-    ; I know this looks slow, but mul_16_16x8_fast uses 240 cycles in the BEST case,
-    ; and we know the col truncation amount is going to be mostly small (mostly 0-2 cols)
-    ; values, so this beats real multiplication in ALL (valid) cases!
-@col_mult:
-    jr $+2 ; SMC: Set to the amount to truncate
-    REPT 12 ; Maximum (supported) col truncation amount
-        add hl, de
-    endr
-    ld (iy+0), l
-    ld (iy+1), h
-
-
-    ex af, af' ; Send the zero flag to the shadow realm
-
-    ld bc, (@screen_placed_on+1) ; Restore screen
-    ret nz ; Unlikely to fall through
-
-    ld hl, 6
-    ld bc, iy
-
-    add hl, bc
-    ex de, hl
+    pop af ; Zero flag from earlier
     ret
-   
-   
-    ; Inputs:
-    ; de = Input sprite
-    ; hl = Output location on screen
-    ; ixl  = Width in cols (can be truncated)
-    ; a  = Full Height (what the sprite actually is)
-    ; b  = Height truncation (cols to remove from bottom)
-    
+        
+       
     
 
     
