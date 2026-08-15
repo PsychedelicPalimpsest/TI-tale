@@ -129,6 +129,14 @@ macro add_hl_a
 @s1:
 endm
 
+macro add_hl_a_bc
+    add l       ; 4  A = L + A, carry set if overflow
+    ld c, a     ; 4  C = low byte
+    adc h       ; 4  A = C + H + carry
+    sub c       ; 4  A = H + carry
+    ld b, a     ; 4  B = high byte
+endm
+
 macro sub_hl_a
     LOCAL @s1
     sub a, l

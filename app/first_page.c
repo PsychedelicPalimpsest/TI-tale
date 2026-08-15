@@ -19,9 +19,9 @@ int main(){
     ld l, 64
     ld (st_camera_height), hl
 
-    ld hl, 03
+    ld hl, 5
     ld (cur_camx), hl
-    ld hl, -2
+    ld hl, 0
     ld (cur_camy), hl
 
     ld hl, 12*8 + 6
@@ -40,8 +40,11 @@ int main(){
     ld a, 1
     ld (hl), a ; Render
 
+    
     ld de, engine_globals_end + 500h
     ld bc, _screen_buffer
+
+  @do_it:
     EXTERN calculate_rl
     call calculate_rl
   
@@ -52,7 +55,8 @@ int main(){
     exx
     EXTERN blit_rl_entry
     call blit_rl_entry
-  
+
+@no_render:  
     ld hl, -1
     ld (_screen_buffer+128), hl
 
@@ -65,7 +69,7 @@ int main(){
   #asm
   sprite:
   db 2 ; Width
-  db 2 ; Height
+  db 8 ; Height
 
   REPT 4
     db 0xF0, 0x0F, 0x0F, 0xF0

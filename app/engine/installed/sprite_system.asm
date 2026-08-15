@@ -810,12 +810,12 @@ scrset:
 ; sprite_offset   = sprite_h*left_truncation + top_truncation
 
 
-
 pop3x_scf_ret:
     pop af
 pop2x_scf_ret:
     pop af
 pop_scf_ret:
+    pop af
     pop af
     scf 
     ret
@@ -966,7 +966,8 @@ sprite_truncation:
 
 
 not_on_screen:
-    pop af
+    pop af ; Trash sprite ptr
+    pop de ; Restore RL entry
     ld a, 1
     or a ; reset zero flag
     ret
@@ -978,10 +979,19 @@ not_on_screen:
 ; de = Render list entry
 ; bc = Screen to place the sprite on
 ; st_camera_width, st_camera_height MUST be set correctly
-; ; Outputs:
-; Zero is set iff renderlist was incremented
-; de - Possibly incremented render list entry
-; bc - Restored
+; 
+; Outputs:
+;  Zero flag is set iff renderlist was incremented
+;  de = renderlist entry, possibly incremented
+;
+;  Only valid if on screen (not reliable):
+;   ixl - left_truncation
+;   ixh - top_truncation
+;   iyl - right_truncation
+;   iyh - bottom_truncation
+;
+; Clobbers: bc', ix, iy, hl, bc, af, af'
+; Perserves: hl', de'
 PUBLIC calculate_rl
 calculate_rl:
     ld a, (hl)
@@ -992,6 +1002,7 @@ calculate_rl:
     ld (@screen+1), bc
 
     inc hl
+    push de ; Save for return
     push hl ; Save for later
 
     ; Skip to rl entry
@@ -1040,7 +1051,6 @@ calculate_rl:
     
     jr c, not_on_screen ; Likely to fall through
     ex af, af' ; Save rotation for later
-
 
     ld a, c
     ld (@full_height+1), a
@@ -1098,14 +1108,22 @@ calculate_rl:
     ; Put: screen location
     ; Get: Sprite height
     ex (sp), hl 
-    ; bc = sprite height *3
-        ld bc, hl
-        add hl, hl
-        add hl, bc
-        ld bc, hl
+    ld a, ixh
+    or ixl
+    jr nz, @with_tl_truncation ; Likely hot path
+        ld de, 0
+        jp @sprite_table
+@with_tl_truncation:    
+    ; c = sprite height *3
+       ; Note: We only allow sprites as big as the screen, and since 64*3 < 256, this is safe
+        ld a, l
+        add a
+        add l
+        ld b, $0
+        ld c, a
 
     ; hl = 3*top truncation
-    ld h, 0 ; Zero high byte
+    ld h, b ; Zero high byte
     ld a, ixh \ add a \ add ixh \ ld l, a 
 
     ; A = left truncation / 8
@@ -1128,6 +1146,7 @@ calculate_rl:
     endr
     ex de, hl
 
+; Re-entry point for no truncation path
 @sprite_table:
     ld hl, 0000h 
 
@@ -1149,6 +1168,8 @@ calculate_rl:
     ld a, ixl  ; Left truncation    
     add iyl    ; Right truncation
 
+    jp z, @full_height ; No lr truncation = no need to change width 
+
     ; Pixel to col:
         add 7 ; Round up
         rrca \ rrca \ rrca \ and 31 ; >>3
@@ -1168,6 +1189,18 @@ calculate_rl:
     push bc
 
     @restore_sp: ld sp, 0000h
+    exx ; Round amount of shadow reg switches (minimize nuked shadows to bc)
 
     pop af ; Zero flag from earlier
+    pop de
+    
+    ret nz ; Return if rl does not need incremented (most common)
+
+    ; Increment de:
+        ld hl, 8
+        add hl, de
+        ex de, hl
+    
     ret
+
+
