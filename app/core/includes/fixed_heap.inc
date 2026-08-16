@@ -73,7 +73,7 @@ MACRO fheap_alloc obj_size
   ;    freehead = *freehead
   ; ENDIF
   ; return(node)
-  LOCAL not_null
+  LOCAL @is_null
   
   ; de = *hl, hl++, set flags from d
   ld e, (hl)
@@ -82,8 +82,22 @@ MACRO fheap_alloc obj_size
   ld d, a
 
   or a ; Note, only checking the highest byte works since only the bootcode can start with zero.
-  jp nz, not_null
+  jr z, @is_null ; Likely to fall through
 
+; freehead != 0
+    ex de, hl
+    ; now hl = *freehead, de = &freehead+1
+    dec de
+    ldi \ ldd
+
+    dec hl
+    ld (hl), 0
+    inc hl
+
+    ret
+
+
+@is_null:
 ; freehead == 0
     inc hl 
 
@@ -109,17 +123,6 @@ MACRO fheap_alloc obj_size
     pop hl ; node ptr
 
     ; Mark as not free
-    ld (hl), 0
-    inc hl
-
-    ret
-not_null:
-    ex de, hl
-    ; now hl = *freehead, de = &freehead+1
-    dec de
-    ldi \ ldd
-
-    dec hl
     ld (hl), 0
     inc hl
 

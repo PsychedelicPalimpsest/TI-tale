@@ -1,3 +1,4 @@
+INCLUDE "engine/engine_globals.inc"
 EXTERN _grey_count
 
 check_frame:
@@ -37,13 +38,51 @@ _game_loop:
   ld hl, $FE80
   ld (task3+1+2), hl
 
-  EXTERN compositor_loop
-  ld hl, compositor_loop
-  ld ($FE80), hl
+  ; EXTERN compositor_loop
+  ; ld hl, compositor_loop
+  ; ld ($FE80), hl
  
 
 ; This is where the game loop takes place: ~30Hz
 @loop:
+  
+  macro for_each_and_call name, offset
+    LOCAL @scl_loop, @scl_loopend
+    SCL_FOR name
+      ; hl = sprite
+
+      push hl ; Arg1: sprite
+      ld e, (hl) \ inc hl
+      ld d, (hl)
+
+      
+      ex de, hl
+      IF offset>0
+        ld bc, offset
+        add hl, bc
+      endif
+
+      ld a, (hl) \ inc hl 
+      ld h, (hl) 
+      ld l, a
+
+      ; Z88dk: arguments are pushed on the stack
+      call __hl
+    SCL_ENDFOR name
+  endm
+
+  ; Do all the begin steps
+  for_each_and_call begin_steps, 0
+
+  SCL_FOR alarms
+
+
+  SCL_ENDFOR alarms
+
+  for_each_and_call steps,       2
+  for_each_and_call end_steps,   4
+
+
 
 
 
