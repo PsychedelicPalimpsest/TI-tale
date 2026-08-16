@@ -9,6 +9,12 @@ MACRO bcall nn
   DEFW nn
 endm
 
+
+#define low(XXXX)  (XXXX) & 0xFF
+#define high(XXXX) (XXXX) >> 8
+
+
+
 ; An auto incrementing ram definition
 MACRO RDEF arena, name, size
 ; Capture the old arena value as a constant
@@ -53,7 +59,6 @@ macro max p1            ; Get max of p1 and a in a
     ld a, p1            ; Assign p1 to a
 @s1:
 endm
-
 
 ; Takes the highest bits set, and cascades it down
 macro msb_maska

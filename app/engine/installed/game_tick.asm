@@ -1,7 +1,8 @@
 ; This code runs at ~30 Hz, and is run by greyscale.asm
+; Please note: This is NOT the game loop, this handles key scanning
+
+
 PUBLIC engine_tick
-
-
 engine_tick:
 
 ; Copy current keymap to last keymap
@@ -14,13 +15,6 @@ engine_tick:
     ld (_last_keymap + 4), hl
     ld hl, (_current_keymap + 6)
     ld (_last_keymap + 6), hl
-
-
-; Game counter (do we need this???)
-    ld hl, (_game_count)
-    inc hl
-    ld (_game_count), hl
-
 
 
 ; Keyboard scanning
@@ -88,54 +82,5 @@ engine_tick:
 
     ld a, 0FFh ;Reset the keypad.
     out (1), a    
-
-
-; We want to activate when it goes from unpressed, to pressed.
-; 1 is for unpressed. So, 10
-
-    ld a, (_current_keymap)
-    ld b, a
-
-    ld a, (_last_keymap)
-
-    cpl a
-    and a, b
-    and %1111 ; Potential ghosting
-
-    ld (_nav_key_change), a
-
-; Temp tuning stuff
-
-    ; Nope out early if nothing is newly pressed
-    jp z, after_tuning 
-
-
-    bit 3, a
-    jp nz, UP
-    bit 0, a
-    jp nz, DOWN
-
-    bit 1, a
-    jp nz, LEFT
-    bit 2, a
-    jp nz, RIGHT
-
-LEFT:
-    jp after_tuning
-RIGHT:
-    jp after_tuning
-
-UP:
-    ld a, (_grey_timing)
-    inc a
-    ld (_grey_timing), a
-    jp after_tuning
-DOWN:
-    ld a, (_grey_timing)
-    dec a
-    ld (_grey_timing), a
-    ; Fall through
-
-after_tuning:
 
   ret

@@ -34,6 +34,7 @@ start_of_install:
 INCLUDE "installed/sprite_system.asm"
 
 INCLUDE "installed/game_tick.asm"
+INCLUDE "installed/gameloop.asm"
 INCLUDE "installed/greyscale.asm"
 INCLUDE "installed/greyscale_swap.asm"
 INCLUDE "installed/rand.asm"

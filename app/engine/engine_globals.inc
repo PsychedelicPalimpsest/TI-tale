@@ -32,8 +32,14 @@ RDEF engine_globals, sprite_pool_head, 2
 
 
 ; Simply the arguments for norot3x2_blit, gets precomputed whenever things change
-RDEF engine_globals, bg_renderlist, 5*64 ; 64 max sprites
-RDEF engine_globals, fg_renderlist, 5*64 
+RDEF engine_globals, bg_renderlist, 8*64 ; 64 max sprites
+RDEF engine_globals, fg_renderlist, 8*64 
+
+
+
+
+
+
 
 ; TODO: PUT MORE CRAP HERE TO WASTE LESS SPACE
 RALIGN engine_globals, 256

@@ -13,34 +13,21 @@ enum event_t{
 
 
 typedef struct {
+
+    
+    void* user_events[16];
+    void* alarm_callbacks[12];
 } Object;
 
 typedef struct {
+    Object*  obj;
+    
+    uint8_t  alarm_count;
+    int16_t alarms[12];
 } Instance;
 
 
-typedef struct {
-    void*   rot_cache; // Location in the sprite cache table
-    uint8_t width; // Pixel width
-    uint8_t height;
-    
-    void* tileset;
-    uint8_t tileset_width;
-    uint8_t tileset_height;
-} Tile;
 
-
-typedef struct {
-    void* rot_cache;
-    void* data;
-
-    // Flags:
-    // bit 0: Do rot cache
-    // ...todo
-    uint8_t flags;
-    uint8_t width;
-    uint8_t height;
-} Sprite;
 
 
 

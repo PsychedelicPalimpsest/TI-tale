@@ -11,7 +11,7 @@ MACRO fheap_def arena, name, reservation, obj_size
   DEFC fh_origin_##name = arena
 
 ; Header
-  RDEF arena, fh_freehead_##name, 2   ; ptr to first freed object (or null)
+  RDEF arena, fh_freehead_##name, 2    ; ptr to first freed object (or null)
   RDEF arena, fh_tailplus_##name, 2    ; ptr to the first UNALLOCATED object
 
   RDEF arena, fh_heap_##name, ((reservation) * (obj_size+1))
@@ -40,11 +40,9 @@ endm
 ; Inputs:
 ; hl = heap origin
 MACRO fheap_init
-  xor a, a
-
-  ld (hl), a
+  ld (hl), 0
   inc hl
-  ld (hl), a
+  ld (hl), 0
   inc hl
 
   ld de, hl
@@ -61,7 +59,7 @@ endm
 ; NOTE: This creates a procedure, do not inline
 ;
 ; Inputs: 
-; hl = heap ptr
+  ; hl = heap ptr
 ; Outputs:
 ; hl = allocation
 ; Registers: af, bc, de, hl modified
@@ -81,54 +79,51 @@ MACRO fheap_alloc obj_size
   ld e, (hl)
   inc hl
   ld a, (hl)
-  and a ; Note, only checking the highest byte works since only the bootcode can start with zero.
   ld d, a
 
+  or a ; Note, only checking the highest byte works since only the bootcode can start with zero.
   jp nz, not_null
+
 ; freehead == 0
-  inc hl 
+    inc hl 
 
-  ; hl = *tailplus (node ptr), de = &tailplus+1
-  ld e, (hl)
-  inc hl
-  ld d, (hl)
-  ex de, hl
+    ; hl = *tailplus (node ptr), de = &tailplus+1
+    ld e, (hl)
+    inc hl
+    ld d, (hl)
+    ex de, hl
 
-  push hl
+    push hl
 
-  ; hl += obj_size
-  ld bc, obj_size+1
-  add hl, bc
+      ; hl += obj_size
+      ld bc, obj_size+1
+      add hl, bc
 
-  ; hl = &tailplus+1, de=node ptr
-  ex de, hl
+      ; hl = &tailplus+1, de=node ptr
+      ex de, hl
 
-  ld (hl), d
-  dec hl
-  ld (hl), e
+      ld (hl), d
+      dec hl
+      ld (hl), e
 
-  pop hl ; node ptr
+    pop hl ; node ptr
 
-  ; Mark as not free
-  xor a, a
-  ld (hl), a
-  inc hl
+    ; Mark as not free
+    ld (hl), 0
+    inc hl
 
-  ret
+    ret
 not_null:
-  ex de, hl
-  ; now hl = *freehead, de = &freehead+1
-  dec de
-  ldi \ ldd
+    ex de, hl
+    ; now hl = *freehead, de = &freehead+1
+    dec de
+    ldi \ ldd
 
-  ; Undo incs from ldi, and go metadata byte
-  dec hl \ dec hl
+    dec hl
+    ld (hl), 0
+    inc hl
 
-  xor a, a
-  ld (hl), a
-  inc hl
-
-  ret
+    ret
 endm
 
 ; Inputs:

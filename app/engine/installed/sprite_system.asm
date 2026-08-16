@@ -965,9 +965,31 @@ sprite_truncation:
     ret
 
 
+
+sprite_disabled:
+    ld bc, 9
+    add hl, bc
+
+    ld c, (hl) \ inc hl
+    ld a, (hl)
+
+    or a
+    jr z, set_nz ; No need to do anything else 
+
+        ld b, a
+        ; Set rendering to disabled
+        xor a
+        ld (bc), a
+        ret
 not_on_screen:
-    pop af ; Trash sprite ptr
+    pop af ; Trash the 'is in'
     pop de ; Restore RL entry
+    jr z, set_nz ; Skip if no rl entry allocated
+        ld hl, (calculate_rl@set_sp+1) ; rl entry + 8
+        ld bc, -8
+        add hl, bc
+        ld (hl), 0 ; Set rendering to disabled
+set_nz:
     ld a, 1
     or a ; reset zero flag
     ret
@@ -998,6 +1020,7 @@ calculate_rl:
 
     rra    
     ret nc ; Sprite is disabled
+    jr nz, sprite_disabled
 
     ld (@screen+1), bc
 

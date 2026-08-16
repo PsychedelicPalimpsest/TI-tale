@@ -10,15 +10,13 @@
 ; 3. The compositor (unconditional task)
 ; 4. Unused
 
-
-#define _raw(XXXX) XXXX
-#define _label(YYYY) task##_raw(YYYY)##_raw(:)
-
-
-
 PUBLIC yield, yield_shadow, yield_raw
 PUBLIC task1, task2, task3, task4
 PUBLIC __current_task
+
+
+#define _raw(XXXX) XXXX
+#define _label(YYYY) task##_raw(YYYY)##_raw(:)
 
 
 REPTI NUM, 1, 2, 3, 4
