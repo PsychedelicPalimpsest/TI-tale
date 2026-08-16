@@ -72,24 +72,15 @@ _game_loop:
   endm
 
   ; Do all the begin steps
-  for_each_and_call begin_steps, 0
+  for_each_and_call begin_steps, Object_begin_step
 
   SCL_FOR alarms
 
 
   SCL_ENDFOR alarms
 
-  for_each_and_call steps,       2
-  for_each_and_call end_steps,   4
-
-
-
-
-
-
-  
-
-
+  for_each_and_call steps,       Object_step
+  for_each_and_call end_steps,   Object_end_step
 
 
 

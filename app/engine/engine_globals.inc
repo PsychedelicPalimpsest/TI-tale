@@ -3,6 +3,7 @@
 
 
 INCLUDE "core/includes/globals.inc"
+INCLUDE "struct_offsets.inc"
 
 
 #define __scl_off(XXXX) scl_iso_##XXXX
@@ -153,12 +154,11 @@ RDEF engine_globals, bg_fill_color,   2
 
 RDEF engine_globals, sprite_pool_head, 2
 
-; The sprite callback lists. This is where the canonical callbacks live!
-scl_define engine_globals, begin_steps, 64,  2 
-scl_define engine_globals, steps,       64,  4 
-scl_define engine_globals, end_steps,   64,  6 
-scl_define engine_globals, draws,       64,  8
-scl_define engine_globals, alarms,      64,  10
+scl_define engine_globals, begin_steps, 64,  Instance__begin_step 
+scl_define engine_globals, steps,       64,  Instance__step 
+scl_define engine_globals, end_steps,   64,  Instance__end_step 
+scl_define engine_globals, draws,       64,  Instance__draw
+scl_define engine_globals, alarms,      64,  Instance__render
 
 
 
