@@ -1,5 +1,7 @@
 SECTION CODE_ENGINE
 
+INCLUDE "core/common.inc"
+INCLUDE "engine/engine_globals.inc"
 
 room_init:
 
