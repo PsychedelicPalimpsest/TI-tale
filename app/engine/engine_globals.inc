@@ -43,7 +43,7 @@ scl_define engine_globals, draws,       64,  Instance__draw
 
 
 ; Something important to note about `alarms`, the only one allowed to pop
-; from it is gameloop! This way we can ensure alarms are properly ticked. 
+; from it gml_step! This way we can ensure alarms are properly ticked. 
 ; anybody can push though...
 scl_define engine_globals, alarms,      64,  Instance__render
 

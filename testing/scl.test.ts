@@ -102,7 +102,7 @@ describe('SCL initialization and append', () => {
 })
 
 describe('SCL iteration', () => {
-  it('iterates every active sprite in list order', () => {
+  it('iterates every active sprite in reverse insertion order', () => {
     const m = machine()
     const [a, b, c] = sprites()
     initialize(m)
@@ -113,9 +113,18 @@ describe('SCL iteration', () => {
     iterate(m, 'test_scl_iterate_record')
 
     expect(m.readByte(count())).toBe(3)
-    expect(m.readWord(seen())).toBe(a)
+    expect(m.readWord(seen())).toBe(c)
     expect(m.readWord(seen() + 2)).toBe(b)
-    expect(m.readWord(seen() + 4)).toBe(c)
+    expect(m.readWord(seen() + 4)).toBe(a)
+  })
+
+  it('does not invoke the callback for an empty list', () => {
+    const m = machine()
+    initialize(m)
+
+    iterate(m, 'test_scl_iterate_record')
+
+    expect(m.readByte(count())).toBe(0)
   })
 
   it('preserves iteration state when the callback clobbers HL, DE, and AF', () => {
@@ -129,6 +138,24 @@ describe('SCL iteration', () => {
     iterate(m, 'test_scl_iterate_clobber')
 
     expect(m.readByte(count())).toBe(3)
+  })
+
+  it('can remove every current sprite during reverse iteration', () => {
+    const m = machine()
+    const [a, b, c] = sprites()
+    initialize(m)
+    append(m, a)
+    append(m, b)
+    append(m, c)
+
+    iterate(m, 'test_scl_remove_all')
+
+    expect(m.readByte(count())).toBe(3)
+    expect(m.readWord(head())).toBe(0)
+    expect(m.readWord(tail())).toBe(head())
+    expect(backPointer(m, a)).toBe(0)
+    expect(backPointer(m, b)).toBe(0)
+    expect(backPointer(m, c)).toBe(0)
   })
 })
 
@@ -200,21 +227,4 @@ describe('SCL removal', () => {
     expect(backPointer(m, b)).toBe(0)
   })
 
-  it('can remove every current element during iteration', () => {
-    const m = machine()
-    const [a, b, c] = sprites()
-    initialize(m)
-    append(m, a)
-    append(m, b)
-    append(m, c)
-
-    iterate(m, 'test_scl_remove_all')
-
-    expect(m.readByte(count())).toBe(3)
-    expect(m.readWord(head())).toBe(0)
-    expect(m.readWord(tail())).toBe(head())
-    expect(backPointer(m, a)).toBe(0)
-    expect(backPointer(m, b)).toBe(0)
-    expect(backPointer(m, c)).toBe(0)
-  })
 })

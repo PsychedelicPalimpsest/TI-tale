@@ -78,7 +78,7 @@ _test_scl_iterate_clobber:
 MACRO test_scl_remove_all_body
     LOCAL @scl_loop, @scl_loopend
     SCL_FOR testing
-        scl_pop_current_element testing
+        scl_pop testing
         inc ix
     SCL_ENDFOR testing
 ENDM

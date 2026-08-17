@@ -101,60 +101,42 @@ endm
 
 
 
+; Loop over the list backwards.
+;
+; KNOWN BUG: If an item is removed, and we are not currently on that item, the tail will apear TWICE. 
+;            Meaning it is only `safe` to remove the current item
+; 
 ; During each loop:
-; hl is set to the instance location. You can clobber anything but sp
-; clobbers: de, af
+; hl is set to the instance location. You can clobber anything but sp.
+; 
+; clobbers with each loop: de
 MACRO SCL_FOR name
-    ld hl, scl_head_##name
+    ld hl, (scl_tail_##name)
 
 @scl_loop:
+    dec hl
+    ld de, scl_head_##name
 
-    ld e, (hl) \ inc hl
-    ld d, (hl) \ inc hl
-
-    ld a, d \ or a 
-    jp z, @scl_loopend
+    CpHLDE
+    jp m, @scl_loopend
     
+
+
     push hl
+    ld a, (hl) \ dec hl
+    ld l, (hl)
+    ld h, a
 
-    ld hl, -__scl_off(name)
+    ld de, -__scl_off(name)
     add hl, de
+    
 endm
-
-
-; 'Rewinds' the forloop, meaning it forces it to redo the same value
-; Output:
-; hl = Sprite address
-MACRO _scl_rewind_forloop name
-    pop hl
-        dec hl \ ld d, (hl)
-        dec hl \ ld e, (hl)
-    push hl
-    ld hl, -__scl_off(name)
-    add hl, de
-endm
-
-
-; Pop the CURRENT element while in a for loop
-; Input:
-; none needed
-MACRO scl_pop_current_element name
-    ; Rewind the for loops ptr since this element will be replaced with
-    ; the tail. Also retrieve the sprite ptr at the same time
-    _scl_rewind_forloop name
-
-   
-    scl_pop name
-endm
-
 
 
 MACRO SCL_ENDFOR name
     pop hl
+    dec hl
     jp @scl_loop
-
 @scl_loopend:
 endm
-
-
 
