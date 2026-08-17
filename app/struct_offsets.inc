@@ -23,4 +23,9 @@ DEFC Instance_alarm_count = 12
 DEFC Instance_alarms = 13
 DEFC Instance_size = 37
 
+; GamemakerCTX from engine/engine.h
+DEFC GamemakerCTX_instance = 0
+DEFC GamemakerCTX_other = 2
+DEFC GamemakerCTX_size = 4
+
 ENDIF

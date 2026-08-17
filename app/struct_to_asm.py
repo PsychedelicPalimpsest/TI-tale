@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+NOTE: VIBE CODED
+
 Generates assembly structure offsets from C structs marked //#[ASM_EXPOSED].
 
 For each exposed struct, the offsets of all of its fields are computed

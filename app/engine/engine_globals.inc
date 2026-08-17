@@ -31,15 +31,22 @@ endm
 ; Inputs:
 ;   HL = Address of the sprite struct
 ; Clobbers:
-;   DE, HL
+;   DE, HL, AF
 MACRO scl_append name
-    ld de, __scl_off(name)
+    LOCAL @no_append
+
+    ld de, __scl_off(name) + 1
     add hl, de
-    ld de, (scl_tail_##name) ; Get the hight byte of the tail
+
+    ld a, (hl) 
+    or a \ jr nz, @no_append
+    
+    ld de, (scl_tail_##name) ; Get the high byte of the tail
 
     ; Set the sprites location to the tail (the first empty element)
-        ld (hl), e \ inc hl
         ld (hl), d \ dec hl
+        ld (hl), e
+
     ; Set the tail value
         ex de, hl
         ld (hl), e \ inc hl
@@ -48,6 +55,7 @@ MACRO scl_append name
         ld (scl_tail_##name), hl
         
         inc hl \ ld (hl), 0
+    @no_append:
 endm
 
 ; Removes a sprite from the list
@@ -57,7 +65,7 @@ endm
 ; Clobbers:
 ;   AF, BC, DE, HL
 MACRO scl_pop name
-    LOCAL @nope_out
+    LOCAL @nope_out, @not_equal
 
     ld de, __scl_off(name)
     add hl, de
@@ -71,12 +79,17 @@ MACRO scl_pop name
     jr z, @nope_out
     
         ld hl, (scl_tail_##name)    
-        dec hl 
-
+        dec hl
         ld b, (hl) \ ld (hl), 0 \ dec hl
-        ld c, (hl) 
+        ld c, (hl) \ ld (hl), 0
 
+        
         ld (scl_tail_##name), hl ; Set the new tail 
+
+        sbc hl, de ; carry is still reset from `or a`
+        add hl, de
+        jr nz, @nope_out
+
         ex de, hl
 
         ; Move old tail to the newly opened ptr
@@ -116,19 +129,28 @@ MACRO SCL_FOR name
     add hl, de
 endm
 
+
+; 'Rewinds' the forloop, meaning it forces it to redo the same value
+; Output:
+; hl = Sprite address
+MACRO _scl_rewind_forloop name
+    pop hl
+        dec hl \ ld d, (hl)
+        dec hl \ ld e, (hl)
+    push hl
+    ld hl, -__scl_off(name)
+    add hl, de
+endm
+
+
 ; Pop the CURRENT element while in a for loop
 ; Input:
 ; none needed
 MACRO scl_pop_current_element name
     ; Rewind the for loops ptr since this element will be replaced with
     ; the tail. Also retrieve the sprite ptr at the same time
-    pop hl
-        ld d, (hl) \ dec hl
-        ld e, (hl) \ dec hl
-    push hl 
+    _scl_rewind_forloop name
 
-    ld hl, -__scl_off(name)
-    add hl, de
    
     scl_pop name
 endm
@@ -160,8 +182,12 @@ RDEF engine_globals,    cur_room_addr,      2
 RDEF engine_globals,    cur_camx,           2
 RDEF engine_globals,    cur_camy,           2
 
-RDEF engine_globals,    cur_camx_plusw,           2
-RDEF engine_globals,    cur_camy_plush,           2
+RDEF engine_globals,    cur_camx_plusw,     2
+RDEF engine_globals,    cur_camy_plush,     2
+
+RDEF engine_globals,   _gmctx,             GamemakerCTX_size
+
+
 
 ; Dynamically sized elements
 ; bg_sprites  - comes first, after engine globals
@@ -174,7 +200,13 @@ scl_define engine_globals, begin_steps, 64,  Instance__begin_step
 scl_define engine_globals, steps,       64,  Instance__step 
 scl_define engine_globals, end_steps,   64,  Instance__end_step 
 scl_define engine_globals, draws,       64,  Instance__draw
+
+
+; Something important to note about `alarms`, the only one allowed to pop
+; from it is gameloop! This way we can ensure alarms are properly ticked. 
+; anybody can push though...
 scl_define engine_globals, alarms,      64,  Instance__render
+
 
 
 

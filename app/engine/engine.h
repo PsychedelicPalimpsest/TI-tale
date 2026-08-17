@@ -51,6 +51,14 @@ typedef struct {
 } Instance;
 
 
+//#[ASM_EXPOSED]
+typedef struct {
+    Instance* instance;
+    Instance* other;
+} GamemakerCTX;;
+
+extern GamemakerCTX gmctx;
+
 
 #ifdef ROOM
 // This stuff is common setup done for each room. 

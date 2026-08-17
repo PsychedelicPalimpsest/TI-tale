@@ -17,6 +17,9 @@ check_frame:
 
 
 
+
+
+
 PUBLIC _game_loop
 _game_loop:
 
@@ -81,6 +84,7 @@ _game_loop:
 
     ld (@sprite_origin+1), hl
     
+    xor a
 
     ; hl = the high byte of the last timer
     ld de, Instance_alarms  + 12*2 - 1
@@ -127,8 +131,8 @@ _game_loop:
             
             ex de, hl
             @sprite_origin:
-                ld hl, 0000h ; SMC: Sprite ptr       
-                push hl ; Call argument 1: Sprite ptr
+                ld hl, 0000h ; SMC: Sprite ptr
+                ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
 
                 ; BC = object ptr
                 ld c, (hl) \ inc hl
@@ -151,10 +155,10 @@ _game_loop:
         pop bc
         djnz @alarm_loop
 @end_of_loop:
+
     ld a, ixl
     or a
     jp nz, @after_check ; Unlikely to fall through
-
         ; Remove it if no alarms are active
         scl_pop_current_element alarms
 @after_check:
@@ -168,3 +172,5 @@ _game_loop:
   EXTERN yield
   call yield
   jp @loop
+
+
