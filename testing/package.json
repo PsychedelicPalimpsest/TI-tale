@@ -1,0 +1,19 @@
+{
+  "name": "ti-tale-z80-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "make test-binary",
+    "test": "make test-binary && vitest run",
+    "test:watch": "make test-binary && vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "z80-testing-library": "^0.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

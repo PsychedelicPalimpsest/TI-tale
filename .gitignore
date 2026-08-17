@@ -6,3 +6,5 @@ out*
 *.lis
 .pytest_cache/
 *.lib
+testing/build/
+testing/node_modules/
