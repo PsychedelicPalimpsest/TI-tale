@@ -79,14 +79,14 @@ MACRO test_scl_remove_all_body
     LOCAL @scl_loop, @scl_loopend
     SCL_FOR testing
         scl_pop_current_element testing
-        inc c
+        inc ix
     SCL_ENDFOR testing
 ENDM
 
 PUBLIC _test_scl_remove_all
 _test_scl_remove_all:
-    ld bc, 0
+    ld ix, 0
     test_scl_remove_all_body
-    ld a, c
+    ld a, ixl
     ld (test_scl_count), a
     ret

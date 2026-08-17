@@ -70,7 +70,6 @@ MACRO scl_pop name
     ; Don't continue if the entry is invalid
     ld a, d \ or a
     jr z, @nope_out
-    
         ld hl, (scl_tail_##name)    
         dec hl
         ld b, (hl) \ ld (hl), 0 \ dec hl
@@ -81,7 +80,7 @@ MACRO scl_pop name
 
         sbc hl, de ; carry is still reset from `or a`
         add hl, de
-        jr nz, @nope_out
+        jr z, @nope_out
 
         ex de, hl
 

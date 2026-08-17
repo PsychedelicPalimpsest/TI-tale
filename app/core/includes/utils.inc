@@ -144,7 +144,9 @@ endm
 
 macro sub_hl_a
     LOCAL @s1
-    sub a, l
+    ld c, a
+    ld a, l
+    sub c
     ld l, a
     jr nc, @s1
     dec h
