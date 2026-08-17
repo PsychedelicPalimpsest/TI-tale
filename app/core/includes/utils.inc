@@ -261,7 +261,7 @@ MACRO add_nn_a_bc  nn
 	ld c,a
   ld a, nn >> 8
   adc a, 0
-  ld c, a
+  ld b, a
 endm
 
 
