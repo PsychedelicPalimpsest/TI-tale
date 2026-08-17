@@ -96,7 +96,6 @@ endm
 
 
 
-
 ; During each loop:
 ; hl is set to the instance location. You can clobber anything but sp
 ; clobbers: de, af
@@ -115,6 +114,23 @@ MACRO SCL_FOR name
 
     ld hl, -__scl_off(name)
     add hl, de
+endm
+
+; Pop the CURRENT element while in a for loop
+; Input:
+; none needed
+MACRO scl_pop_current_element name
+    ; Rewind the for loops ptr since this element will be replaced with
+    ; the tail. Also retrieve the sprite ptr at the same time
+    pop hl
+        ld d, (hl) \ dec hl
+        ld e, (hl) \ dec hl
+    push hl 
+
+    ld hl, -__scl_off(name)
+    add hl, de
+   
+    scl_pop name
 endm
 
 

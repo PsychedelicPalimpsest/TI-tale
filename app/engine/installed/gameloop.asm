@@ -74,9 +74,90 @@ _game_loop:
   ; Do all the begin steps
   for_each_and_call begin_steps, Object_begin_step
 
+
+  ; All instances with an alarm pressed
   SCL_FOR alarms
+    ; hl = sprite object
 
+    ld (@sprite_origin+1), hl
+    
 
+    ; hl = the high byte of the last timer
+    ld de, Instance_alarms  + 12*2 - 1
+    add hl, de
+
+    ld ixl, 0 ; Active alarm count
+    ; MOST alarms will be disable, so that the fastest path
+    ld b, 12
+    @alarm_loop:
+        bit 7, (hl)
+        jr z, @not_negative
+            dec hl \ dec hl
+            djnz @alarm_loop
+            jp @end_of_loop
+    @not_negative:
+        ld d, (hl) \ dec hl
+        ld e, (hl)
+            dec de
+        ld (hl), e \ inc hl
+        ld (hl), d \ dec hl
+        dec hl
+
+        ld a, d
+        or e
+
+        inc ixl ; Increment the alarm count
+                ; Also note: This means we wait until the NEXT step to remove
+                ; the object until the alarm list, this avoids a bug where the
+                ; alarm goes to 0, the callback sets the alarm, and then we remove
+                ; the object from the list.
+        jr z, @zero
+            djnz @alarm_loop
+            jp @end_of_loop
+    @zero:
+        ; This case is quite unlikely, so a bit extra compute is ok
+
+        
+        ; We do not trust the callee to perserve anything
+        push bc
+        push hl 
+        push ix
+            
+            inc hl ; Undo the `dec hl`
+            
+            ex de, hl
+            @sprite_origin:
+                ld hl, 0000h ; SMC: Sprite ptr       
+                push hl ; Call argument 1: Sprite ptr
+
+                ; BC = object ptr
+                ld c, (hl) \ inc hl
+                ld b, (hl) ; We add a -1 in a later addition so we don't need a `dec hl`
+
+            ex de, hl
+            ; hl = &alarms[i] - sprite_ptr - offset_of_alarms + object_ptr + offset_of_alarm_callbacks
+            sbc hl, de ; NOTE: Carry is reset by `or e` above
+            add hl, bc
+            ld bc, Object_alarm_callbacks-Instance_alarms -1
+            add hl, bc
+
+            ld a, (hl) \ inc hl
+            ld h, (hl)
+            ld l, a
+
+            call __hl
+        pop ix
+        pop hl
+        pop bc
+        djnz @alarm_loop
+@end_of_loop:
+    ld a, ixl
+    or a
+    jp nz, @after_check ; Unlikely to fall through
+
+        ; Remove it if no alarms are active
+        scl_pop_current_element alarms
+@after_check:
   SCL_ENDFOR alarms
 
   for_each_and_call steps,       Object_step
