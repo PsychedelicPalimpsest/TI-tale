@@ -19,7 +19,7 @@ engine_init:
     ld hl, _globals_start + 1
     ld (hl), $00
     ld de, _globals_start + 2
-    ld bc, $1000 ; 4kb
+    ld bc, $70
     ldir
 
     ld l, $A0
