@@ -7,10 +7,14 @@ PUBLIC install_hooks
 PUBLIC end_of_install
 
 ; Todo: Figure out more percise location AFTER interupts
-DEFC install_location =  $8500
+DEFC install_location =  $8400
 INCLUDE "core/common.inc"
 INCLUDE "engine/engine_globals.inc"
 
+
+IF after_interrupt_code > install_location
+	ERROR Please adjust install_location
+endif
 install_hooks:
   ld hl, install_origin
   ld de, install_location

@@ -5,12 +5,12 @@ INCLUDE "engine/engine_globals.inc"
 
 PUBLIC room_init
 room_init:
-    ; Cleanup the callback lists
-    scl_init begin_steps
-    scl_init steps
-    scl_init end_steps
-    scl_init draws
-    scl_init alarms
+    ; Cleanup the callback lists   
+    REPTI name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_end, draw_gui, draw_gui_begin, draw_gui_end
+        scl_init name
+    endr
+
+    scl_init alarm
 
     ret
 
@@ -45,11 +45,11 @@ gml_step:
   endm
 
   ; Do all the begin steps
-  for_each_and_call begin_steps, Object_begin_step
+  for_each_and_call begin_step, Object_begin_step
 
 
   ; All instances with an alarm pressed
-  SCL_FOR alarms
+  SCL_FOR alarm
     ; hl = sprite object
 
     ld (@sprite_origin+1), hl
@@ -130,12 +130,12 @@ gml_step:
     or a
     jp nz, @after_check ; Unlikely to fall through
         ld hl, (@sprite_origin +1)
-        scl_pop alarms
+        scl_pop alarm
 @after_check:
-  SCL_ENDFOR alarms
+  SCL_ENDFOR alarm
 
-  for_each_and_call steps,       Object_step
-  for_each_and_call end_steps,   Object_end_step
+  for_each_and_call step,       Object_step
+  for_each_and_call end_step,   Object_end_step
   ret
 
 
@@ -167,7 +167,11 @@ _inst_update_alarms:
     ret nz
 
         ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
-        scl_append alarms ; Handles for us alarms what are already set 
-
-
+        scl_append alarm ; Handles for us alarms what are already set 
     ret
+
+
+
+
+
+_instance_create:

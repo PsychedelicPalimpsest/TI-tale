@@ -2,6 +2,12 @@
 ;       original author: Dean Belfield
 ;
 ;       I have added a few things
+IFNDEF UTILS_INC
+DEFINE UTILS_INC
+
+
+
+
 
 ; Regular bcall macro
 MACRO bcall nn
@@ -313,3 +319,7 @@ macro sub_hl_de
     or a
     sbc hl, de
 endm
+
+
+
+ENDIF

@@ -4,6 +4,15 @@ DEFINE GLOBALS_INC
 ;============Global variable allocations============
 
 
+
+; a count of the times the greyscale routine has fired
+EXTERN _gray_count  
+
+
+
+INCLUDE "core/includes/utils.inc"
+
+
 ;==================================================
 ; Scrap bytes betweem interupt table and interupt
 ; 8101h - 8181h are free (middle of interupts)
@@ -11,11 +20,64 @@ DEFINE GLOBALS_INC
 
 defl interupt_globals = $8101
 
+DEFC _globals_start = interupt_globals
+
 RDEF interupt_globals,  _first_rom_page, 1   ;  This tells the app where to return to after exiting
 RDEF interupt_globals,  _ram_restore_page, 1   ;  Ram restore page
 RDEF interupt_globals,  free_trash_byte, 1   ;  Text renderer trashes this
 
 RDEF interupt_globals,  sound_state,     1   ; Current linkport state
+
+
+RDEF interupt_globals,            _game_count,     2
+
+; DO NOT SET DIRECTLY, use `set_grey_timing`!
+RDEF interupt_globals,            _grey_timing,    1
+EXTERN grey_timingX6
+
+
+; High percision clock values. See greyscale.asm
+EXTERN clock_count_1, clock_count_2, clock_count_3, clock_count_4, clock_count_5
+
+; A 16 bit fixed point number of the amount of secounds % 256 since the game has started. 
+RDEF interupt_globals,            _scount,         2
+
+
+RDEF interupt_globals,            _grey_contrast,  1
+
+
+; The screen buffers currently being drawn
+RDEF interupt_globals,            current_phase1,  2
+RDEF interupt_globals,            current_phase2,  2
+RDEF interupt_globals,            current_phase3,  2
+
+; The screen buffers that are written to on swap
+RDEF interupt_globals,            alt_phase1,      2
+RDEF interupt_globals,            alt_phase2,      2
+RDEF interupt_globals,            alt_phase3,      2
+
+
+; Keeps track of what cols have been updated
+; Storage method: Highest bit (byte two) = first col
+; this ensures that, when loaded into hl, the `add hl, hl`
+; opcode makes the carry set when a col is diry
+RDEF interupt_globals,            dirty_cols,               2
+RDEF interupt_globals,            previous_dirty_cols,      2
+
+
+
+; Map of user keys, see: https://web.archive.org/web/20240225131330/https://wikiti.brandonw.net/index.php?title=83Plus:Ports:01
+RDEF interupt_globals,            _current_keymap,  8
+RDEF interupt_globals,            _last_keymap,     8
+
+
+; Down, left, right, up
+RDEF interupt_globals,            _nav_key_change,  1
+
+
+
+
+
 
 
 IF interupt_globals > $8181
@@ -25,111 +87,23 @@ endif
 
 
 
-; These are the fixed location 
-defl _globals_start = $C000
-defl globals_area = _globals_start
-
-
-
 ;==================================================
 ;  Engine internals
 ;==================================================
 
 
-; a count of the times the greyscale routine has fired
-; The rate of change of this varies per configuration, so use of this is
-; discouraged!
-EXTERN _gray_count  
-
-RDEF globals_area,            _game_count,     2
-
-; DO NOT SET DIRECTLY, use `set_grey_timing`!
-RDEF globals_area,            _grey_timing,    1
-EXTERN grey_timingX6
-
-
-; High percision clock values. See greyscale.asm
-EXTERN clock_count_1, clock_count_2, clock_count_3, clock_count_4, clock_count_5
-
-; A 16 bit fixed point number of the amount of secounds % 256 since the game has started. 
-RDEF globals_area,            _scount,         2
-
-
-RDEF globals_area,            _grey_contrast,  1
-
-
-; The screen buffers currently being drawn
-RDEF globals_area,            current_phase1,  2
-RDEF globals_area,            current_phase2,  2
-RDEF globals_area,            current_phase3,  2
-
-; The screen buffers that are written to on swap
-RDEF globals_area,            alt_phase1,      2
-RDEF globals_area,            alt_phase2,      2
-RDEF globals_area,            alt_phase3,      2
-
-
-; Keeps track of what cols have been updated
-; Storage method: Highest bit (byte two) = first col
-; this ensures that, when loaded into hl, the `add hl, hl`
-; opcode makes the carry set when a col is diry
-RDEF globals_area,            dirty_cols,               2
-RDEF globals_area,            previous_dirty_cols,      2
-
-
-
-; Map of user keys, see: https://web.archive.org/web/20240225131330/https://wikiti.brandonw.net/index.php?title=83Plus:Ports:01
-RDEF globals_area,            _current_keymap,  8
-RDEF globals_area,            _last_keymap,     8
-
-
-; Down, left, right, up
-RDEF globals_area,            _nav_key_change,  1
-
-; TODO: how can this be done better?
-; Set where z88dk puts static variables, note that only the first page is allowed them
-defc c_bss = $C100
-
-
-;==================================================
-; Actual screen buffers
-;==================================================
-
-defl screen_size = 768    ; 96 * 64/8
-
-defl buffers_start =  $C800
-defl buffers_area =  buffers_start
-
-RDEF buffers_area,              grey_phase1_buff, screen_size
-RDEF buffers_area,              grey_phase2_buff, screen_size
-RDEF buffers_area,              grey_phase3_buff, screen_size
-
-RDEF buffers_area,              _screen_buffer, screen_size*2
-
-; This area is reserved to protect the phase buffer from potential stack 
-; overrun durning fastcpy, it also allows there to be exactly $1000 bytes
-; apart, meaning a simply xor will take you to and from the alt buffers.
-;
-; ($C800 + 768*5 + $100)^$C800 = $1000
-DEFL buffers_area = buffers_area + $100
-
-
-RDEF buffers_area,              grey_phase1_altbuff, screen_size
-RDEF buffers_area,              grey_phase2_altbuff, screen_size
-RDEF buffers_area,              grey_phase3_altbuff, screen_size
-
-
-
-defc buffers_end = buffers_area
-
-
-
-
 
 ; This symbol is set by engine/install.asm, aka code installed to ram. After this
 ; point the dynamic variable allocations start.
-EXTERN end_of_install
+
+
+
+
+
+
 
 
 
 ENDIF
+
+

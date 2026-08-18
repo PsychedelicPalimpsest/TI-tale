@@ -6,8 +6,8 @@ PUBLIC engine_init
 
 EXTERN install_hooks
 
+INCLUDE "engine/engine_globals.inc"
 INCLUDE "core/common.inc"
-
 
 engine_prepage_init:
   ret
