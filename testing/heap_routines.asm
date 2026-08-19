@@ -2,6 +2,7 @@ SECTION code
 
 INCLUDE "core/includes/utils.inc"
 INCLUDE "core/includes/fixed_heap.inc"
+INCLUDE "core/includes/binary_heap.inc"
 
 ; Keep this heap outside the app's code and fixed global regions.
 DEFL test_heap_arena = $B000
@@ -14,6 +15,9 @@ fheap_def single_heap_arena, single, 1, 2
 ; The header ends at a page boundary, exercising 16-bit pointer carry.
 DEFL boundary_heap_arena = $B0FC
 fheap_def boundary_heap_arena, boundary, 3, 2
+
+DEFL binary_heap_arena = $B300
+bh_def binary_heap_arena, binary_testing, 7
 
 DEFC test_heap_origin = fheap_addr(testing)
 DEFC test_foreach_count = $B020
@@ -102,4 +106,14 @@ _test_fheap_foreach_clobber:
     @end_of_loop:
     ld a, c
     ld (test_foreach_count), a
+    ret
+
+PUBLIC _test_bh_siftup
+_test_bh_siftup:
+    bh_siftup binary_testing
+    ret
+
+PUBLIC _test_bh_siftdown
+_test_bh_siftdown:
+    bh_siftdown binary_testing
     ret

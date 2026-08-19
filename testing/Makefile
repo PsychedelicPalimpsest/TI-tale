@@ -21,6 +21,7 @@ ENGINE_ASM := $(wildcard $(APP)/engine/*.asm) \
 	$(APP)/struct_offsets.inc
 TEST_ASM := routines.asm heap_routines.asm scl_routines.asm utils_routines.asm test_stubs.asm \
 	$(APP)/core/includes/fixed_heap.inc \
+	$(APP)/core/includes/binary_heap.inc \
 	$(APP)/core/includes/utils.inc \
 	$(APP)/engine/scl.inc
 
