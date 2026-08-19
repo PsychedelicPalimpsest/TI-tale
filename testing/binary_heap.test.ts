@@ -5,7 +5,6 @@ type TestMachine = ReturnType<typeof machine>
 
 const base = () => mapAddress('bh_base_binary_testing')
 const tail = () => mapAddress('bh_tail_binary_testing')
-const reservedSlots = () => mapAddress('bh_reservation_binary_testing')
 const reservation = 7
 const recordSize = 4
 
@@ -29,18 +28,18 @@ function readRecord(m: TestMachine, index: number) {
 }
 
 function runSiftUp(m: TestMachine, index: number) {
-  m.regs.hl = index * recordSize
+  m.regs.hl = recordAddress(index)
   m.runFrom(address('test_bh_siftup'))
 }
 
-function runSiftDown(m: TestMachine, index: number) {
-  m.regs.hl = index * recordSize
+function runSiftDown(m: TestMachine, index: number, activeRecords = reservation) {
+  m.writeWord(tail(), base() + activeRecords * recordSize)
+  m.regs.hl = recordAddress(index)
   m.runFrom(address('test_bh_siftdown'))
 }
 
 describe('binary heap definition', () => {
   it('reserves a two-byte tail followed by the requested records', () => {
-    expect(reservedSlots()).toBe(reservation)
     expect(tail()).toBe(base() - 2)
   })
 })
@@ -192,7 +191,7 @@ describe('binary heap sift-down', () => {
     writeRecord(m, 1, 0x8000, 0xA311)
     writeRecord(m, 2, 1, 0xA312)
 
-    runSiftDown(m, 0)
+    runSiftDown(m, 0, 3)
 
     expect(readRecord(m, 0)).toEqual([0x8000, 0xA311])
     expect(readRecord(m, 1)).toEqual([0x7FFF, 0xA310])

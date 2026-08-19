@@ -31,6 +31,7 @@ endm
 ; Inputs:
 ; hl = A valid ptr in the heap
 MACRO bh_siftup name
+    LOCAL @signed_overflow, @swap
 @loop:
     ld (@first_ptr+1), hl ; With smc it simplifies logic
     ld e, (hl) \ inc hl
@@ -56,7 +57,9 @@ MACRO bh_siftup name
         ; We want the child to be BIGGER then the parent
         ; child - parent
         sbc hl, bc
+        jp pe, @signed_overflow
         ret p
+@swap:
         add hl, bc
     ex de, hl
 @first_ptr:
@@ -65,6 +68,9 @@ MACRO bh_siftup name
         _swap_hl_de
     pop hl
     jp @loop
+@signed_overflow:
+    ret m
+    jp @swap
 endm
 
 
@@ -79,7 +85,7 @@ endm
 ;
 ; is_too_small should what happens when the INDEX is too small
 macro _do_smallest name, is_too_small
-    LOCAL @hl_still_smallest
+    LOCAL @hl_still_smallest, @signed_overflow, @select_child
 
     ; bc should be BIGGER then hl
     ld bc, (bh_tail_##name)
@@ -96,7 +102,12 @@ macro _do_smallest name, is_too_small
         sbc hl, bc
         add hl, bc
     ex de, hl
+    jp pe, @signed_overflow
     jp m, @hl_still_smallest
+    jp @select_child
+@signed_overflow:
+    jp p, @hl_still_smallest
+@select_child:
         pop af
         push hl
         ld de, bc
@@ -200,4 +211,3 @@ MACRO bh_pop name
     ld hl, bh_base_##name
     bh_siftdown name
 endm
-
