@@ -43,6 +43,7 @@ INCLUDE "installed/greyscale.asm"
 INCLUDE "installed/greyscale_swap.asm"
 INCLUDE "installed/rand.asm"
 INCLUDE "installed/tasks.asm"
+INCLUDE "installed/gamemaker.asm"
 
 INCLUDE "installed/audio_engine.asm"
 

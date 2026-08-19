@@ -1,7 +1,5 @@
-SECTION CODE_ENGINE
+#define objects_base 0000h ; TODO: Real location
 
-INCLUDE "core/common.inc"
-INCLUDE "engine/engine_globals.inc"
 
 PUBLIC room_init
 room_init:
@@ -15,16 +13,14 @@ room_init:
     ret
 
 
-EXTERN __hl ; addr of a jp (hl)
-
 PUBLIC gml_step
 gml_step:
   macro for_each_and_call name, offset
     LOCAL @scl_loop, @scl_loopend
     SCL_FOR name
       ; hl = sprite
+      ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
 
-      push hl ; Arg1: sprite
       ld e, (hl) \ inc hl
       ld d, (hl)
 
@@ -39,7 +35,6 @@ gml_step:
       ld h, (hl) 
       ld l, a
 
-      ; Z88dk: arguments are pushed on the stack
       call __hl
     SCL_ENDFOR name
   endm

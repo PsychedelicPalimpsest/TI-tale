@@ -72,6 +72,7 @@ typedef struct {
                 // Bit 1: Is visible
                 // Bit 2: Is persistent
                 // Bit 3: Is solid (tbd) 
+    uint16_t depth;
 
     uint8_t sprite_index_max;
     uint8_t sprite_index;    // An index into the sprite_cache_entries in obj
