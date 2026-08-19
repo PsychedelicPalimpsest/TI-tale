@@ -53,15 +53,11 @@ MACRO bh_siftup name
     ld c, (hl) \ inc hl
     ld b, (hl) \ dec hl
 
-    ex de, hl
-        ; We want the child to be BIGGER then the parent
-        ; child - parent
-        sbc hl, bc
-        jp pe, @signed_overflow
-        ret p
+    ; child - parent
+    CpDEBC
+    jp pe, @signed_overflow
+    ret p
 @swap:
-        add hl, bc
-    ex de, hl
 @first_ptr:
     ld de, 0000h ; SMC: First ptr
     push hl
@@ -97,11 +93,7 @@ macro _do_smallest name, is_too_small
     ld c, (hl) \ inc hl
     ld b, (hl) \ dec hl
 
-    ex de, hl
-        or a
-        sbc hl, bc
-        add hl, bc
-    ex de, hl
+    CpDEBC
     jp pe, @signed_overflow
     jp m, @hl_still_smallest
     jp @select_child
