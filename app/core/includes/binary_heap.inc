@@ -131,7 +131,7 @@ MACRO bh_siftdown name
 
 
     ; left = 2*i+1
-    sla l \ rl h
+    add hl, hl
     ld bc, 4 + bh_base_##name
     add hl, bc ; Given a correct input resets carry
 
