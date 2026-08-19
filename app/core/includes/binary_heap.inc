@@ -83,7 +83,7 @@ macro _do_smallest name, is_too_small
 
     ; bc should be BIGGER then hl
     ld bc, (bh_tail_##name)
-    sbc hl, bc
+    sbc hl, bc ; Safe due to pre-condition
     add hl, bc
 
     jp p, is_too_small
@@ -122,7 +122,7 @@ MACRO bh_siftdown name
     ; left = 2*i+1
     sla l \ rl h
     ld bc, 4 + bh_base_##name
-    add hl, bc
+    add hl, bc ; Given a correct input resets carry
 
     _do_smallest name, @finished
 
@@ -173,10 +173,17 @@ ENDM
 
 
 ; Output:
-; hl' = key
-; de' = ptr
+; hl' = key OR garbage if ptr is null
+; de' = ptr OR NULL    if no elements remain in the heap
 MACRO bh_pop name
     LOCAL sift_down
+
+    
+    ld hl, (bh_tail_##name)
+    ld de, bh_base_##name
+
+    or a \ sbc hl, de
+    ex de, hl \ ret z
 
     ld hl, (bh_base_##name)
     ld de, (2+bh_base_##name)
