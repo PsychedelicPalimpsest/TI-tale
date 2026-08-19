@@ -9,64 +9,43 @@ extern void greyscale_swap();
 
 int main(){
   #asm
-  INCLUDE "engine/engine_globals.inc"
-    ld hl, engine_globals_end
-    ld (sprite_pool_head), hl
 
-    EXTERN st_camera_width, st_camera_height
-    ld hl, 96
-    ld (st_camera_width), hl
-    ld l, 64
-    ld (st_camera_height), hl
+  EXTERN _insert, _pop, _init
 
-    ld hl, 5
-    ld (cur_camx), hl
-    ld hl, 0
-    ld (cur_camy), hl
-
-    ld hl, 12*8 + 6
-    ld (cur_camx_plusw), hl
-
-    ld hl, 64
-    ld (cur_camy_plush), hl
-
-    ld hl, sprite
-
-    EXTERN new_sprite_cache_entry2x
-    call new_sprite_cache_entry2x
-    ; de = cache entry
-
-    ex de, hl
-    ld a, 1
-    ld (hl), a ; Render
-
-    
-    ld de, engine_globals_end + 500h
-    ld bc, _screen_buffer
-
-  @do_it:
-    EXTERN calculate_rl
-    call calculate_rl
-  
+  call _init
 
 
-    ld de, 8
-    ld hl, engine_globals_end + $500
-    exx
-    EXTERN blit_rl_entry
-    call blit_rl_entry
+  REPTI val, 5, -5, 1, 2, 5, 3, 99, 2    
+    ld bc, val
+    ld de, -1
+    call _insert
+  endr
 
-@no_render:  
-    ld hl, -1
-    ld (_screen_buffer+128), hl
+  pops:
+
+  REPT 8
+    call _pop
+
+  endr
+
+
+
+
+
 
   #endasm
-  greyscale_swap();
-
   while (1);
 
 
   #asm
+
+
+
+
+
+
+
+  
   sprite:
   db 2 ; Width
   db 8 ; Height

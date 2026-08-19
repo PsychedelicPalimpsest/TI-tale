@@ -1,3 +1,4 @@
+INCLUDE "core/includes/utils.inc"
 
 ; Each tree element has two element:
 ; 1. A 16-bit SIGNED key
@@ -7,7 +8,11 @@ MACRO bh_def arena, name, reservation
 
     RDEF arena, bh_tail_##name, 2
     RDEF arena, bh_base_##name, reservation*4
+endm
 
+MACRO bh_init name
+    ld hl, bh_base_##name
+    ld (bh_tail_##name), hl
 endm
 
 
@@ -22,161 +27,170 @@ MACRO _swap_hl_de
 endm
 
 
-
+; MUST GO IN RAM
 ; Inputs:
-; hl = index*4 in heap
+; hl = A valid ptr in the heap
 MACRO bh_siftup name
-    ld bc, bh_base_##name
 @loop:
-    add hl, bc ; Should never cause a carry
-        ld (@ld_hl+1), hl
-    sbc hl, bc
+    ld (@first_ptr+1), hl ; With smc it simplifies logic
+    ld e, (hl) \ inc hl
+    ld d, (hl) \ dec hl
+        
+; Is there a parent to test with?
+    ld bc,  4+bh_base_##name
+    or a \ sbc hl, bc
+    ret m ; It can only go negative from the subtraction, not division 
 
-    ld bc, -4
+    ld a, l
+    srl h \ rra
+    and ~3
+    ld l, a 
+
+    ld bc,  bh_base_##name
     add hl, bc
-    ret nc
 
-    srl h \ rr l
-    srl h \ rr l
-    srl h \ rr l
-    add hl, hl
-    add hl, hl
+    ld c, (hl) \ inc hl
+    ld b, (hl) \ dec hl
 
-    ld bc, bh_base_##name
-    add hl, bc ; Should never cause a carry
-        ld (@ld_bc+2), hl
-    sbc hl, bc
-
-    exx
-    @ld_hl:
-        ld hl, (0000h) ; child
-    @ld_bc:
-        ld bc, (0000h) ; parent
+    ex de, hl
+        ; We want the child to be BIGGER then the parent
         ; child - parent
-        ld a, h
-        xor b
-        jp p, @same_sign
-        bit 7, h
-        jp nz, @swap
-        ret
-    @same_sign:
-        or a \ sbc hl, bc
-        ret nc
-
-    @swap:
-        ld hl, (@ld_hl+1)
-        ld de, (@ld_bc+2)
-
+        sbc hl, bc
+        ret p
+        add hl, bc
+    ex de, hl
+@first_ptr:
+    ld de, 0000h ; SMC: First ptr
+    push hl
         _swap_hl_de
-    exx
+    pop hl
     jp @loop
 endm
 
 
 
-MACRO _bh_lookup_and_set_smallest name
-    LOCAL @still_smallest, @still_after_compare, @new_smallest, @same_sign, @rejoin
-    ; Loop up the key
-    ld bc, bh_base_##name
-    add hl, bc ; Should never carry
+; Takes a heap ptr, checks if that is the new smallest, if so sets is as such, and returns with hl
+; not being modified
+; Conventions:
+; de   = Last smallest value
+; hl   = Current ptr
+; (sp) = Last smallest ptr
+; Going in carry should be RESET!
+;
+; is_too_small should what happens when the INDEX is too small
+macro _do_smallest name, is_too_small
+    LOCAL @hl_still_smallest
+
+    ; bc should be BIGGER then hl
+    ld bc, (bh_tail_##name)
+    sbc hl, bc
+    add hl, bc
+
+    jp p, is_too_small
+
     ld c, (hl) \ inc hl
     ld b, (hl) \ dec hl
 
-    ; If the key is the new smallest, swap it out
     ex de, hl
-        ld a, h
-        xor b
-        jp p, @same_sign
-        bit 7, h
-        jp z, @new_smallest
-        jp @still_smallest
-    @same_sign:
         or a
         sbc hl, bc
-        jp c, @still_after_compare
-        jp z, @still_after_compare
-    @new_smallest:
-        ld hl, bc
-        ex de, hl
-
-        ld bc, -bh_base_##name
-        add hl, bc ; Should carry
-        pop af \ push hl
-        jp @rejoin
-    @still_smallest:
-        ex de, hl
-        ld bc, -bh_base_##name
-        add hl, bc ; Should carry
-        jp @rejoin
-    @still_after_compare:
         add hl, bc
-        ex de, hl
-        ld bc, -bh_base_##name
-        add hl, bc ; Should carry
-    @rejoin:
+    ex de, hl
+    jp m, @hl_still_smallest
+        pop af
+        push hl
+        ld de, bc
+@hl_still_smallest:
 endm
 
 
+
 ; Inputs:
-; hl = index*4 in heap
+; hl = a valid ptr in the heap
 MACRO bh_siftdown name
-    @loop:
-    push hl ; Bottom will be the original index
-
-    ; We keep the smallests index on the stack
-    push hl
-
-    ; And it's value in de
-    ld bc, bh_base_##name
-    add hl, bc
+    ; We keep the current smallest key value in de,
+    ; with the ptr to that heap entry in (sp). 
+@loop:
+    push hl \ push hl
     ld e, (hl) \ inc hl
     ld d, (hl) \ dec hl
-    or a
-    sbc hl, bc
+
+    ld bc, -bh_base_##name
+    add hl, bc
 
 
-    ; *= 2
+    ; left = 2*i+1
     sla l \ rl h
-
-;;;; Left
-    ld bc, 4
-    add hl, bc ; Should never carry
-
-    ; if the left is out of bounds, nothing left to do
-    ld bc, 4*bh_reservation_##name
-    or a
-    sbc hl, bc
-        jp nc, @maybe_swap
+    ld bc, 4 + bh_base_##name
     add hl, bc
 
-    _bh_lookup_and_set_smallest name
-;;;; Right
+    _do_smallest name, @finished
+
     ld bc, 4
     add hl, bc
 
-    ld bc, 4*bh_reservation_##name
-    or a
-    sbc hl, bc
-        jp nc, @maybe_swap
-    add hl, bc
-
-    _bh_lookup_and_set_smallest name
-@maybe_swap:
-    pop hl ; Smallest index
-    pop de ; Original index
+    _do_smallest name, @do_smallest
+@do_smallest:
+    pop hl ; last smallest ptr
+    pop de ; original ptr
 
     or a
     sbc hl, de
-    ret z
+        ret z ; Safe since stack is reset
     add hl, de
 
     push hl
-        ld bc, bh_base_##name
-        add hl, bc
-        ex de, hl
-        add hl, bc
         _swap_hl_de
     pop hl
 
     jp @loop
+
+
+@finished:
+    pop af \ pop af
+    ret
 endm
+
+
+; Inputs:
+; bc = key
+; de = ptr
+MACRO bh_insert name
+
+    ld hl, (bh_tail_##name)
+    push hl
+        ld (hl), c \ inc hl
+        ld (hl), b \ inc hl
+
+        ld (hl), e \ inc hl
+        ld (hl), d \ inc hl
+        ld (bh_tail_##name), hl
+    pop hl
+
+    bh_siftup name
+ENDM
+
+
+
+; Output:
+; hl' = key
+; de' = ptr
+MACRO bh_pop name
+    LOCAL sift_down
+
+    ld hl, (bh_base_##name)
+    ld de, (2+bh_base_##name)
+    exx
+
+        ld hl, (bh_tail_##name)
+            ld bc, -4
+            add hl, bc
+        ld (bh_tail_##name), hl
+
+        ld de, bh_base_##name
+            ldi \ ldi \ ldi \ ldi
+
+    ld hl, bh_base_##name
+    bh_siftdown name
+endm
+

@@ -111,6 +111,22 @@ restore_sp_and_ret:
 PUBLIC __hl 
 __hl: jp (hl)
 
+
+; TODO: REMOVE:
+INCLUDE "core/includes/binary_heap.inc"
+
+  DEFL test_heap_a = $E000
+  bh_def test_heap_a, test_heap, 64
+
+PUBLIC _insert, _pop, _init
+_insert: bh_insert test_heap
+_pop:    bh_pop test_heap
+
+_init: bh_init test_heap
+	ret
+
+
+
     end_of_install:
 DEPHASE
 
