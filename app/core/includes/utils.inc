@@ -45,6 +45,15 @@ MACRO CpHLDE
 endm
 
 
+; This one work like CpHLDE, but without the
+; zero flag
+MACRO CpHLDE_fast
+    ld a, l
+    sub d
+    ld a, h
+    sub e
+endm
+
 MACRO CpHLBC
   or a
   sbc hl,bc
@@ -53,10 +62,21 @@ endm
 
 
 
-MACRO CpDEBC
-    ld a, e
+; This one work like CpHLBC, but without the
+; zero flag
+MACRO CpHLBC_fast
+    ld a, l
     sub c
-    ld a, d
+    ld a, h
+    sbc b
+endm
+
+
+
+MACRO CpDEBC
+    ld a, E
+    sub c
+    ld a, D
     sbc b
 endm
 

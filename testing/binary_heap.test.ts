@@ -58,6 +58,17 @@ describe('binary heap sift-up', () => {
     expect(readRecord(m, 1)).toEqual([20, 0xA001])
   })
 
+  it('leaves a larger child below its parent', () => {
+    const m = machine()
+    writeRecord(m, 0, 10, 0xA010)
+    writeRecord(m, 1, 20, 0xA011)
+
+    runSiftUp(m, 1)
+
+    expect(readRecord(m, 0)).toEqual([10, 0xA010])
+    expect(readRecord(m, 1)).toEqual([20, 0xA011])
+  })
+
   it('continues toward the root through multiple levels', () => {
     const m = machine()
     writeRecord(m, 0, 30, 0xB000)
@@ -73,6 +84,21 @@ describe('binary heap sift-up', () => {
       [10, 0xB002],
       [20, 0xB001],
     ])
+  })
+
+  it('bubbles a value from the final reserved slot through multiple levels', () => {
+    const m = machine()
+    writeRecord(m, 0, 50, 0xB100)
+    writeRecord(m, 1, 40, 0xB101)
+    writeRecord(m, 2, 60, 0xB102)
+    writeRecord(m, 6, 10, 0xB106)
+
+    runSiftUp(m, reservation - 1)
+
+    expect(readRecord(m, 0)).toEqual([10, 0xB106])
+    expect(readRecord(m, 2)).toEqual([50, 0xB100])
+    expect(readRecord(m, 6)).toEqual([60, 0xB102])
+    expect(readRecord(m, 1)).toEqual([40, 0xB101])
   })
 
   it('compares keys as signed 16-bit values', () => {
@@ -133,6 +159,34 @@ describe('binary heap sift-down', () => {
     expect(readRecord(m, 2)).toEqual([20, 0xF002])
   })
 
+  it('leaves a parent unchanged when it is smaller than both children', () => {
+    const m = machine()
+    initializeRecords(m)
+    writeRecord(m, 0, 3, 0xA050)
+    writeRecord(m, 1, 10, 0xA051)
+    writeRecord(m, 2, 20, 0xA052)
+    const before = [0, 1, 2].map(index => readRecord(m, index))
+
+    runSiftDown(m, 0, 3)
+
+    expect([0, 1, 2].map(index => readRecord(m, index))).toEqual(before)
+  })
+
+  it('handles a node with only a left child', () => {
+    const m = machine()
+    const rightChild = recordAddress(2)
+    m.writeWord(rightChild, 0x55AA)
+    m.writeWord(rightChild + 2, 0xAA55)
+    writeRecord(m, 0, 10, 0xA060)
+    writeRecord(m, 1, 3, 0xA061)
+
+    runSiftDown(m, 0, 2)
+
+    expect(readRecord(m, 0)).toEqual([3, 0xA061])
+    expect(readRecord(m, 1)).toEqual([10, 0xA060])
+    expect(readRecord(m, 2)).toEqual([0x55AA, 0xAA55])
+  })
+
   it('continues downward after the first swap', () => {
     const m = machine()
     writeRecord(m, 0, 100, 0xA100)
@@ -156,6 +210,23 @@ describe('binary heap sift-down', () => {
     ])
   })
 
+  it('continues down a right-child path after the first swap', () => {
+    const m = machine()
+    writeRecord(m, 0, 100, 0xA150)
+    writeRecord(m, 1, 90, 0xA151)
+    writeRecord(m, 2, 10, 0xA152)
+    writeRecord(m, 5, 30, 0xA155)
+    writeRecord(m, 6, 20, 0xA156)
+
+    runSiftDown(m, 0)
+
+    expect(readRecord(m, 0)).toEqual([10, 0xA152])
+    expect(readRecord(m, 2)).toEqual([20, 0xA156])
+    expect(readRecord(m, 6)).toEqual([100, 0xA150])
+    expect(readRecord(m, 1)).toEqual([90, 0xA151])
+    expect(readRecord(m, 5)).toEqual([30, 0xA155])
+  })
+
   it('chooses the right child when it is smaller than the left child', () => {
     const m = machine()
     initializeRecords(m)
@@ -168,6 +239,22 @@ describe('binary heap sift-down', () => {
     expect(readRecord(m, 0)).toEqual([3, 0xA202])
     expect(readRecord(m, 1)).toEqual([8, 0xA201])
     expect(readRecord(m, 2)).toEqual([10, 0xA200])
+  })
+
+  it('sifts down from an internal node without changing its parent', () => {
+    const m = machine()
+    initializeRecords(m)
+    writeRecord(m, 0, 1, 0xA250)
+    writeRecord(m, 1, 50, 0xA251)
+    writeRecord(m, 3, 5, 0xA253)
+    writeRecord(m, 4, 7, 0xA254)
+
+    runSiftDown(m, 1)
+
+    expect(readRecord(m, 0)).toEqual([1, 0xA250])
+    expect(readRecord(m, 1)).toEqual([5, 0xA253])
+    expect(readRecord(m, 3)).toEqual([50, 0xA251])
+    expect(readRecord(m, 4)).toEqual([7, 0xA254])
   })
 
   it('compares keys as signed 16-bit values', () => {
@@ -206,6 +293,20 @@ describe('binary heap sift-down', () => {
     runSiftDown(m, 6)
 
     expect(Array.from({ length: reservation }, (_, index) => readRecord(m, index))).toEqual(before)
+  })
+
+  it('stops at the active tail when the root has no children', () => {
+    const m = machine()
+    const before = [0x1234, 0xA450] as const
+    writeRecord(m, 0, ...before)
+    writeRecord(m, 1, 0x0001, 0xA451)
+    writeRecord(m, 2, 0x0000, 0xA452)
+
+    runSiftDown(m, 0, 1)
+
+    expect(readRecord(m, 0)).toEqual(before)
+    expect(readRecord(m, 1)).toEqual([1, 0xA451])
+    expect(readRecord(m, 2)).toEqual([0, 0xA452])
   })
 
   it('does not read or write beyond the reserved records', () => {
