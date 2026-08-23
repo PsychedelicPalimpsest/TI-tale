@@ -40,7 +40,7 @@ MACRO sorted_array_insert head, tail_ptr
         ; array[midpoint] - key <= 0
         ; bc - (hl)
         CpBC_PHL
-        jp po, @no_overflow
+        jp po, @no_overflow ; Most common case
         jp p, @key_is_smaller
         jp @key_is_bigger
 @no_overflow:
@@ -49,17 +49,13 @@ MACRO sorted_array_insert head, tail_ptr
             ; start = midpoint+1
             ex de, hl ; midpoint to start
             inc de \ inc de \ inc de
-            
         @end_ptr:
             ld hl, 0000h ; End ptr
             jp @loop
-
-
         
         @key_is_smaller:
             ; end = midpoint
             dec hl
-
             jp @loop
               
 
@@ -82,15 +78,18 @@ MACRO sorted_array_insert head, tail_ptr
        
         
         ld a, b \ or c
-        jr z, @no_cpy
+        jr nz, @cpy
+        ex de, hl
+        jp @insert
         
         ; Copy BACKWORDS, from tail -> tail+4, this means nothing gets corrupted
+        @cpy:
         @cpy_loop:
             ldd \ ldd \ ldd \ ldd
             jp pe, @cpy_loop
     ; De = where it was copied to, so that is where we start writing our insertion
     ex de, hl
-@no_cpy:
+@insert:
 
     pop bc ; Key
     pop de ; Ptr
@@ -102,6 +101,4 @@ MACRO sorted_array_insert head, tail_ptr
     ret
 
 endm
-
-
 

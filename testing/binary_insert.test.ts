@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { address, machine, mapAddress } from './test_machine.js'
 
 type TestMachine = ReturnType<typeof machine>
+type Entry = [number, number]
 
 const head = () => mapAddress('binary_insert_head')
 const tailPtr = () => mapAddress('binary_insert_tail_ptr')
@@ -38,6 +39,12 @@ function insert(m: TestMachine, key: number, payload: number) {
   m.regs.hl = key & 0xffff
   m.regs.bc = payload & 0xffff
   m.runFrom(address('test_binary_insert'))
+}
+function expectedInsert(entries: Entry[], key: number, payload: number): Entry[] {
+  const normalized = entries.map(([entryKey, entryPayload]) => [entryKey & 0xffff, entryPayload & 0xffff] as Entry)
+  const index = normalized.findIndex(([entryKey]) => ((entryKey << 16) >> 16) > key)
+  const at = index === -1 ? normalized.length : index
+  return [...normalized.slice(0, at), [key & 0xffff, payload & 0xffff], ...normalized.slice(at)]
 }
 
 describe('binary insert basics', () => {
@@ -166,5 +173,94 @@ describe('binary insert mechanics', () => {
     insert(m, 1, 0x9999)
     expect(readArray(m).length).toBe(capacity)
     expect(sortedKeys(m)).toEqual([...init.map(([k]) => k), 1].sort((a, b) => a - b))
+  })
+})
+
+describe('binary insert extended coverage', () => {
+  it('inserts at every position for arrays from empty to full', () => {
+    for (let length = 0; length < capacity; length++) {
+      const initial = Array.from({ length }, (_, index) => [index * 4, 0x6000 + index] as Entry)
+
+      for (let position = 0; position <= length; position++) {
+        const m = machine()
+        const key = position === 0 ? -1 : position === length ? length * 4 + 1 : position * 4 - 1
+        const payload = 0x6100 + position
+        writeArray(m, initial)
+        insert(m, key, payload)
+
+        expect(readArray(m), `length ${length}, position ${position}`).toEqual(expectedInsert(initial, key, payload))
+        expect(tail(m)).toBe(head() + (length + 1) * recordSize)
+      }
+    }
+  })
+
+  it('orders signed 16-bit keys across the sign boundary', () => {
+    const m = machine()
+    writeArray(m, [])
+    let expected: Entry[] = []
+    const keys = [0, 32767, -32768, -1, 1, -32768, 32767, -2, 32766]
+
+    keys.forEach((key, index) => {
+      const payload = 0x7000 + index
+      insert(m, key, payload)
+      expected = expectedInsert(expected, key, payload)
+      expect(readArray(m), `after inserting ${key}`).toEqual(expected)
+    })
+
+    expect(sortedKeys(m)).toEqual([...keys].sort((a, b) => a - b))
+  })
+
+  it('keeps duplicate records stable at both sorted-array edges', () => {
+    const cases: Array<{ key: number; initial: Entry[]; payload: number }> = [
+      { key: -32768, initial: [[-32768, 0x7101], [-32768, 0x7102], [-1, 0x7103]], payload: 0x7104 },
+      { key: 32767, initial: [[0, 0x7201], [32767, 0x7202], [32767, 0x7203]], payload: 0x7204 },
+    ]
+
+    cases.forEach(({ key, initial, payload }) => {
+      const m = machine()
+      writeArray(m, initial)
+      insert(m, key, payload)
+      expect(readArray(m)).toEqual(expectedInsert(initial, key, payload))
+    })
+  })
+
+  it('preserves records through deterministic mixed signed inserts', () => {
+    const seeds = [0x0001, 0x1234, 0x8000, 0xffff]
+
+    seeds.forEach((seed) => {
+      const m = machine()
+      writeArray(m, [])
+      let state = seed
+      let expected: Entry[] = []
+
+      for (let index = 0; index < capacity; index++) {
+        state = (state * 25173 + 13849) & 0xffff
+        const key = (state << 16) >> 16
+        const payload = (0x9000 + seed + index) & 0xffff
+        insert(m, key, payload)
+        expected = expectedInsert(expected, key, payload)
+
+        expect(readArray(m), `seed ${seed.toString(16)}, insert ${index}`).toEqual(expected)
+        expect(tail(m)).toBe(head() + (index + 1) * recordSize)
+      }
+    })
+  })
+
+  it('preserves guard words outside the storage region', () => {
+    const m = machine()
+    const before = head() - 4
+    const after = head() + capacity * recordSize
+    m.writeWord(before, 0x1357)
+    m.writeWord(before + 2, 0x2468)
+    m.writeWord(after, 0x55aa)
+    m.writeWord(after + 2, 0xaa55)
+    writeArray(m, [[-10, 0x7301], [0, 0x7302], [10, 0x7303]])
+
+    insert(m, 5, 0x7304)
+
+    expect(m.readWord(before)).toBe(0x1357)
+    expect(m.readWord(before + 2)).toBe(0x2468)
+    expect(m.readWord(after)).toBe(0x55aa)
+    expect(m.readWord(after + 2)).toBe(0xaa55)
   })
 })
