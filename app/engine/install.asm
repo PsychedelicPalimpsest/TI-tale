@@ -47,29 +47,6 @@ INCLUDE "installed/gamemaker.asm"
 
 INCLUDE "installed/audio_engine.asm"
 
-
-; TODO: REMOVE:
-INCLUDE "core/includes/binary_insert.asm"
-
-PUBLIC insert_in
-insert_in:
-sorted_array_insert test_array, test_array_tail
-
-
-test_array_tail: defw end_of_test_array
-test_array:
-REPTI key, 1, 2, 3, 5, 6, 7, 9
-	DEFW key
-	DEFW 0
-endr
-
-end_of_test_array:
-
-
-
-
-
-
 ; Fastest possible 16x8 multiplication routine (kind of)
 ; Best case:    240 
 ; Worst case:   288

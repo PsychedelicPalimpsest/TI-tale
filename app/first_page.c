@@ -10,17 +10,6 @@ extern void greyscale_swap();
 int main(){
   #asm
 
-  
-
-
-
-  EXTERN insert_in
-
-
-  ld hl, 5
-  ld bc, 0
-  call insert_in
-
 
 
   #endasm
