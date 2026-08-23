@@ -1,5 +1,36 @@
 INCLUDE "core/includes/utils.inc"
 
+
+
+
+; HL = end of array
+MACRO bh_heapify name, array
+    EXTERN free_trash_byte
+    LOCAL @loop
+
+    DEFC bh_tail_##name, free_trash_byte,
+    DEFC bh_base_##name, array
+  
+    push hl
+    ld hl, array+4
+@loop:
+    pop de
+        CpHLDE
+        ret nc
+    push hl
+    call bh_siftdown
+    jp @loop
+
+
+
+@siftdown:
+    bh_siftdown name
+endm
+
+
+
+
+
 ; Each tree element has two element:
 ; 1. A 16-bit SIGNED key
 ; 2. A ptr (we do nothing with it)
@@ -59,6 +90,7 @@ MACRO bh_siftup name
     ret p
 @swap:
 @first_ptr:
+
     ld de, 0000h ; SMC: First ptr
     push hl
         _swap_hl_de

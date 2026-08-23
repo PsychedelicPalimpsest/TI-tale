@@ -10,26 +10,16 @@ extern void greyscale_swap();
 int main(){
   #asm
 
-  EXTERN _insert, _pop, _init
-
-  call _init
-
-
-  REPTI val, 5, -5, 1, 2, 5, 3, 99, 2    
-    ld bc, val
-    ld de, -1
-    call _insert
-  endr
-
-  pops:
-
-  REPT 8
-    call _pop
-
-  endr
+  
 
 
 
+  EXTERN insert_in
+
+
+  ld hl, 5
+  ld bc, 0
+  call insert_in
 
 
 

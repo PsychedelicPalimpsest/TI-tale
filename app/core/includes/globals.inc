@@ -24,7 +24,7 @@ DEFC _globals_start = interupt_globals
 
 RDEF interupt_globals,  _first_rom_page, 1   ;  This tells the app where to return to after exiting
 RDEF interupt_globals,  _ram_restore_page, 1   ;  Ram restore page
-RDEF interupt_globals,  free_trash_byte, 1   ;  Text renderer trashes this
+RDEF interupt_globals,  free_trash_byte, 2   ;  Text renderer trashes this
 
 RDEF interupt_globals,  sound_state,     1   ; Current linkport state
 

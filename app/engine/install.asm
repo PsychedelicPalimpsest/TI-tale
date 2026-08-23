@@ -48,6 +48,25 @@ INCLUDE "installed/gamemaker.asm"
 INCLUDE "installed/audio_engine.asm"
 
 
+; TODO: REMOVE:
+INCLUDE "core/includes/binary_insert.asm"
+
+PUBLIC insert_in
+insert_in:
+sorted_array_insert test_array, test_array_tail
+
+
+test_array_tail: defw end_of_test_array
+test_array:
+REPTI key, 1, 2, 3, 5, 6, 7, 9
+	DEFW key
+	DEFW 0
+endr
+
+end_of_test_array:
+
+
+
 
 
 
@@ -111,19 +130,6 @@ restore_sp_and_ret:
 PUBLIC __hl 
 __hl: jp (hl)
 
-
-; TODO: REMOVE:
-INCLUDE "core/includes/binary_heap.inc"
-
-  DEFL test_heap_a = $E000
-  bh_def test_heap_a, test_heap, 64
-
-PUBLIC _insert, _pop, _init
-_insert: bh_insert test_heap
-_pop:    bh_pop test_heap
-
-_init: bh_init test_heap
-	ret
 
 
 

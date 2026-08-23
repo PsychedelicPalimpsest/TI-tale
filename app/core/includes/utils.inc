@@ -71,6 +71,36 @@ MACRO CpHLBC_fast
     sbc b
 endm
 
+; Compare:
+; (hl) - bc
+;
+; Notes: Zero flag is wonkey
+; HL += 1
+MACRO CpPHL_BC
+    ld a, (HL) \ inc hl
+    sub c
+    ld a, (hl)
+    sbc b
+endm
+
+
+; Compare:
+; bc - (hl)
+;
+; Notes: Zero flag is wonkey
+; HL += 1
+MACRO CpBC_PHL
+    ld a, c
+    sub (hl) \  inc hl
+    ld a, b
+    sbc (hl)
+endm
+
+
+
+
+
+
 
 
 MACRO CpDEBC
