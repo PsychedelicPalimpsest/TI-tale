@@ -10,7 +10,7 @@ MACRO bh_heapify name, array
 
     DEFC bh_tail_##name, free_trash_byte,
     DEFC bh_base_##name, array
-  
+
     push hl
     ld hl, array+4
 @loop:
@@ -67,16 +67,16 @@ MACRO bh_siftup name
     ld (@first_ptr+1), hl ; With smc it simplifies logic
     ld e, (hl) \ inc hl
     ld d, (hl) \ dec hl
-        
+
 ; Is there a parent to test with?
     ld bc,  4+bh_base_##name
     or a \ sbc hl, bc
-    ret m ; It can only go negative from the subtraction, not division 
+    ret m ; It can only go negative from the subtraction, not division
 
     ld a, l
     srl h \ rra
     and ~3
-    ld l, a 
+    ld l, a
 
     ld bc,  bh_base_##name
     add hl, bc
@@ -144,7 +144,7 @@ endm
 ; hl = a valid ptr in the heap
 MACRO bh_siftdown name
     ; We keep the current smallest key value in de,
-    ; with the ptr to that heap entry in (sp). 
+    ; with the ptr to that heap entry in (sp).
 @loop:
     push hl \ push hl
     ld e, (hl) \ inc hl
@@ -213,7 +213,7 @@ ENDM
 MACRO bh_pop name
     LOCAL sift_down
 
-    
+
     ld hl, (bh_tail_##name)
     ld de, bh_base_##name
 

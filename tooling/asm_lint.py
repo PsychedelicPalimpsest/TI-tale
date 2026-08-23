@@ -155,14 +155,6 @@ def block_body_indent(stack: list[Block]) -> int:
     return max(block.indent + INDENT_WIDTH for block in stack)
 
 
-def label_indent_floor(stack: list[Block]) -> int:
-    """Place labels one level before code in the innermost explicit block."""
-
-    if not stack:
-        return 0
-    return max(block.indent for block in stack) + INDENT_WIDTH
-
-
 def line_is_body(token: str, is_label: bool) -> bool:
     return not is_label and token not in NON_BODY_TOKENS
 
@@ -220,9 +212,10 @@ def format_lines(lines: list[str]) -> tuple[list[str], list[Issue]]:
                 expected_indent = stack[conditional_index].indent
             pending_label = None
         elif is_label:
-            # A label may be used at any logical level. Inside an explicit
-            # block, place it one level before that block's code when possible.
-            expected_indent = max(source_indent, label_indent_floor(stack))
+            # Labels can deliberately mark a new logical region inside a
+            # macro, so preserve their source level and constrain only their
+            # following executable body.
+            expected_indent = source_indent
             pending_label = expected_indent if standalone_label else None
         elif token in OPENERS:
             expected_indent = max(
@@ -232,13 +225,19 @@ def format_lines(lines: list[str]) -> tuple[list[str], list[Issue]]:
             )
             stack.append(Block(OPENERS[token], expected_indent, line_number))
         else:
-            expected_indent = max(
-                source_indent,
-                block_body_indent(stack),
-                (pending_label + INDENT_WIDTH)
-                if pending_label is not None and line_is_body(token, is_label)
-                else 0,
-            )
+            if line_is_body(token, is_label):
+                expected_indent = max(
+                    source_indent,
+                    block_body_indent(stack),
+                    (pending_label + INDENT_WIDTH)
+                    if pending_label is not None
+                    else 0,
+                )
+            else:
+                # Declarations and layout directives can intentionally reset
+                # the visual level inside a macro (for example, ALIGN before
+                # a generated code region).
+                expected_indent = source_indent
 
         output.append((" " * expected_indent + rest).rstrip(" \t"))
 

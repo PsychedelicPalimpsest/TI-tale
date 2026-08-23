@@ -81,6 +81,6 @@ engine_tick:
 
 
     ld a, 0FFh ;Reset the keypad.
-    out (1), a    
+    out (1), a
 
-  ret
+    ret

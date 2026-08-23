@@ -10,10 +10,10 @@ DEFINE UTILS_INC
 
 
 ; Regular bcall macro
-MACRO bcall nn
-  rst 28h
-  DEFW nn
-endm
+    MACRO bcall nn
+        rst 28h
+        DEFW nn
+    endm
 
 
 #define low(XXXX)  (XXXX) & 0xFF
@@ -22,66 +22,66 @@ endm
 
 
 ; An auto incrementing ram definition
-MACRO RDEF arena, name, size
+    MACRO RDEF arena, name, size
 ; Capture the old arena value as a constant
-  DEFC name = arena
+    DEFC name = arena
 
 ; Redefine the arena based on that constant
-; Note: 'DEFL' is token replacment, so care needs to be taken as not to blow up the file. 
+; Note: 'DEFL' is token replacment, so care needs to be taken as not to blow up the file.
 
-  DEFL arena = name + size
-endm
+    DEFL arena = name + size
+    endm
 
-MACRO RALIGN arena, alignment
-  DEFL arena = (arena) + alignment - ((arena) % alignment)
-endm
+    MACRO RALIGN arena, alignment
+    DEFL arena = (arena) + alignment - ((arena) % alignment)
+    endm
 
 ; Taken from https://wikiti.brandonw.net/index.php?title=Z80_Routines:Optimized:CpHLDE
 ; (30 t-states)
-MACRO CpHLDE
-  or a
-  sbc hl,de
-  add hl,de
-endm
+    MACRO CpHLDE
+        or a
+        sbc hl,de
+        add hl,de
+    endm
 
 
 ; This one work like CpHLDE, but without the
 ; zero flag
-MACRO CpHLDE_fast
-    ld a, l
-    sub e
-    ld a, h
-    sub d
-endm
+    MACRO CpHLDE_fast
+        ld a, l
+        sub e
+        ld a, h
+        sub d
+    endm
 
-MACRO CpHLBC
-  or a
-  sbc hl,bc
-  add hl,bc
-endm
+    MACRO CpHLBC
+        or a
+        sbc hl,bc
+        add hl,bc
+    endm
 
 
 
 ; This one work like CpHLBC, but without the
 ; zero flag
-MACRO CpHLBC_fast
-    ld a, l
-    sub c
-    ld a, h
-    sbc b
-endm
+    MACRO CpHLBC_fast
+        ld a, l
+        sub c
+        ld a, h
+        sbc b
+    endm
 
 ; Compare:
 ; (hl) - bc
 ;
 ; Notes: Zero flag is wonkey
 ; HL += 1
-MACRO CpPHL_BC
-    ld a, (HL) \ inc hl
-    sub c
-    ld a, (hl)
-    sbc b
-endm
+    MACRO CpPHL_BC
+        ld a, (HL) \ inc hl
+        sub c
+        ld a, (hl)
+        sbc b
+    endm
 
 
 ; Compare:
@@ -89,12 +89,12 @@ endm
 ;
 ; Notes: Zero flag is wonkey
 ; HL += 1
-MACRO CpBC_PHL
-    ld a, c
-    sub (hl) \  inc hl
-    ld a, b
-    sbc (hl)
-endm
+    MACRO CpBC_PHL
+        ld a, c
+        sub (hl) \  inc hl
+        ld a, b
+        sbc (hl)
+    endm
 
 
 
@@ -103,47 +103,47 @@ endm
 
 
 
-MACRO CpDEBC
-    ld a, E
-    sub c
-    ld a, D
-    sbc b
-endm
+    MACRO CpDEBC
+        ld a, E
+        sub c
+        ld a, D
+        sbc b
+    endm
 
 
 
-macro min p1            ; Get min of p1 and a in a
-    cp p1               ; Compare a with p1
-    jr c, @s1          ; Skip if p1 > a
-    ld a, p1            ; Assign p1 to a
+    macro min p1            ; Get min of p1 and a in a
+        cp p1               ; Compare a with p1
+        jr c, @s1          ; Skip if p1 > a
+        ld a, p1            ; Assign p1 to a
 @s1:
-endm
+    endm
 
-macro max p1            ; Get max of p1 and a in a
-    cp p1               ; Compare a with p1
-    jr nc, @s1         ; Skip if p1 > a
-    ld a, p1            ; Assign p1 to a
+    macro max p1            ; Get max of p1 and a in a
+        cp p1               ; Compare a with p1
+        jr nc, @s1         ; Skip if p1 > a
+        ld a, p1            ; Assign p1 to a
 @s1:
-endm
+    endm
 
 ; Takes the highest bits set, and cascades it down
-macro msb_maska
-    ld   b,a
-    srl  b
-    or   b
+    macro msb_maska
+        ld   b,a
+        srl  b
+        or   b
 
-    ld   b,a
-    srl  b
-    srl  b
-    or   b
+        ld   b,a
+        srl  b
+        srl  b
+        or   b
 
-    ld   b,a
-    srl  b
-    srl  b
-    srl  b
-    srl  b
-    or   b
-endm
+        ld   b,a
+        srl  b
+        srl  b
+        srl  b
+        srl  b
+        or   b
+    endm
 
 
 ; EXTERN popcnt_table
@@ -170,215 +170,215 @@ endm
 
 
 
-macro ld_bc_a
-    ld c, a             ; Turn a into 16 bit number
-    add a, a            ; Push sign into carry
-    sbc a, a            ; Turn into 0 or -1 (0xFF)
-    ld b, a             ; Store in MSB
-endm
+    macro ld_bc_a
+        ld c, a             ; Turn a into 16 bit number
+        add a, a            ; Push sign into carry
+        sbc a, a            ; Turn into 0 or -1 (0xFF)
+        ld b, a             ; Store in MSB
+    endm
 
-macro ld_de_a
-    ld e, a
-    add a, a
-    sbc a, a
-    ld d, a
-endm
+    macro ld_de_a
+        ld e, a
+        add a, a
+        sbc a, a
+        ld d, a
+    endm
 
-macro ld_hl_a
-    ld l, a
-    add a, a
-    sbc a, a
-    ld h, a
-endm
+    macro ld_hl_a
+        ld l, a
+        add a, a
+        sbc a, a
+        ld h, a
+    endm
 
-macro add_hl_a
-    LOCAL @s1
-    add a, l
-    ld l, a
-    jr nc, @s1
-    inc h
+    macro add_hl_a
+        LOCAL @s1
+        add a, l
+        ld l, a
+        jr nc, @s1
+        inc h
 @s1:
-endm
+    endm
 
-macro add_hl_a_bc
-    add l       ; 4  A = L + A, carry set if overflow
-    ld c, a     ; 4  C = low byte
-    adc h       ; 4  A = C + H + carry
-    sub c       ; 4  A = H + carry
-    ld b, a     ; 4  B = high byte
-endm
+    macro add_hl_a_bc
+        add l       ; 4  A = L + A, carry set if overflow
+        ld c, a     ; 4  C = low byte
+        adc h       ; 4  A = C + H + carry
+        sub c       ; 4  A = H + carry
+        ld b, a     ; 4  B = high byte
+    endm
 
-macro sub_hl_a
-    LOCAL @s1
-    ld c, a
-    ld a, l
-    sub c
-    ld l, a
-    jr nc, @s1
-    dec h
+    macro sub_hl_a
+        LOCAL @s1
+        ld c, a
+        ld a, l
+        sub c
+        ld l, a
+        jr nc, @s1
+        dec h
 @s1:
-endm
+    endm
 
 
 
-macro sub_bc_a
-    LOCAL @s1
-    sub a, c
-    ld c, a
-    jr nc, @s1
-    dec b
+    macro sub_bc_a
+        LOCAL @s1
+        sub a, c
+        ld c, a
+        jr nc, @s1
+        dec b
 @s1:
-endm
+    endm
 
 ; hl = -hl (24 t-states)
-macro neghl
-    xor  a
-    sub  l
-    ld   l, a
-    sbc  a, a
-    sub  h
-    ld   h, a
-endm
+    macro neghl
+        xor  a
+        sub  l
+        ld   l, a
+        sbc  a, a
+        sub  h
+        ld   h, a
+    endm
 
 ; Modified for constants (29 t-states)
 ; hl = nn + a
-MACRO add_nn_a_hl  nn
-    add a, nn & 0xFF
-    ld l,a
-    ld a, nn >> 8
-    adc a, 0
-    ld h, a
-endm
+    MACRO add_nn_a_hl  nn
+        add a, nn & 0xFF
+        ld l,a
+        ld a, nn >> 8
+        adc a, 0
+        ld h, a
+    endm
 
 
 ; hl = nn + 2a  (43 t-states)
-MACRO add_nn_2a_hl  nn
-    ld l, a
-    ld h, 0
-    add hl, hl
-    ld de, nn
-    add hl, de
-endm
-
-
-MACRO add_hl_nn nn
-    IF (nn) <= 4
-        REPT nn
-            inc hl
-        endr
-    else
+    MACRO add_nn_2a_hl  nn
+        ld l, a
+        ld h, 0
+        add hl, hl
         ld de, nn
         add hl, de
-    endif
-ENDM
+    endm
+
+
+    MACRO add_hl_nn nn
+        IF (nn) <= 4
+            REPT nn
+                inc hl
+            endr
+        else
+            ld de, nn
+            add hl, de
+        endif
+    ENDM
 
 
 ; hl = 3*a
 ; Clobbers de, (41 t-states)
-MACRO mul_3a_hl
-    ld h, $0
-    ld l, a
+    MACRO mul_3a_hl
+        ld h, $0
+        ld l, a
 
-    ld d, h
-    ld e, a
+        ld d, h
+        ld e, a
 
-    add hl, hl
-    add hl, de
-endm
+        add hl, hl
+        add hl, de
+    endm
 
 
-macro add_de_a
-    add a, e
-    ld e, a
-    jr nc, @s1
-    inc d
+    macro add_de_a
+        add a, e
+        ld e, a
+        jr nc, @s1
+        inc d
 @s1:
-endm
+    endm
 
-macro add_hl_a_de
-    add a, l
-    ld e, a
-    ld d, h
-    jp nc, @s1
-    inc d
+    macro add_hl_a_de
+        add a, l
+        ld e, a
+        ld d, h
+        jp nc, @s1
+        inc d
 @s1:
-endm
+    endm
 
 
 ; de = nn + a
-MACRO add_nn_a_de  nn
-	add a, nn & 0xFF
-	ld e,a
-  ld a, nn >> 8
-  adc a, 0
-  ld d, a
-endm
+    MACRO add_nn_a_de  nn
+        add a, nn & 0xFF
+        ld e,a
+        ld a, nn >> 8
+        adc a, 0
+        ld d, a
+    endm
 
 
-macro add_bc_a
-    add a, c
-    ld c, a
-    jr nc, @s1
-    inc b
+    macro add_bc_a
+        add a, c
+        ld c, a
+        jr nc, @s1
+        inc b
 @s1:
-endm
+    endm
 
 ; bc = nn + a
-MACRO add_nn_a_bc  nn
-	add a, nn & 0xFF
-	ld c,a
-  ld a, nn >> 8
-  adc a, 0
-  ld b, a
-endm
+    MACRO add_nn_a_bc  nn
+        add a, nn & 0xFF
+        ld c,a
+        ld a, nn >> 8
+        adc a, 0
+        ld b, a
+    endm
 
 
 
-macro add_bc_a_signed
-    or a
-    jp p, @s1
-    dec b
+    macro add_bc_a_signed
+        or a
+        jp p, @s1
+        dec b
 @s1:
-    add a, c
-    ld c, a
-    adc a, b
-    sub c
-    ld b, a
-endm
+        add a, c
+        ld c, a
+        adc a, b
+        sub c
+        ld b, a
+    endm
 
-macro add_de_a_signed
-    or a
-    jp p, @s1
-    dec d
+    macro add_de_a_signed
+        or a
+        jp p, @s1
+        dec d
 @s1:
-    add a, e
-    ld e, a
-    adc a, d
-    sub e
-    ld d, a
-endm
+        add a, e
+        ld e, a
+        adc a, d
+        sub e
+        ld d, a
+    endm
 
-macro add_hl_a_signed
-    or a
-    jp p, @s1
-    dec h
+    macro add_hl_a_signed
+        or a
+        jp p, @s1
+        dec h
 @s1:
-    add a, l
-    ld l, a
-    adc a, h
-    sub l
-    ld h, a
-endm
+        add a, l
+        ld l, a
+        adc a, h
+        sub l
+        ld h, a
+    endm
 
-macro sub_hl_bc
-    or a
-    sbc hl, bc
-endm
+    macro sub_hl_bc
+        or a
+        sbc hl, bc
+    endm
 
-macro sub_hl_de
-    or a
-    sbc hl, de
-endm
+    macro sub_hl_de
+        or a
+        sbc hl, de
+    endm
 
 
 

@@ -22,19 +22,19 @@ PUBLIC ch2_jp
 
 
 MACRO SETUP_GREY_TIMER
-	ld	a, $40
-	out	($30), a	;10922 Hz
+    ld	a, $40
+    out	($30), a	;10922 Hz
 
-	GREY_ACK_TIMER
+    GREY_ACK_TIMER
 
-	ld	a, (_grey_timing)
-	out	($32), a
+    ld	a, (_grey_timing)
+    out	($32), a
 ENDM
 
-  MACRO GREY_ACK_TIMER
-    ld	a, 3 ; Interrupt mode (to bit 5 of port 4h), and loop
-    out	($31), 	a
-  ENDM
+    MACRO GREY_ACK_TIMER
+        ld	a, 3 ; Interrupt mode (to bit 5 of port 4h), and loop
+        out	($31), 	a
+    ENDM
 
 
 
@@ -50,20 +50,20 @@ ENDM
 INCLUDE "audio.inc"
 
 
-; Interupt preformence: 
+; Interupt preformence:
 ;  Interupts are called a LOT, every cycle matters! As such, I
 ;  do the following:
-;   - To keep other routines fast (and make z88dk happy), the typical shadow register tick will not work. 
-;     so, any register you use in an interupt _must_ be preserved! 
-;   - `jr X, label` has a 7 cycle fall-through, so that is what I prefer. 
+;   - To keep other routines fast (and make z88dk happy), the typical shadow register tick will not work.
+;     so, any register you use in an interupt _must_ be preserved!
+;   - `jr X, label` has a 7 cycle fall-through, so that is what I prefer.
 ;      Just remember at all times what is the 'fast path'
-;   - 
+;   -
 ;  The crystal timers are assigned by calling frequency
 ;    #3 - Audio, can get up to 1000+ Hz depending on the tone
 ;    #2 - Greyscale, ~60 Hz
 ;    #1 - Gametick, 32 Hz (TODO, might change)
-;  In addition: timer 3 is bit 7, 2 is bit 6, 1 is bit 5 of port 4. 
-;  This means, a simple rlca will reveal if a timer is set. 
+;  In addition: timer 3 is bit 7, 2 is bit 6, 1 is bit 5 of port 4.
+;  This means, a simple rlca will reveal if a timer is set.
 ;
 ;  In addition, I am assuming one interupt cause per interupt,
 ;  and the only possible sources are: 1. Crystal timers 2. On button
@@ -74,14 +74,14 @@ PHASE interupt_vector
     di       ;  4
     push	af ;  11
 
-    in a, (4) ; 11- Get interrupt cause 
-    
+    in a, (4) ; 11- Get interrupt cause
+
     rlca      ; 4
-ch1_jp: 
+ch1_jp:
     jp c, ch1@saw_double ; 10
-     
+
     rlca                  ; 4
-ch2_jp: 
+ch2_jp:
     jp c, ch2@saw_double ; 10
     rlca
     jr nc, non_grey_case
@@ -90,25 +90,25 @@ ch2_jp:
         push de
         push bc
 
-      GREY_ACK_TIMER
+        GREY_ACK_TIMER
 
 ; This hack allows the audio to still work, it may cause issues ¯\_(ツ)_/¯
 ;
 ; Ex: if audio takes up too much cpu, greyscale might not run in 60hz, and
-;     will interupt this interupt, not good. 
-      ei 
+;     will interupt this interupt, not good.
+        ei
 
-      EXTERN audio_tick
-      call audio_tick
+        EXTERN audio_tick
+        call audio_tick
 
-      ; Note: Self modifying code! (hook)
-      _greyscale_call: call 0000h
+        ; Note: Self modifying code! (hook)
+        _greyscale_call: call 0000h
 
         pop bc
         pop de
         pop hl
 
-      interupt_cleanup 
+        interupt_cleanup
 
 non_grey_case:
 ; Assume any other interupt is caused by the on button

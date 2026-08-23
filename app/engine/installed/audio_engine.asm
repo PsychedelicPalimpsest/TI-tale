@@ -3,18 +3,18 @@
 ;  - The fast mode: Here, the timer is set to cpu_freq/64, this allows
 ;    'higher' quality output, at the cost of cpu.
 ;  - The slow mode: Where the timer is 32768 Hz, this is best for retro
-;    style chiptune audio. 
+;    style chiptune audio.
 ;
 ; In the fast mode, everything sounds higher pitched. As such, this is mostly
 ; used for the custom instrument.
 ;
 ; And four `voices` are also supported:
-;  - The 'additive saw' voice: 
+;  - The 'additive saw' voice:
 ;  - The 'multiplicative saw' voice
 ;  - The 'square wave' voice
-;  - The custom instrument. 
+;  - The custom instrument.
 ;
-; This file directs core/audio.inc, ie the tone currently being produced. 
+; This file directs core/audio.inc, ie the tone currently being produced.
 
 
 
@@ -53,7 +53,7 @@ ch2_speed: DEFB 44h
 can_sweep_saw_const: DEFB 0h
 
 
-; Table for the note bytecode 
+; Table for the note bytecode
 note_lookup:
     defw note_stop_song ; 00
     defw note_wait      ; 01 nn : wait ticks
@@ -106,21 +106,21 @@ EXTERN ch2_timer
 
 
 
-; Sets the value of the audio.inc state machine for a given channel. 
-; channel should be 1 or 2, and state is the symbol after the 
+; Sets the value of the audio.inc state machine for a given channel.
+; channel should be 1 or 2, and state is the symbol after the
 ; chN_ part
-; EX: 
+; EX:
 ;   set_ch_state 1, square_state
-MACRO set_ch_state channel, state
+    MACRO set_ch_state channel, state
     EXTERN ch1_jp, ch2_jp
     EXTERN ch1@state, ch1@state
 
     EXTERN ch##channel##_##state
 
 ; No di is needed since it is an atomic operation
-    ld a, ch##channel##_##state & 0xff
-    ld (channel == 1 ? ch1_jp+1 : ch2_jp+1), a
-endm
+        ld a, ch##channel##_##state & 0xff
+        ld (channel == 1 ? ch1_jp+1 : ch2_jp+1), a
+    endm
 
 ; Sets the timer for a channel
 ; Outputs: a=speed
@@ -129,7 +129,7 @@ MACRO set_timer channel, speed
 
     ld a, (channel == 1 ? ch1_speed : ch2_speed)
     out (timer_), a
-    ld a, 3 ; loop + interrupt 
+    ld a, 3 ; loop + interrupt
     out (1+timer_), a
 
     ld a, speed
@@ -146,7 +146,7 @@ macro _reset_cleanup channel
     ld hl, _no_cleanup
     ld (channel == 1 ? ch1_cleanup_hook: ch2_cleanup_hook), hl
 endm
-macro set_cleanup_nohook channel 
+macro set_cleanup_nohook channel
     ld hl, channel == 1 ? cleanup_ch1_nohook : cleanup_ch2_nohook
     ld (channel == 1 ? ch1_cleanup_hook : ch2_cleanup_hook), hl
 endm
@@ -155,9 +155,9 @@ defc ch1_cleanup_hook = cleanup_ch1+1
 defc ch2_cleanup_hook = cleanup_ch2+1
 
 ; These get called whenever a channels tone is changed
-cleanup_ch1: 
+cleanup_ch1:
     jp _no_cleanup
-cleanup_ch2: 
+cleanup_ch2:
     jp _no_cleanup
 
 
@@ -184,8 +184,8 @@ defc await_time    = (1+wait_ptr1      - (audio_ptr1+1))
 PUBLIC audio_tick
 ; This runs at ~60 hz before the greyscale tick, this does mean
 ; the audio changes based on user input, but this is a price I
-; am willing to pay. 
-; 
+; am willing to pay.
+;
 ; This controls the audio, andis the main entry point for audio
 audio_tick:
     push ix
@@ -227,7 +227,7 @@ after_audio2:
 
 astate_nothing: ret
 
-; This assumes de is the 
+; This assumes de is the
 astate_next_note:
     ld a, (de)
     inc de
@@ -247,7 +247,7 @@ astate_next_note:
     jp (hl)
 
 ; Note calling conventions:
-; Input: de is set to the audio pointer. 
+; Input: de is set to the audio pointer.
 ; Output: Every note MUST do one of two things:
 ;         1. Jump to astate_next_note with de=the next note ptr
 ;            this is done when a note does not need to wait until the next state
@@ -276,9 +276,9 @@ astate_wait:
         ld hl, astate_next_note
         ld (ix+state_machine), hl  ; Z80 macro
         jp (hl)
-    
 
-;---======Note bytecode implmentations=====--- 
+
+;---======Note bytecode implmentations=====---
 
 note_stop_song:
     ; No need to save audio ptr, since we are stoping the song
@@ -363,25 +363,25 @@ note_ch2_stop:
 
 ; Inputs: d = high timing, e = low timing
 ; channel should be 1 or 2
-MACRO setup_square channel
+    MACRO setup_square channel
     EXTERN ch1_square_down_ptr, ch1_square_up_ptr
     EXTERN ch2_square_down_ptr, ch2_square_up_ptr
 
-    di
-    set_timer channel, e ; Low period
+        di
+        set_timer channel, e ; Low period
 
     ; Set the square down value
     ; a is still the low timing
-    ld (channel == 1 ? ch1_square_down_ptr : ch2_square_down_ptr), a
+        ld (channel == 1 ? ch1_square_down_ptr : ch2_square_down_ptr), a
 
     ; Set the square up value
-    ld a, d
-    ld (channel == 1 ? ch1_square_up_ptr : ch2_square_up_ptr), a
+        ld a, d
+        ld (channel == 1 ? ch1_square_up_ptr : ch2_square_up_ptr), a
 
-    set_ch_state channel, square_state
+        set_ch_state channel, square_state
 
-    ei
-endm
+        ei
+    endm
 
 
 ; Generic for both channels
@@ -389,7 +389,7 @@ macro _square channel
     call channel == 1 ? cleanup_ch1 : cleanup_ch2
 
     ex de, hl
-    
+
     ld d, (hl) \ inc hl
     ld e, (hl) \ inc hl
 
@@ -400,8 +400,8 @@ macro _square channel
 endm
 
 
-note_ch1_square: _square 1 
-note_ch2_square: _square 2 
+note_ch1_square: _square 1
+note_ch2_square: _square 2
 
 macro _square_sweep channel
 ; Set the cleanup code
@@ -471,7 +471,7 @@ macro _saw style, max_ptr1, max_ptr2, chan
 
     jp @setup
 
-@saw2: 
+@saw2:
     di
     ld a, $B7 ; or a
     ld (style), a
@@ -486,7 +486,7 @@ macro _saw style, max_ptr1, max_ptr2, chan
 
     jp @setup
 
-@saw3:  
+@saw3:
     di
     ld a, $00 ; nop
     ld (style), a
@@ -511,7 +511,7 @@ macro _saw style, max_ptr1, max_ptr2, chan
     ld (max_ptr1), a
     ld (max_ptr2), a
 
-    set_ch_state chan, saw_state 
+    set_ch_state chan, saw_state
 
     ei
 
@@ -553,7 +553,7 @@ macro _saw_sweep channel
 
     ; Self modifying code
 @wait_hook_mask: and 00h
-    ret nz 
+    ret nz
 
     defl max_ptr1 = channel == 1 ? ch1_saw_maximum_ptr1 : ch2_saw_maximum_ptr1
     defl max_ptr2 = channel == 1 ? ch1_saw_maximum_ptr2 : ch2_saw_maximum_ptr2

@@ -1,19 +1,19 @@
-; This file contains some of the ugliest code ever written. 
+; This file contains some of the ugliest code ever written.
 
 ; KEEP ME FIRST
 ALIGN 256
 bitset_lookup:
-REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+    REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
     ; When the 0-ith col is dirty, the highest bit is set
-    DEFW (1 << (15-val + 1)) - 1
-ENDR
+        DEFW (1 << (15-val + 1)) - 1
+    ENDR
     DEFW 0
 
 bitset_lookup2:
-REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+    REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
     ; When the 0-ith col is dirty, the highest bit is set
-    DEFW 1 << (15-val)
-ENDR
+        DEFW 1 << (15-val)
+    ENDR
 
 
 ; ==============================================================================
@@ -44,7 +44,7 @@ ENDR
 
 
 
-; Take a sprite from the disk format and generate the sprite cache data entry 
+; Take a sprite from the disk format and generate the sprite cache data entry
 ; Input:
 ; hl = Input sprite
 ; Output:
@@ -67,7 +67,7 @@ MACRO _new_sprite_cache_entry N
         xor a
         ld (de), a
         inc de
-        
+
     ; Init X, Width, Y, Height fields
         ld (de), a
         inc de
@@ -86,14 +86,14 @@ MACRO _new_sprite_cache_entry N
             ; Width in cols
             ld (hl), b
             inc hl
-            
+
             ; Width in pixels
             ld (hl), e
             inc hl
             ld (hl), a
             inc hl
 
-            ; Y 
+            ; Y
             xor a
             ld (hl), a
             inc hl
@@ -110,7 +110,7 @@ MACRO _new_sprite_cache_entry N
             ld (hl), a
             inc hl
         ex de, hl
-    push de 
+    push de
         ld l, b
         ld d, $0
         ld e, c
@@ -120,7 +120,7 @@ MACRO _new_sprite_cache_entry N
         ; Width*height
         call mul_16_16x8_fast
         ld (@reset_bc+1), hl
-        
+
         add hl, de ; Add in another copy of the height (to account for the extra col)
         ld de, hl
         ; *=3
@@ -141,20 +141,20 @@ MACRO _new_sprite_cache_entry N
 
         ld a, h
         ld (de), a
-        inc de    
+        inc de
 
         add hl, bc
 
         dec ixh
-        jp nz, @loop 
-    
-    pop hl ; Input sprite
-    inc hl \ inc hl ; Skip width and height bytes
+        jp nz, @loop
 
-    ex af, af'
+        pop hl ; Input sprite
+        inc hl \ inc hl ; Skip width and height bytes
+
+        ex af, af'
 @reset_bc:
     ld bc, 0000h
-    
+
     call build_cache##N##x
     ld (sprite_pool_tail), de
     pop de ; Old head
@@ -180,7 +180,7 @@ MACRO norot2x3_cpy
     ex af, af'
         ; bc *= 2
         sla c
-        rl b    
+        rl b
 
         ld a, 0xFF
     @loop2x3:
@@ -188,7 +188,7 @@ MACRO norot2x3_cpy
         inc de
         ldi \ ldi
         jp pe, @loop2x3
-    ex af, af'
+        ex af, af'
 endm
 
 ; Inputs:
@@ -222,7 +222,7 @@ endm
 ; Interupts must be disabled
 ;
 ; Outputs:
-;  de  = End of cache entry 
+;  de  = End of cache entry
 ;  hl  = One sprite rotation before de
 ;  ixl = Zero
 build_cache2x:
@@ -249,7 +249,7 @@ build_cache2x:
 ; Interupts must be disabled
 ;
 ; Outputs:
-;  de  = End of cache entry 
+;  de  = End of cache entry
 ;  hl  = One sprite rotation before de
 ;  ixl = Zero
 build_cache3x:
@@ -272,11 +272,11 @@ build_cache3x:
 build_cache_rejoin:
     ld iyh, 0 ; Set zero so we can put in sp easily
     ld iyl, a
-        
+
     push de
         ld c, a
         dec c
-        
+
         ld (hl), 0
         ld de, hl
         inc de
@@ -329,7 +329,7 @@ build_cache_rejoin:
                 or (hl)
             endif
             ld (hl), a
-            
+
             if 0==is_last
                 add hl, sp
             endif
@@ -347,7 +347,7 @@ build_cache_rejoin:
 
     ld ixh, 7
     @rotation_loop:
-        _do_col 1, 0 
+        _do_col 1, 0
 
         ld c, ixl
 
@@ -360,27 +360,27 @@ build_cache_rejoin:
 
             dec c
             jp nz, @middle_loop
-        
-    @do_last_col:        
+
+    @do_last_col:
         _do_col 0, 1
 
         dec ixh
         jp nz, @rotation_loop
-    
-    
-    
-    
+
+
+
+
 @reset_sp:
     ld sp, 0000h
     ret
-    
-        
 
 
 
 
 
-  
+
+
+
 ; Copies a sprite based on width and height
 ; Inputs:
 ; hl = Ouput buffer
@@ -406,7 +406,7 @@ wh_copy_sprite:
     ret
 
 
-; Inputs: 
+; Inputs:
 ; hl = Ouput buffer
 ; de = Input buffer
 ; a  = Rotation amount, must be [0, 7]
@@ -431,8 +431,8 @@ rotate_plane:
     ld (@height_reset+2), a
     ld (@set_sp+1), a ; Set low byte of sp
 
-@set_sp:       ld sp,  0000h 
-@height_reset: ld ixh, 00h 
+@set_sp:       ld sp,  0000h
+@height_reset: ld ixh, 00h
 
 @height_loop:
 @rot_amount:   ld b, 00h
@@ -441,24 +441,24 @@ rotate_plane:
         ld c, 0    ; Carry out pixel
 
         @rot_loop:
-            rra 
+            rra
             rr c
-        djnz @rot_loop
+            djnz @rot_loop
 
-        or (hl)
-        ld (hl), a
-        
-        add hl, sp
+            or (hl)
+            ld (hl), a
+
+            add hl, sp
             ld (hl), c
-        sbc hl, sp ; The carry flag _should_ never be set
+            sbc hl, sp ; The carry flag _should_ never be set
 
-        inc hl
-        inc de
-    dec ixh
-    jp nz, @height_loop
+            inc hl
+            inc de
+            dec ixh
+            jp nz, @height_loop
 
-    dec ixl
-    jp nz, @height_reset
+            dec ixl
+            jp nz, @height_reset
 
 @restore_sp: ld sp, 0000h
 
@@ -506,7 +506,7 @@ blit_rl_entry:
     exx
         bit 0, (hl)
         jr z, no_render     ; Likely to fall through
-        
+
         ld (@restore_sp+1), sp
         di
 
@@ -529,7 +529,7 @@ blit_rl_entry:
 @restore_sp:
     ld sp, 0000h
     ei
-    ; Fall through to norot3x2_blit    
+    ; Fall through to norot3x2_blit
 
 ; Blits a sprite to the screen
 ; Inputs:
@@ -551,7 +551,7 @@ norot3x2_blit:
     ld (@advance_col+1), a
 
     ld a, b
-    add a    
+    add a
     add b
     ld (@adj_ptr+1), a
 
@@ -579,18 +579,18 @@ norot3x2_blit:
         ld (hl), a
 
         inc de ; No alignment garentees
-        inc l  ; Micro optimization: This is safe due to alignment. Screens start aligned to 256 bytes. 
-               ; Overflow happens when the low byte is 1111 1111, an odd byte, meaning from going from 
-               ; a light pixel to a dark pixel.
+        inc l  ; Micro optimization: This is safe due to alignment. Screens start aligned to 256 bytes.
+                ; Overflow happens when the low byte is 1111 1111, an odd byte, meaning from going from
+                ; a light pixel to a dark pixel.
     djnz @height_loop
 
     ex de, hl
     @adj_ptr:
         ld c, 00h ; SMC
         add hl, bc
-    ex de, hl
+        ex de, hl
 
-@advance_col: 
+@advance_col:
     ld c, 00h ; SMC
     add hl, bc
 
@@ -604,66 +604,66 @@ norot3x2_blit:
 ; HL  = Pixel mode. H for light byte, L for dark byte. If the byte is 00h, xors input on,
 ;       if 2Fh will xor by ~input, if AFh will do nothing. Do not use anything else
 ; ixl= Input width in cols
-; a  = Input Height 
+; a  = Input Height
 ; c  = Ouput Height*PixelWidth
-; N  = Pixel Width, MUST be 2 or 3 
+; N  = Pixel Width, MUST be 2 or 3
 ;
 ; Outputs:
 ; hl' = Output buffer AFTER last written pixel
 ; de' = Input buffer AFTER last read pixel
 ; hl  = Untouched
-MACRO _norot1xN_xorblit N
-    ld (@height_reset+1), a
+    MACRO _norot1xN_xorblit N
+        ld (@height_reset+1), a
 
-    REPT N-1
-        add a
-    endr
+        REPT N-1
+            add a
+        endr
     ; Calculate the stride
     ; H-h = -h + H
-    neg
-    add c
-    ld (@output_stride+1), a
+        neg
+        add c
+        ld (@output_stride+1), a
 
-    
-    ld a, h
-    ld (@lo), a
 
-    ld a, l
-    ld (@do), a
+        ld a, h
+        ld (@lo), a
 
-    exx
+        ld a, l
+        ld (@do), a
+
+        exx
 
 @height_reset: ld b, $0
 @height_loop:
-    IF 3=N
-        inc hl 
-    endif
-    
+        IF 3=N
+            inc hl
+        endif
+
 ; Light pixel
-    ld a, (de)
+        ld a, (de)
 @lo:nop ; nop or cpl, patched on the fly
-    xor (hl)
-    ld (hl), a
-    inc hl
+        xor (hl)
+        ld (hl), a
+        inc hl
 
 ; Dark pixel
-    ld a, (de)
-@do:nop 
-    xor (hl)
-    ld (hl), a
-    inc hl
+        ld a, (de)
+@do:nop
+        xor (hl)
+        ld (hl), a
+        inc hl
 
-    inc de
-    djnz @height_loop
-    
+        inc de
+        djnz @height_loop
+
 @output_stride:
-    ld bc, 0000h
-    add hl, bc
+        ld bc, 0000h
+        add hl, bc
 
-    dec ixl
-    jp nz, @height_reset
-    ret
-endm
+        dec ixl
+        jp nz, @height_reset
+        ret
+    endm
 
 
 
@@ -677,8 +677,8 @@ norot1x3_xorblit: _norot1xN_xorblit 3
 
 
 
-; Copies 768*2 bytes QUICKLY. 
-; Inputs: 
+; Copies 768*2 bytes QUICKLY.
+; Inputs:
 ;  iy = source
 ;  ix = destination
 ; T-states: 23,769, or 15.47 per byte
@@ -749,7 +749,7 @@ scrcpy_stride:
 @stride: ld de, 0000h ; Stride
     add iy, de
     add ix, de
-    
+
 
 @loop_counter:
     ld a, $0
@@ -799,10 +799,10 @@ scrset:
 ; top_truncation    = global_y     >= 0     ? 0 : -global_y
 ; right_truncation  = global_x_ext <= cam_w ? 0 :  global_x_ext - cam_w
 ; bottom_truncation = global_y_ext <= cam_h ? 0 :  global_y_ext - cam_h
-; 
+;
 ; is_on_screen = global_x < cam_w && global_x_ext > 0
-;                     && global_y < cam_h && global_y_ext > 0    
-; 
+;                     && global_y < cam_h && global_y_ext > 0
+;
 ; is_off_screen = global_x >= cam_w || global_x_ext <= 0
 ;                      || global_y >= cam_h || global_y_ext <= 0
 ;
@@ -817,9 +817,9 @@ pop2x_scf_ret:
 pop_scf_ret:
     pop af
     pop af
-    scf 
+    scf
     ret
-    
+
 
 defc st_camera_width = (sprite_truncation@cam_width + 1)
 defc st_camera_height = (sprite_truncation@cam_height + 1)
@@ -829,14 +829,14 @@ defc st_camera_height = (sprite_truncation@cam_height + 1)
 ; st_camera_width, st_camera_height MUST be set
 ; Ouputs:
 ; Carry flag is reset iff the sprite is on the screen, otherwise NO OTHER
-; OUTPUTS ARE VALID. 
-; 
+; OUTPUTS ARE VALID.
+;
 ; ixl - left_truncation
 ; ixh - top_truncation
 ; iyl - right_truncation
 ; iyh - bottom_truncation
 ; hl  - Screen X position
-; de  - Screen Y position 
+; de  - Screen Y position
 ; bc  - Sprite height
 ; c'  - Sprite Width in cols
 ; a   - Rotation (based on position)
@@ -851,7 +851,7 @@ sprite_truncation:
     ; Save col width for ret (b is trash)
     ld c, (hl) \ inc hl
     push bc
-    
+
     ld bc, (cur_camx)
 
 ; left_truncation   = global_x     >= 0     ? 0 : -global_x
@@ -859,28 +859,28 @@ sprite_truncation:
         xor a ; Reset carry, and zero out a!
         sbc hl, bc
         push hl
-        
+
 
         ; Handle bit rotation
         ex af, af'
             ld a, 7 ; magically, this works for both positive and negative values!!!
             and l   ; Also resets carry!
         ex af, af'  ; Send rotation and reset carry flag to the shadow realm for ret!
-        
+
         jp p, @positive_globalx
             sub l ; a = -global_x (truncated)
         @positive_globalx:
-        ld ixl, a
+            ld ixl, a
 
         ; Is on screen test:
-        ; global_x >= cam_w 
+        ; global_x >= cam_w
 @cam_width:
         ld bc, 0000h ; SMC: Camera width
-        CpHLBC        
+        CpHLBC
         jp p, pop_scf_ret ; Likely to fall throught (but no jr p exists)
 
         ld a, c ; Save width later (safe to truncate)
-        
+
     ex de, hl
 
 ; right_truncation  = global_x_ext <= cam_w ? 0 :  global_x_ext - cam_w
@@ -889,11 +889,11 @@ sprite_truncation:
     ld b, (hl) \ inc hl
     ex de, hl
         ; hl comes from global_x (above)
-         
+
         add hl, bc ; global_x_ext
-        
-        ld b, 0 \ ld c, a ; Restore width 
-        
+
+        ld b, 0 \ ld c, a ; Restore width
+
         ; Is on screen test:
         ; global_x_ext <= 0
         ld a, l \ or h
@@ -901,31 +901,31 @@ sprite_truncation:
 
         bit 7, h            ; Sign bit
         jr nz, pop_scf_ret ; Likely to fall throught
-        
+
 
         xor a \ sbc hl, bc
         jp m, @no_right_trunc
             ld a, l
         @no_right_trunc:
-        ld iyl, a
-    ex de, hl
+            ld iyl, a
+            ex de, hl
 
 ; top_truncation    = global_y     >= 0     ? 0 : -global_y
     ; Y position
-    ld e, (hl) \ inc hl
-    ld d, (hl) \ inc hl
+            ld e, (hl) \ inc hl
+            ld d, (hl) \ inc hl
 
-    ld bc, (cur_camy)
-    ex de, hl
-        xor a \ sbc hl, bc ; global_y
-        push hl
+            ld bc, (cur_camy)
+            ex de, hl
+            xor a \ sbc hl, bc ; global_y
+            push hl
 
-        jp p, @positive_global_y
+            jp p, @positive_global_y
             sub l
         @positive_global_y:
-        ld ixh, a
+            ld ixh, a
 
-        ; Is on screen test: 
+        ; Is on screen test:
         ; global_y >= cam_h
 @cam_height:
         ld bc, 0000h ; SMC: Camera height
@@ -942,7 +942,7 @@ sprite_truncation:
         add hl, bc ; global_y_ext
         ld b, 0 \ ld c, a ; Camera height
 
-        ; Is on screen test: 
+        ; Is on screen test:
         ; global_y_ext <= 0
         ld a, h \ or l
         jr z, pop3x_scf_ret
@@ -955,14 +955,14 @@ sprite_truncation:
         jp m, @no_bottom_trunc
             ld a, l
         @no_bottom_trunc:
-        ld iyh, a
-    
-    ex af, af' ; Rotation + reset carry flag
-    pop bc
-    pop de
-    pop hl
-    exx \ pop bc \ exx
-    ret
+            ld iyh, a
+
+            ex af, af' ; Rotation + reset carry flag
+            pop bc
+            pop de
+            pop hl
+            exx \ pop bc \ exx
+            ret
 
 
 
@@ -974,7 +974,7 @@ sprite_disabled:
     ld a, (hl)
 
     or a
-    jr z, set_nz ; No need to do anything else 
+    jr z, set_nz ; No need to do anything else
 
         ld b, a
         ; Set rendering to disabled
@@ -1001,7 +1001,7 @@ set_nz:
 ; de = Render list entry
 ; bc = Screen to place the sprite on
 ; st_camera_width, st_camera_height MUST be set correctly
-; 
+;
 ; Outputs:
 ;  Zero flag is set iff renderlist was incremented
 ;  de = renderlist entry, possibly incremented
@@ -1018,7 +1018,7 @@ PUBLIC calculate_rl
 calculate_rl:
     ld a, (hl)
 
-    rra    
+    rra
     ret nc ; Sprite is disabled
     jr nz, sprite_disabled
 
@@ -1032,7 +1032,7 @@ calculate_rl:
     ld bc, 9+1-1 ; Plus high byte, minus the flag byte
     add hl, bc
 
-    ld a, (hl) 
+    ld a, (hl)
     or a   ; A valid rl entry CANNOT have a zero high byte
     jp nz, @has_rl_entry
     ; Has no rl entry
@@ -1052,7 +1052,7 @@ calculate_rl:
     ld hl, 8 ; RL entry size
     add hl, de
     ld (@set_sp+1), hl
-    
+
     pop hl  ; Start of sprite
     push af ; Save zero flag for later (not clobbered by add)
 
@@ -1060,18 +1060,18 @@ calculate_rl:
 
     ; Ouputs:
     ; Carry flag is reset iff the sprite is on the screen, otherwise NO OTHER
-    ; OUTPUTS ARE VALID. 
-    ; 
+    ; OUTPUTS ARE VALID.
+    ;
     ; ixl - left_truncation
     ; ixh - top_truncation
     ; iyl - right_truncation
     ; iyh - bottom_truncation
     ; hl  - Screen X position
-    ; de  - Screen Y position 
+    ; de  - Screen Y position
     ; bc  - Sprite height
     ; c'  - Sprite Width in cols
     ; a   - Rotation (based on position)
-    
+
     jr c, not_on_screen ; Likely to fall through
     ex af, af' ; Save rotation for later
 
@@ -1085,15 +1085,15 @@ calculate_rl:
     push bc ; Save for later
 
     bit 7, h
-    
-    @style: ; SMC point for switching screen size 
-    jp z, @positive_globalx_style64
+
+    @style: ; SMC point for switching screen size
+        jp z, @positive_globalx_style64
         ld hl, 0
         jp @after_mult
 
     @positive_globalx_style64:
         ; Here, we are using a variation of the formula for the typical 64px tall screen
-        ; global_x /8 * 64 * 2 = global_x * 16 
+        ; global_x /8 * 64 * 2 = global_x * 16
 
         ; Remove pesky inter col crap
         ld a, ~7
@@ -1130,15 +1130,15 @@ calculate_rl:
 
     ; Put: screen location
     ; Get: Sprite height
-    ex (sp), hl 
+    ex (sp), hl
     ld a, ixh
     or ixl
     jr nz, @with_tl_truncation ; Likely hot path
         ld de, 0
         jp @sprite_table
-@with_tl_truncation:    
+@with_tl_truncation:
     ; c = sprite height *3
-       ; Note: We only allow sprites as big as the screen, and since 64*3 < 256, this is safe
+        ; Note: We only allow sprites as big as the screen, and since 64*3 < 256, this is safe
         ld a, l
         add a
         add l
@@ -1147,7 +1147,7 @@ calculate_rl:
 
     ; hl = 3*top truncation
     ld h, b ; Zero high byte
-    ld a, ixh \ add a \ add ixh \ ld l, a 
+    ld a, ixh \ add a \ add ixh \ ld l, a
 
     ; A = left truncation / 8
     ld a, ixl ; left truncation
@@ -1163,15 +1163,15 @@ calculate_rl:
     ; then 12, this always is better then mul_16_16x8_fast, and usually faster then
     ; mul_16_16x4_fast (since zero truncation is the norm)
     @left_trunc_loop:
-    jr $+2
-    REPT 12
-        add hl, bc
-    endr
+        jr $+2
+        REPT 12
+            add hl, bc
+        endr
     ex de, hl
 
 ; Re-entry point for no truncation path
 @sprite_table:
-    ld hl, 0000h 
+    ld hl, 0000h
 
     ex af, af'
     add a
@@ -1181,7 +1181,7 @@ calculate_rl:
     inc hl
     ld h, (hl)
     ld l, a
-    
+
     add hl, de ; Add in the offset
     push hl
 
@@ -1189,10 +1189,10 @@ calculate_rl:
 
     ; TODO: Is this a bug?
 
-    ld a, ixl  ; Left truncation    
+    ld a, ixl  ; Left truncation
     add iyl    ; Right truncation
 
-    jp z, @full_height ; No lr truncation = no need to change width 
+    jp z, @full_height ; No lr truncation = no need to change width
 
     ; Pixel to col:
         add 7 ; Round up
@@ -1201,12 +1201,12 @@ calculate_rl:
     neg \ add c
     ld c, a   ; Little endian: First byte is little
 @full_height:
-    ld b, 00h ; SMC: Full height 
+    ld b, 00h ; SMC: Full height
     push bc
 
     ld a, ixh ; Top trunc
     add iyh   ; Bottom trunc
-    
+
     ld b, a
     ld c, 1   ; Set the do-display flag
 
@@ -1217,14 +1217,14 @@ calculate_rl:
 
     pop af ; Zero flag from earlier
     pop de
-    
+
     ret nz ; Return if rl does not need incremented (most common)
 
     ; Increment de:
         ld hl, 8
         add hl, de
         ex de, hl
-    
+
     ret
 
 

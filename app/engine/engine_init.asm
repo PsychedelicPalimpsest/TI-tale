@@ -10,7 +10,7 @@ INCLUDE "engine/engine_globals.inc"
 INCLUDE "core/common.inc"
 
 engine_prepage_init:
-  ret
+    ret
 
 engine_init:
     call install_hooks
@@ -26,9 +26,9 @@ engine_init:
     call _set_grey_timing
 
 ; Set buffers as dirty, this tells the greyscale system to force redraw.
-  ld hl, $ffff
-  ld (dirty_cols), hl
-  ld (previous_dirty_cols), hl 
+    ld hl, $ffff
+    ld (dirty_cols), hl
+    ld (previous_dirty_cols), hl
 
 ; Clear all the screen buffers
     xor a, a
@@ -43,7 +43,7 @@ engine_init:
 
 ; Greyscale current buffs
     ld hl, grey_phase1_buff
-    ld (current_phase1), hl 
+    ld (current_phase1), hl
 
 
     ld hl, grey_phase2_buff
@@ -55,7 +55,7 @@ engine_init:
 
 ; Greyscale alt buffs
     ld hl, grey_phase1_altbuff
-    ld (alt_phase1), hl 
+    ld (alt_phase1), hl
 
     ld hl, grey_phase2_altbuff
     ld (alt_phase2), hl
@@ -70,7 +70,7 @@ PUBLIC _set_grey_timing
 _set_grey_timing:
     ld a, l
     ld (_grey_timing), a
-	out	($32), a         ; Greyscale timing counter port
+    out	($32), a         ; Greyscale timing counter port
 
 
     ld h, $0

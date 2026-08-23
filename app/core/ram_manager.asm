@@ -8,7 +8,7 @@ init_ram:
     in a, (2)
     ld hl, err_unsuported
 
-    bit 7, a ; Reset for a TI-83+ Basic and TI-73. Set for everything else. 
+    bit 7, a ; Reset for a TI-83+ Basic and TI-73. Set for everything else.
     call z, on_error
 
 
@@ -33,14 +33,14 @@ init_ram:
 
     EXTERN flashunlock
     call flashunlock
-     ;    Make all ram executable
+        ;    Make all ram executable
         xor a      ; Set lower ram execution limit to zero
         out ($25),a
 
         cpl        ; Set highest ram execution limit to MAX
         out ($26),a
 
-    
+
         xor a
         ld ($8E29), a ; numLastEntries, this makes page 83 FREE
 
@@ -97,9 +97,9 @@ cleanup_ram:
     ld de, $C000
     ld bc, $4000
     ldir
-    
+
     ld a, $81   ; Restore regular $8000 page
-    out (7), a 
+    out (7), a
     xor a      ; Restore regular $C000 page
     out (5), a
 
@@ -108,10 +108,10 @@ cleanup_ram:
 
 
 
-    
 
-    
-; Does NOT return. 
+
+
+; Does NOT return.
 ; Inputs: HL=error message (only the options bellow)
 on_error:
     ld de, $8000 ; Unused ram area (pre ram install)

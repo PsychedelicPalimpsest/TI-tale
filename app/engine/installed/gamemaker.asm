@@ -3,14 +3,14 @@
 
 PUBLIC room_init
 room_init:
-    ; Cleanup the callback lists   
+    ; Cleanup the callback lists
     REPTI name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_end, draw_gui, draw_gui_begin, draw_gui_end
         scl_init name
     endr
 
     scl_init alarm
 
-    
+
     ; TODO: Does this need moved out?
     ld hl, object_render_queue
     ld (object_render_queue_tail), hl
@@ -31,15 +31,15 @@ MACRO for_each_and_call name, offset
     ld e, (hl) \ inc hl
     ld d, (hl)
 
-  
+
     ex de, hl
     IF offset>0
         ld bc, offset
         add hl, bc
     endif
 
-    ld a, (hl) \ inc hl 
-    ld h, (hl) 
+    ld a, (hl) \ inc hl
+    ld h, (hl)
     ld l, a
 
     call __hl
@@ -48,16 +48,16 @@ endm
 
 MACRO _callbacks
 
-  ; Do all the begin steps
-  for_each_and_call begin_step, Object_begin_step
+    ; Do all the begin steps
+    for_each_and_call begin_step, Object_begin_step
 
 
-  ; All instances with an alarm pressed
-  SCL_FOR alarm
+    ; All instances with an alarm pressed
+    SCL_FOR alarm
     ; hl = sprite object
 
     ld (@sprite_origin+1), hl
-    
+
     xor a
 
     ; hl = the high byte of the last timer
@@ -95,14 +95,14 @@ MACRO _callbacks
     @zero:
         ; This case is quite unlikely, so a bit extra compute is ok
 
-        
+
         ; We do not trust the callee to perserve anything
         push bc
-        push hl 
+        push hl
         push ix
-            
+
             inc hl ; Undo the `dec hl`
-            
+
             ex de, hl
             @sprite_origin:
                 ld hl, 0000h ; SMC: Sprite ptr
@@ -112,22 +112,22 @@ MACRO _callbacks
                 ld c, (hl) \ inc hl
                 ld b, (hl) ; We add a -1 in a later addition so we don't need a `dec hl`
 
-            ex de, hl
+                ex de, hl
             ; hl = &alarms[i] - sprite_ptr - offset_of_alarms + object_ptr + offset_of_alarm_callbacks
-            sbc hl, de ; NOTE: Carry is reset by `or e` above
-            add hl, bc
-            ld bc, Object_alarm_callbacks-Instance_alarms -1
-            add hl, bc
+                sbc hl, de ; NOTE: Carry is reset by `or e` above
+                add hl, bc
+                ld bc, Object_alarm_callbacks-Instance_alarms -1
+                add hl, bc
 
-            ld a, (hl) \ inc hl
-            ld h, (hl)
-            ld l, a
+                ld a, (hl) \ inc hl
+                ld h, (hl)
+                ld l, a
 
-            call __hl
-        pop ix
-        pop hl
-        pop bc
-        djnz @alarm_loop
+                call __hl
+                pop ix
+                pop hl
+                pop bc
+                djnz @alarm_loop
 @end_of_loop:
 
     ld a, ixl
@@ -136,27 +136,27 @@ MACRO _callbacks
         ld hl, (@sprite_origin +1)
         scl_pop alarm
 @after_check:
-  SCL_ENDFOR alarm
+    SCL_ENDFOR alarm
 
-  for_each_and_call step,       Object_step
-  for_each_and_call end_step,   Object_end_step
+    for_each_and_call step,       Object_step
+    for_each_and_call end_step,   Object_end_step
 endm
 
 
 
 PUBLIC gml_step
 gml_step:
-  _callbacks
-  ret
+    _callbacks
+    ret
 
 
 
 
-    
 
-	
 
-; void set_alarm(uint16_t alarm_idx, int16_t value) __z88dk_callee 
+
+
+; void set_alarm(uint16_t alarm_idx, int16_t value) __z88dk_callee
 PUBLIC  _inst_update_alarms
 _inst_update_alarms:
     ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
@@ -174,11 +174,11 @@ _inst_update_alarms:
     ld (hl), b
 
     ; Negative numbers do not tick
-    bit 7, b    
+    bit 7, b
     ret nz
 
         ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
-        scl_append alarm ; Handles for us alarms what are already set 
+        scl_append alarm ; Handles for us alarms what are already set
     ret
 
 

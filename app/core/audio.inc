@@ -1,12 +1,12 @@
-; This file handles the fast, almost instantanious, audio outputs. It only cares about tones. 
+; This file handles the fast, almost instantanious, audio outputs. It only cares about tones.
 ; See core/installed/audio_engine.asm for actually using it.
 ;
 ; Audio subsytem notes:
-; - The timer is GOD. All must be designed around it. 
+; - The timer is GOD. All must be designed around it.
 ;        - The loop counter will be modified on the fly
 ; - Due the the extreme nature of this code, every cycle matters. As such, optimization
-;     trumps all else. Inlining is essential. 
-; 
+;     trumps all else. Inlining is essential.
+;
 
 
 
@@ -15,13 +15,13 @@
 ; DEFC saw_constant = 2
 
 MACRO audio_cleanup timer
-   ld a, $3         ;  Loop + interupt
+    ld a, $3         ;  Loop + interupt
     out (1+timer), a
     interupt_cleanup
 endm
 
 ; This macro is used twice, one for each channel (left and right)
-; NOTE: Coming into this, the cary flag IS SET. 
+; NOTE: Coming into this, the cary flag IS SET.
 
 MACRO AUDIO_CHANNEL mask, timer, audio_jp,                                   \
                     instrument_state, instrument_val_ptr, instrument_low_ptr,\
@@ -32,7 +32,7 @@ MACRO AUDIO_CHANNEL mask, timer, audio_jp,                                   \
     PUBLIC instrument_val_ptr
     PUBLIC instrument_low_ptr
 
-    PUBLIC saw_style  
+    PUBLIC saw_style
     PUBLIC square_up_ptr
     PUBLIC square_down_ptr
 
@@ -72,7 +72,7 @@ ALIGN 256
     jr c, @saw_cleanup ; Safty (could be removed)
 @saw_maximum1:
     cp 00h ; saw_maximum
-    jr nc, @saw_cleanup 
+    jr nc, @saw_cleanup
 
     ld (@saw_double+1), a
 @saw_output:
@@ -122,9 +122,9 @@ ALIGN 256
     out (0), a
     ld (sound_state), a
 
- 
+
 @square_uptime:
-    ld a, 00h ; 
+    ld a, 00h ;
     out (2+timer), a
 
     ld a, @square_down&0xFF
@@ -149,7 +149,7 @@ ALIGN 256
 EXTERN test_instrument
 ;---======= Custom instrument =======---
 @lookup_instrument:
-    ld a, (0000) ; (test_instrument) 
+    ld a, (0000) ; (test_instrument)
     or a
     jr z, @lookup_reset
     out (2+timer), a

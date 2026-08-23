@@ -13,28 +13,28 @@ INCLUDE "engine/engine_globals.inc"
 
 
 IF after_interrupt_code > install_location
-	ERROR Please adjust install_location
+    ERROR Please adjust install_location
 endif
 install_hooks:
-  ld hl, install_origin
-  ld de, install_location
-  ld bc, end_of_install-start_of_install
-  ldir
+    ld hl, install_origin
+    ld de, install_location
+    ld bc, end_of_install-start_of_install
+    ldir
 
-  EXTERN greyscale_addr
-  ; Insert the engine hooks (self modifying code EVIL)
-  ld hl, greyscale_tick
-  ld (greyscale_addr), hl
+    EXTERN greyscale_addr
+    ; Insert the engine hooks (self modifying code EVIL)
+    ld hl, greyscale_tick
+    ld (greyscale_addr), hl
 
 
-  ret
+    ret
 
 
 
 install_origin:
-PHASE install_location 
+PHASE install_location
 start_of_install:
-  ; NOTE: ALWAYS KEEP THIS FIRST. is saves <256 bytes due to alignment
+    ; NOTE: ALWAYS KEEP THIS FIRST. is saves <256 bytes due to alignment
 INCLUDE "installed/sprite_system.asm"
 
 INCLUDE "installed/game_tick.asm"
@@ -48,30 +48,30 @@ INCLUDE "installed/gamemaker.asm"
 INCLUDE "installed/audio_engine.asm"
 
 ; Fastest possible 16x8 multiplication routine (kind of)
-; Best case:    240 
+; Best case:    240
 ; Worst case:   288
 ; Average:      264
 PUBLIC mul_16_16x8_fast
 mul_16_16x8_fast:
-   ; enter : l = 8-bit multiplier
-   ;         de = 16-bit multiplicand
-   ; exit  : hl = 16-bit product
-   ; uses  : af, hl
+    ; enter : l = 8-bit multiplier
+    ;         de = 16-bit multiplicand
+    ; exit  : hl = 16-bit product
+    ; uses  : af, hl
 
-   ld a,l
-   ld hl,0
+    ld a,l
+    ld hl,0
 
-   ; Repeat this block 8 times
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    ; Repeat this block 8 times
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
 
-   ret
+    ret
 
 
 ; Fastest possible 16x4 multiplication routine (kind of)
@@ -80,22 +80,22 @@ mul_16_16x8_fast:
 ; Average:      160
 PUBLIC mul_16_16x4_fast
 mul_16_16x4_fast:
-   ; enter : l = 8-bit value, low nibble (l & 0x0F) used as multiplier
-   ;         de = 16-bit multiplicand
-   ; exit  : hl = 16-bit product = de * (l & 0x0F)
-   ; uses  : af, hl
+    ; enter : l = 8-bit value, low nibble (l & 0x0F) used as multiplier
+    ;         de = 16-bit multiplicand
+    ; exit  : hl = 16-bit product = de * (l & 0x0F)
+    ; uses  : af, hl
 
-   ld a,l
-   add a,a \ add a,a \ add a,a \ add a,a   ; shift low nibble of l into high nibble of a
-   ld hl,0
+    ld a,l
+    add a,a \ add a,a \ add a,a \ add a,a   ; shift low nibble of l into high nibble of a
+    ld hl,0
 
-   ; Repeat this block 4 times
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
-   add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    ; Repeat this block 4 times
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
+    add hl,hl \ add a,a \ jr nc, $+3 \ add hl,de
 
-   ret
+    ret
 
 
 PUBLIC restore_sp_and_ret
@@ -104,7 +104,7 @@ restore_sp_and_ret:
     ret
 
 ; Small helper function
-PUBLIC __hl 
+PUBLIC __hl
 __hl: jp (hl)
 
 

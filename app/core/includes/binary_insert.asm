@@ -15,19 +15,19 @@ MACRO sorted_array_insert head, tail_ptr
     jr c, @end_of_loop
 
 
-    ; hl = end    
+    ; hl = end
     ; de = start
     ; bc = key we are looking for (for the entire loop)
     @loop:
-        ld (@end_ptr+1), hl 
-        
+        ld (@end_ptr+1), hl
+
         ; hl = end-start
         or a \ sbc hl, de
-        jr z, @end_of_loop 
+        jr z, @end_of_loop
         ; jr c, @end_of_loop ; Theoretically, should never happen
-       
+
         ; hl /= 2
-        srl h 
+        srl h
         ld a, l
         rra
         and ~3 ; Round down (alignment)
@@ -52,12 +52,12 @@ MACRO sorted_array_insert head, tail_ptr
         @end_ptr:
             ld hl, 0000h ; End ptr
             jp @loop
-        
+
         @key_is_smaller:
             ; end = midpoint
             dec hl
             jp @loop
-              
+
 
 @end_of_loop:
     push bc ; Key
@@ -75,20 +75,20 @@ MACRO sorted_array_insert head, tail_ptr
             ld (tail_ptr), de
         dec de
         dec hl
-       
-        
+
+
         ld a, b \ or c
         jr nz, @cpy
         ex de, hl
         jp @insert
-        
+
         ; Copy BACKWORDS, from tail -> tail+4, this means nothing gets corrupted
         @cpy:
         @cpy_loop:
             ldd \ ldd \ ldd \ ldd
             jp pe, @cpy_loop
     ; De = where it was copied to, so that is where we start writing our insertion
-    ex de, hl
+            ex de, hl
 @insert:
 
     pop bc ; Key

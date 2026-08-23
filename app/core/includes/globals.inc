@@ -6,7 +6,7 @@ DEFINE GLOBALS_INC
 
 
 ; a count of the times the greyscale routine has fired
-EXTERN _gray_count  
+EXTERN _gray_count
 
 
 
@@ -39,7 +39,7 @@ EXTERN grey_timingX6
 ; High percision clock values. See greyscale.asm
 EXTERN clock_count_1, clock_count_2, clock_count_3, clock_count_4, clock_count_5
 
-; A 16 bit fixed point number of the amount of secounds % 256 since the game has started. 
+; A 16 bit fixed point number of the amount of secounds % 256 since the game has started.
 RDEF interupt_globals,            _scount,         2
 
 
@@ -80,10 +80,10 @@ RDEF interupt_globals,            _nav_key_change,  1
 
 
 
-IF interupt_globals > $8181
-  ; cause a syntax error
-  error Corruption detected
-endif
+    IF interupt_globals > $8181
+    ; cause a syntax error
+    error Corruption detected
+    endif
 
 
 

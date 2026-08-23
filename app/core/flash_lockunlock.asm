@@ -3,7 +3,7 @@ SECTION CODE_ENGINE
 ; https://www.omnimaga.org/asm-language/flash-snacks/msg407110/#msg407110
 ;
 ; He is a wizard, and I am proud to borrow from him
-; 
+;
 ; Notes: This for use to get all the ram pages
 
 
@@ -50,75 +50,75 @@ SECTION CODE_ENGINE
 PUBLIC flashunlock
 flashunlock:
 
-	ld a,$14
-	ld bc,flashunlock_ram_end-flashunlock_ram_start
-	ld de,flashunlock_ram_start-flashunlock_return+$81E3
-	ld hl,$8167
-	ld iy,$0031 ; must be $0031
-	ld ($83EE),a ; must be $08>$15
-	ld ($84DB),hl ; must be $8167
-	ld ($9834),a ; must be $03>$FF
-	add a,l
-	ld ($983A),a ; must be close enough to but under $80
-	ld hl,flashunlock_ram_start
-	ldir
+    ld a,$14
+    ld bc,flashunlock_ram_end-flashunlock_ram_start
+    ld de,flashunlock_ram_start-flashunlock_return+$81E3
+    ld hl,$8167
+    ld iy,$0031 ; must be $0031
+    ld ($83EE),a ; must be $08>$15
+    ld ($84DB),hl ; must be $8167
+    ld ($9834),a ; must be $03>$FF
+    add a,l
+    ld ($983A),a ; must be close enough to but under $80
+    ld hl,flashunlock_ram_start
+    ldir
 
-	in a,($06)
-	push af
+    in a,($06)
+    push af
 
-	in a,($02)
-	rra
-	or %10111111
-	ld d,a
-	and $7B
+    in a,($02)
+    rra
+    or %10111111
+    ld d,a
+    and $7B
 
-	jp flashunlock_ram_start-flashunlock_return+$81E3
+    jp flashunlock_ram_start-flashunlock_return+$81E3
 
 flashunlock_ram_start:
 
-	out ($06),a
+    out ($06),a
 
-	ld hl,($5092)
+    ld hl,($5092)
 
-	ld a,d
-	and $7C
-	out ($06),a
+    ld a,d
+    and $7C
+    out ($06),a
 
-	ld a,$10
-	cpir
+    ld a,$10
+    cpir
 
-	jp (hl)
+    jp (hl)
 
 flashunlock_return:
 
-	ld hl,24
-	add hl,sp
-	ld sp,hl
-	ld hl,$0007
-	ld (hl),$FF
-	ld b,%01000000
+    ld hl,24
+    add hl,sp
+    ld sp,hl
+    ld hl,$0007
+    ld (hl),$FF
+    ld b,%01000000
 
-	pop af
-	out ($06),a
+    pop af
+    out ($06),a
 
 flashunlock_wait:
 
-	ld a,(hl)
+    ld a,(hl)
 
-	rla
-	ret c
+    rla
+    ret c
 
-	and b
-	jp z,flashunlock_wait-flashunlock_return+$81E3
+    and b
+    jp z,flashunlock_wait-flashunlock_return+$81E3
 
-	ld a,(hl)
+    ld a,(hl)
 
-	rla
-	ret c
+    rla
+    ret c
 
-	ld (hl),$F0
+    ld (hl),$F0
 
-	ret
+    ret
 
 flashunlock_ram_end:
 
@@ -146,33 +146,33 @@ flashunlock_ram_end:
 PUBLIC flashlock
 flashlock:
 
-	in a,($07)
-	ld b,a
+    in a,($07)
+    ld b,a
 
-	in a,($02)
-	rra
-	or %10111111
-	ld c,a
-	and $7B
-	out ($07),a
+    in a,($02)
+    rra
+    or %10111111
+    ld c,a
+    and $7B
+    out ($07),a
 
-	ld hl,($8F3C)
-	ld a,h
-	xor %11000000
-	ld h,a
+    ld hl,($8F3C)
+    ld a,h
+    xor %11000000
+    ld h,a
 
-	ld a,c
-	and $7C
-	out ($07),a
+    ld a,c
+    and $7C
+    out ($07),a
 
-	call flashlock_jump
+    call flashlock_jump
 
-	ld a,b
-	out ($07),a
+    ld a,b
+    out ($07),a
 
-	ret
+    ret
 
 flashlock_jump:
-	jp (hl)
+    jp (hl)
 
 

@@ -24,14 +24,25 @@ ret
 """
         expected = """MACRO example
     ld a, 1
-    label:
-        ld b, 2
+label:
+    ld b, 2
 ENDM
 routine:
     ret
 """
 
         self.assertEqual(format_text(source), expected)
+
+    def test_preserves_a_dedented_macro_code_region(self):
+        source = """MACRO example
+    PUBLIC symbol
+ALIGN 256
+label:
+    ld a, 1
+ENDM
+"""
+
+        self.assertEqual(format_text(source), source)
 
     def test_indents_nested_repetition_and_conditionals(self):
         source = """REPTI value, 1, 2

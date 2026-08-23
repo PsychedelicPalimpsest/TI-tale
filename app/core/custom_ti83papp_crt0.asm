@@ -1,4 +1,4 @@
-;  Statup code, init functions, and file format for the TI84p 
+;  Statup code, init functions, and file format for the TI84p
 ;  Modified for this project to remove bloat we do not need
     MODULE  Ti83plus_App_crt0
 
@@ -63,26 +63,26 @@ beginname:
     ENDIF
 endname:
     defc NameLength = (endname-beginname)
-IF NameLength < 2	; Padd spaces if not 8 bytes... (horrible)
-    defm ' '
-ENDIF
-IF NameLength < 3
-    defm ' '
-ENDIF
-IF NameLength < 4
-    defm ' '
-ENDIF
-IF NameLength < 5
-    defm ' '
-ENDIF
-IF NameLength < 6
-    defm ' '
-ENDIF
-IF NameLength < 7
-    defm ' '
-ENDIF
-IF NameLength < 8
-    defm ' '
+    IF NameLength < 2	; Padd spaces if not 8 bytes... (horrible)
+        defm ' '
+    ENDIF
+    IF NameLength < 3
+        defm ' '
+    ENDIF
+    IF NameLength < 4
+        defm ' '
+    ENDIF
+    IF NameLength < 5
+        defm ' '
+    ENDIF
+    IF NameLength < 6
+        defm ' '
+    ENDIF
+    IF NameLength < 7
+        defm ' '
+    ENDIF
+    IF NameLength < 8
+        defm ' '
     ENDIF
 endname_true:
 
@@ -125,25 +125,25 @@ endname_true:
     jp start    ; Skips branch table (if present) and by testing if followed by zero alerts appmake to a present branch table
 
 
-IF DEFINED_MULTI_PAGE_CALLS
+    IF DEFINED_MULTI_PAGE_CALLS
 END_OF_HEADER:
     ; Pad Header until it is divisable by 3
     defc header_mod = (END_OF_HEADER-HEADER_START)%3
-    IF header_mod = 2
-        DEFB 0
-    ENDIF
-    IF header_mod = 1
-        DEFB 0
-        DEFB 0
-    ENDIF
+        IF header_mod = 2
+            DEFB 0
+        ENDIF
+        IF header_mod = 1
+            DEFB 0
+            DEFB 0
+        ENDIF
 
 start_branch_table:
 
-    DEFS MULTI_PAGE_CALLS*3, 0
+        DEFS MULTI_PAGE_CALLS*3, 0
 
     ; Appmake will fill this area
 
-ENDIF
+    ENDIF
     ;--------------------------------------------
     ; End of branch table, begin of startup stuff
     ;--------------------------------------------
@@ -151,7 +151,7 @@ ENDIF
 
 SECTION code_crt_init
 start:
-    bcall    _ForceFullScreen 
+    bcall    _ForceFullScreen
     bcall    _ClrLCDFull
     bcall    _DisableApd   ; Do not randomly turn off
 
@@ -217,7 +217,7 @@ __Exit:     ; exit() jumps to this point
     out (20h), a
 
     im 1
-    ei    
+    ei
 
 __Early_Exit:
 
@@ -241,12 +241,12 @@ ENDIF
 
 
     defc ansipixels = 96
-    IF !DEFINED_ansicolumns
+        IF !DEFINED_ansicolumns
         defc DEFINED_ansicolumns = 1
         defc ansicolumns = 32
-    ENDIF
+        ENDIF
 
-    
+
     SECTION code_engine
     ; INCLUDE "crt/classic/crt_section_standard.inc"
 

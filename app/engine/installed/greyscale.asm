@@ -1,8 +1,8 @@
 ; Greyscale system. This code runs from interrupt.asm at approx 60 Hz, but
-; is adjustable by the user to adjust flickering issues. 
-; 
+; is adjustable by the user to adjust flickering issues.
+;
 ; This code is highly optimized, and will only run on post ~2007 calculators
-; due to the lack of delay between LCD writes. 
+; due to the lack of delay between LCD writes.
 
 
 
@@ -16,8 +16,8 @@ PUBLIC clock_count_1, clock_count_2, clock_count_3, clock_count_4
 
 
 ; This is the main counter for the game. It is measured in 2X the ticks of the 32768Hz clock, or 2**16.
-; this means that count_3 is the number of secounds since the game has started! And you can use 
-; the pair (count_2, count_3) as a 16 bit fixed point number of secounds. This has a maximum of 
+; this means that count_3 is the number of secounds since the game has started! And you can use
+; the pair (count_2, count_3) as a 16 bit fixed point number of secounds. This has a maximum of
 ; 194 days of range.
 ;
 ; Please note: count_1 is not very percise!
@@ -35,8 +35,8 @@ defc grey_timingX6 = greyc_x6+1
 ; the user calibrates their display
 defc _grey_count=greyscale_tick+1
 
-; The long count, this is only rarly hit (once per secound). 
-    greyc_3: 
+; The long count, this is only rarly hit (once per secound).
+    greyc_3:
         ld a, 00h
         add 1
         ld (greyc_3+1), a
@@ -45,7 +45,7 @@ defc _grey_count=greyscale_tick+1
         jp nc, after_grey_count
 
 ; Every 256 secounds
-    greyc_4: 
+    greyc_4:
         ld a, 00h
         add 1
         ld (greyc_4+1), a
@@ -53,7 +53,7 @@ defc _grey_count=greyscale_tick+1
         jp nc, after_grey_count
 
 ; Every 256*256 secounds
-    greyc_5: 
+    greyc_5:
         ld a, 00h
         add 1
         ld (greyc_5+1), a
@@ -109,19 +109,19 @@ phase0:
     ld (phase), a
     ld hl, (current_phase3)
     ; Fall through
-  
+
 after_phases:
-    
+
     ld a, $1 ; 8bit mode
     out (10h), a
 
-    ld a, $5 ; Move up to down 
+    ld a, $5 ; Move up to down
     out (10h), a
 
     ld a, $80   ; Row 0
     out (10h), a
 
-    ld c, 11h  ; Port to write to (for outi),  
+    ld c, 11h  ; Port to write to (for outi),
     ld e, $20
 
 
@@ -130,13 +130,13 @@ screen_loop:
     out (10h), a
 
 ; Unrolled write loop, 64 bytes for 64 rows (128 bytes)
-REPT 64
-    outi ; out (c), (hl) \ inc (hl), dec b
-endr
+    REPT 64
+        outi ; out (c), (hl) \ inc (hl), dec b
+    endr
     ld a, $20 + 12
     cp e
     jp nz, screen_loop
-    
+
 
 
     ret

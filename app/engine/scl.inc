@@ -3,7 +3,7 @@
 
 ; Sprite callback list:
 ; tail  = the next free space
-; 
+;
 ; *tail = 0x00??  - allows for quick iteration (high byte zero)
 MACRO scl_define arena, name, reservation, in_sprite_offset
     DEFC __scl_off(name) = in_sprite_offset
@@ -14,7 +14,7 @@ endm
 
 MACRO scl_init name
     ld hl, scl_head_##name
-    ld (scl_tail_##name), hl 
+    ld (scl_tail_##name), hl
 
     ld hl, 0
     ld (scl_head_##name), hl
@@ -31,9 +31,9 @@ MACRO scl_append name
     ld de, __scl_off(name) + 1
     add hl, de
 
-    ld a, (hl) 
+    ld a, (hl)
     or a \ jr nz, @no_append
-    
+
     ld de, (scl_tail_##name) ; Get the high byte of the tail
 
     ; Set the sprites location to the tail (the first empty element)
@@ -46,7 +46,7 @@ MACRO scl_append name
         ld (hl), d \ inc hl
     ; Set the new tail
         ld (scl_tail_##name), hl
-        
+
         inc hl \ ld (hl), 0
     @no_append:
 endm
@@ -70,13 +70,13 @@ MACRO scl_pop name
     ; Don't continue if the entry is invalid
     ld a, d \ or a
     jr z, @nope_out
-        ld hl, (scl_tail_##name)    
+        ld hl, (scl_tail_##name)
         dec hl
         ld b, (hl) \ ld (hl), 0 \ dec hl
         ld c, (hl) \ ld (hl), 0
 
-        
-        ld (scl_tail_##name), hl ; Set the new tail 
+
+        ld (scl_tail_##name), hl ; Set the new tail
 
         sbc hl, de ; carry is still reset from `or a`
         add hl, de
@@ -95,7 +95,7 @@ MACRO scl_pop name
 
         ld a, h
         ld (bc), a
-        
+
     @nope_out:
 endm
 
@@ -103,12 +103,12 @@ endm
 
 ; Loop over the list backwards.
 ;
-; KNOWN BUG: If an item is removed, and we are not currently on that item, the tail will apear TWICE. 
+; KNOWN BUG: If an item is removed, and we are not currently on that item, the tail will apear TWICE.
 ;            Meaning it is only `safe` to remove the current item
-; 
+;
 ; During each loop:
 ; hl is set to the instance location. You can clobber anything but sp.
-; 
+;
 ; clobbers with each loop: de
 MACRO SCL_FOR name
     ld hl, (scl_tail_##name)
@@ -119,7 +119,7 @@ MACRO SCL_FOR name
 
     CpHLDE
     jp m, @scl_loopend
-    
+
 
 
     push hl
@@ -129,7 +129,7 @@ MACRO SCL_FOR name
 
     ld de, -__scl_off(name)
     add hl, de
-    
+
 endm
 
 

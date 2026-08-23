@@ -33,23 +33,23 @@ _game_loop:
 
 ; This is where the game loop takes place: ~30Hz
 @loop:
-  EXTERN gml_step
-  call gml_step
-    
-  EXTERN yield
-  call yield
-  jp @loop
+    EXTERN gml_step
+    call gml_step
+
+    EXTERN yield
+    call yield
+    jp @loop
 
 check_frame:
-  ld a, (_grey_count)
+    ld a, (_grey_count)
 @count:
-  xor 00h ; SMC: Low byte of grey count LAST TIME this fired
-  rra
-  ret nc 
+    xor 00h ; SMC: Low byte of grey count LAST TIME this fired
+    rra
+    ret nc
 
-  ld a, (_grey_count)
-  ld (@count+1), a
+    ld a, (_grey_count)
+    ld (@count+1), a
 
-  ret
+    ret
 
 

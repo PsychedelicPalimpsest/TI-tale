@@ -63,9 +63,9 @@ _test_fheap_foreach:
         inc c
         jp @loop
     @end_of_loop:
-    ld a, c
-    ld (test_foreach_count), a
-    ret
+        ld a, c
+        ld (test_foreach_count), a
+        ret
 
 PUBLIC _test_fheap_foreach_small
 _test_fheap_foreach_small:
@@ -74,9 +74,9 @@ _test_fheap_foreach_small:
         inc c
         jp @loop
     @end_of_loop:
-    ld a, c
-    ld (test_foreach_count), a
-    ret
+        ld a, c
+        ld (test_foreach_count), a
+        ret
 
 PUBLIC _test_fheap_foreach_record
 _test_fheap_foreach_record:
@@ -90,9 +90,9 @@ _test_fheap_foreach_record:
         inc c
         jp @loop
     @end_of_loop:
-    ld a, c
-    ld (test_foreach_count), a
-    ret
+        ld a, c
+        ld (test_foreach_count), a
+        ret
 
 PUBLIC _test_fheap_foreach_clobber
 _test_fheap_foreach_clobber:
@@ -104,9 +104,9 @@ _test_fheap_foreach_clobber:
         ld a, $A5
         jp @loop
     @end_of_loop:
-    ld a, c
-    ld (test_foreach_count), a
-    ret
+        ld a, c
+        ld (test_foreach_count), a
+        ret
 
 PUBLIC _test_bh_siftup
 _test_bh_siftup:
