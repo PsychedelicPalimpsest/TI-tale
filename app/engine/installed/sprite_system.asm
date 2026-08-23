@@ -50,7 +50,7 @@ ENDR
 ; Output:
 ; de = Sprite cache entry
 MACRO _new_sprite_cache_entry N
-    ld de, (sprite_pool_head)
+    ld de, (sprite_pool_tail)
     push de ; Old sprite cache head
 
     ld b, (hl) ; Width (cols)
@@ -156,7 +156,7 @@ MACRO _new_sprite_cache_entry N
     ld bc, 0000h
     
     call build_cache##N##x
-    ld (sprite_pool_head), de
+    ld (sprite_pool_tail), de
     pop de ; Old head
     ret
 endm

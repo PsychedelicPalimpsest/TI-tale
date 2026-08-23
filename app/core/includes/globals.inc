@@ -87,12 +87,6 @@ endif
 
 
 
-;==================================================
-;  Engine internals
-;==================================================
-
-
-
 ; This symbol is set by engine/install.asm, aka code installed to ram. After this
 ; point the dynamic variable allocations start.
 

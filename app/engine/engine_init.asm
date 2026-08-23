@@ -30,8 +30,6 @@ engine_init:
   ld (dirty_cols), hl
   ld (previous_dirty_cols), hl 
 
-
-
 ; Clear all the screen buffers
     xor a, a
 

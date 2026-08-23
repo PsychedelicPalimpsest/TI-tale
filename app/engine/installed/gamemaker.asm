@@ -10,17 +10,26 @@ room_init:
 
     scl_init alarm
 
+    
+    ; TODO: Does this need moved out?
+    ld hl, object_render_queue
+    ld (object_render_queue_tail), hl
+
+    ld hl, sprite_pool
+    ld (sprite_pool_tail), hl
+
+
     ret
 
 
-PUBLIC gml_step
-gml_step:
+
+MACRO _callbacks
   macro for_each_and_call name, offset
     LOCAL @scl_loop, @scl_loopend
     SCL_FOR name
       ; hl = sprite
       ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
-
+    
       ld e, (hl) \ inc hl
       ld d, (hl)
 
@@ -131,6 +140,13 @@ gml_step:
 
   for_each_and_call step,       Object_step
   for_each_and_call end_step,   Object_end_step
+endm
+
+
+
+PUBLIC gml_step
+gml_step:
+  _callbacks
   ret
 
 

@@ -35,8 +35,15 @@ RDEF engine_globals,   _gmctx,             GamemakerCTX_size
 RDEF engine_globals, bg_fill_color,   2 
 
 ; This contains ALL the sprite cache entries (the data),
-; it does not contain
-RDEF engine_globals, sprite_pool_head, 2
+; it does not contain the instances
+
+DEFC sprite_pool = engine_globals_end
+RDEF engine_globals, sprite_pool_tail, 2
+
+
+RDEF engine_globals, object_render_queue_tail, 2
+RDEF engine_globals, object_render_queue,      4*64
+
 
 
 REPTI name, begin_step, step, end_step, draw
@@ -61,12 +68,12 @@ scl_define engine_globals, alarm,      64,  Instance__alarms
 fheap_def engine_globals, instances, 64, Instance_size
 
 
-
-
-
 ; The core renderlists
 RDEF engine_globals, bg_renderlist, 8*64 ; 64 max sprites
 RDEF engine_globals, fg_renderlist, 8*64 
+
+
+
 
 
 ; TODO: PUT MORE CRAP HERE TO WASTE LESS SPACE
@@ -82,8 +89,7 @@ DEFC buffers_start = engine_globals;
 
 
 RDEF engine_globals,    layer_background, 768*2
-RDEF engine_globals,    layer_foregound,  768*2
-
+DEFC layer_foreground = _screen_buffer
 
 
 
@@ -97,6 +103,7 @@ DEFC screen_size = 768
 RDEF engine_globals,              grey_phase1_buff, screen_size
 RDEF engine_globals,              grey_phase2_buff, screen_size
 RDEF engine_globals,              grey_phase3_buff, screen_size
+
 
 RDEF engine_globals,              _screen_buffer, screen_size*2
 
