@@ -49,9 +49,9 @@ endm
 ; zero flag
 MACRO CpHLDE_fast
     ld a, l
-    sub d
-    ld a, h
     sub e
+    ld a, h
+    sub d
 endm
 
 MACRO CpHLBC

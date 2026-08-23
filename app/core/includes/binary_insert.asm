@@ -36,11 +36,16 @@ MACRO sorted_array_insert head, tail_ptr
         ; Add the start back in to get the pointer back
         add hl, de
 
+    ; if array[midpoint] > key:
         ; array[midpoint] - key <= 0
         ; bc - (hl)
         CpBC_PHL
-    ; if array[midpoint] > key:
+        jp po, @no_overflow
+        jp p, @key_is_smaller
+        jp @key_is_bigger
+@no_overflow:
         jp m, @key_is_smaller
+@key_is_bigger:
             ; start = midpoint+1
             ex de, hl ; midpoint to start
             inc de \ inc de \ inc de
@@ -68,18 +73,24 @@ MACRO sorted_array_insert head, tail_ptr
             ld bc, hl
         add hl, de
 
-
         ld de, hl
-        dec hl ; The tail ptr is the NEXT empty space, we don't need to copy that
-        inc de \ inc de \ inc de ; inc de
-        ld (tail_ptr), de
 
+        inc de \ inc de \ inc de \ inc de
+            ld (tail_ptr), de
+        dec de
+        dec hl
+       
+        
+        ld a, b \ or c
+        jr z, @no_cpy
+        
         ; Copy BACKWORDS, from tail -> tail+4, this means nothing gets corrupted
         @cpy_loop:
             ldd \ ldd \ ldd \ ldd
             jp pe, @cpy_loop
     ; De = where it was copied to, so that is where we start writing our insertion
     ex de, hl
+@no_cpy:
 
     pop bc ; Key
     pop de ; Ptr
@@ -89,6 +100,7 @@ MACRO sorted_array_insert head, tail_ptr
     ld (hl), b \ dec hl
     ld (hl), c
     ret
+
 endm
 
 

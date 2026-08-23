@@ -86,3 +86,29 @@ PUBLIC _test_utils_add_nn_a_bc
 _test_utils_add_nn_a_bc:
     add_nn_a_bc $1200
     ret
+
+PUBLIC _test_utils_compare_hlde_fast
+_test_utils_compare_hlde_fast:
+    CpHLDE_fast
+    ret
+
+PUBLIC _test_utils_compare_hlbc_fast
+_test_utils_compare_hlbc_fast:
+    CpHLBC_fast
+    ret
+
+PUBLIC _test_utils_compare_debc
+_test_utils_compare_debc:
+    CpDEBC
+    ret
+
+DEFC test_compare_word = $B400
+PUBLIC _test_utils_cphl_bc
+_test_utils_cphl_bc:
+    CpPHL_BC
+    ret
+
+PUBLIC _test_utils_cbc_phl
+_test_utils_cbc_phl:
+    CpBC_PHL
+    ret

@@ -19,9 +19,10 @@ CORE_ASM := $(APP)/core/interrupt.asm \
 ENGINE_ASM := $(wildcard $(APP)/engine/*.asm) \
 	$(wildcard $(APP)/engine/installed/*.asm) \
 	$(APP)/struct_offsets.inc
-TEST_ASM := routines.asm heap_routines.asm scl_routines.asm utils_routines.asm test_stubs.asm \
+TEST_ASM := routines.asm heap_routines.asm scl_routines.asm utils_routines.asm binary_insert_routines.asm test_stubs.asm \
 	$(APP)/core/includes/fixed_heap.inc \
 	$(APP)/core/includes/binary_heap.inc \
+	$(APP)/core/includes/binary_insert.asm \
 	$(APP)/core/includes/utils.inc \
 	$(APP)/engine/scl.inc
 
@@ -39,7 +40,7 @@ $(ENGINE_LIB): $(APP)/Makefile $(ENGINE_ASM)
 
 $(TEST_CODE) $(TEST_CORE) $(TEST_ENGINE) $(TEST_BINARY) $(TEST_MAP): $(TEST_ASM) $(CORE_LIB) $(ENGINE_LIB)
 	mkdir -p $(BUILD)
-	$(Z80ASM) -I$(APP) -L$(APP) -b -split-bin -m -r0x4000 -o$(TEST_BINARY) -lcore -lengine routines.asm heap_routines.asm scl_routines.asm utils_routines.asm test_stubs.asm
+	$(Z80ASM) -I$(APP) -L$(APP) -b -split-bin -m -r0x4000 -o$(TEST_BINARY) -lcore -lengine routines.asm heap_routines.asm scl_routines.asm utils_routines.asm binary_insert_routines.asm test_stubs.asm
 
 clean:
 	rm -rf $(BUILD)
