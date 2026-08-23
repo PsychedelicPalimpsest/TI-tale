@@ -60,6 +60,24 @@ ENDR
 
         self.assertEqual(format_text(source), expected)
 
+    def test_indents_scl_for_body(self):
+        source = """MACRO callback
+SCL_FOR name
+label:
+ld a, 1
+SCL_ENDFOR name
+ENDM
+"""
+        expected = """MACRO callback
+    SCL_FOR name
+    label:
+        ld a, 1
+    SCL_ENDFOR name
+ENDM
+"""
+
+        self.assertEqual(format_text(source), expected)
+
     def test_preserves_extra_logical_indentation_and_inline_labels(self):
         source = """routine:
         ; logical comment

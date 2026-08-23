@@ -26,23 +26,23 @@ MACRO for_each_and_call name, offset
     LOCAL @scl_loop, @scl_loopend
     SCL_FOR name
     ; hl = sprite
-    ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
+        ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
 
-    ld e, (hl) \ inc hl
-    ld d, (hl)
+        ld e, (hl) \ inc hl
+        ld d, (hl)
 
 
-    ex de, hl
-    IF offset>0
-        ld bc, offset
-        add hl, bc
-    endif
+        ex de, hl
+        IF offset>0
+            ld bc, offset
+            add hl, bc
+        endif
 
-    ld a, (hl) \ inc hl
-    ld h, (hl)
-    ld l, a
+        ld a, (hl) \ inc hl
+        ld h, (hl)
+        ld l, a
 
-    call __hl
+        call __hl
     SCL_ENDFOR name
 endm
 
@@ -56,17 +56,17 @@ MACRO _callbacks
     SCL_FOR alarm
     ; hl = sprite object
 
-    ld (@sprite_origin+1), hl
+        ld (@sprite_origin+1), hl
 
-    xor a
+        xor a
 
     ; hl = the high byte of the last timer
-    ld de, Instance_alarms  + 12*2 - 1
-    add hl, de
+        ld de, Instance_alarms  + 12*2 - 1
+        add hl, de
 
-    ld ixl, 0 ; Active alarm count
+        ld ixl, 0 ; Active alarm count
     ; MOST alarms will be disable, so that the fastest path
-    ld b, 12
+        ld b, 12
     @alarm_loop:
         bit 7, (hl)
         jr z, @not_negative
@@ -100,7 +100,6 @@ MACRO _callbacks
         push bc
         push hl
         push ix
-
             inc hl ; Undo the `dec hl`
 
             ex de, hl
@@ -128,14 +127,14 @@ MACRO _callbacks
                 pop hl
                 pop bc
                 djnz @alarm_loop
-@end_of_loop:
+    @end_of_loop:
 
-    ld a, ixl
-    or a
-    jp nz, @after_check ; Unlikely to fall through
+        ld a, ixl
+        or a
+        jp nz, @after_check ; Unlikely to fall through
         ld hl, (@sprite_origin +1)
         scl_pop alarm
-@after_check:
+    @after_check:
     SCL_ENDFOR alarm
 
     for_each_and_call step,       Object_step
@@ -176,7 +175,6 @@ _inst_update_alarms:
     ; Negative numbers do not tick
     bit 7, b
     ret nz
-
         ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
         scl_append alarm ; Handles for us alarms what are already set
     ret

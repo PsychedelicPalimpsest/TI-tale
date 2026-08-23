@@ -40,11 +40,11 @@ _test_scl_pop:
     MACRO test_scl_iterate_record_body
         LOCAL @scl_loop, @scl_loopend
         SCL_FOR testing
-        ld (ix + 0), l
-        ld (ix + 1), h
-        inc ix
-        inc ix
-        inc c
+            ld (ix + 0), l
+            ld (ix + 1), h
+            inc ix
+            inc ix
+            inc c
         SCL_ENDFOR testing
     ENDM
 
@@ -60,10 +60,10 @@ _test_scl_iterate_record:
     MACRO test_scl_iterate_clobber_body
         LOCAL @scl_loop, @scl_loopend
         SCL_FOR testing
-        inc c
-        ld hl, $1234
-        ld de, $5678
-        ld a, $A5
+            inc c
+            ld hl, $1234
+            ld de, $5678
+            ld a, $A5
         SCL_ENDFOR testing
     ENDM
 
@@ -78,8 +78,8 @@ _test_scl_iterate_clobber:
     MACRO test_scl_remove_all_body
         LOCAL @scl_loop, @scl_loopend
         SCL_FOR testing
-        scl_pop testing
-        inc ix
+            scl_pop testing
+            inc ix
         SCL_ENDFOR testing
     ENDM
 

@@ -32,6 +32,7 @@ OPENERS = {
     "REPTC": "repeat",
     "IRP": "repeat",
     "IRPC": "repeat",
+    "SCL_FOR": "scl_loop",
     "IF": "conditional",
     "IFDEF": "conditional",
     "IFNDEF": "conditional",
@@ -42,6 +43,7 @@ CLOSERS = {
     "ENDM": "macro",
     "ENDR": "repeat",
     "ENDIF": "conditional",
+    "SCL_ENDFOR": "scl_loop",
 }
 ELSE_TOKENS = {"ELSE", "ELSEIF", "ELIF"}
 
@@ -155,6 +157,14 @@ def block_body_indent(stack: list[Block]) -> int:
     return max(block.indent + INDENT_WIDTH for block in stack)
 
 
+def label_indent_floor(stack: list[Block]) -> int:
+    """Keep labels in explicit SCL loop bodies with that loop's code."""
+
+    if not any(block.kind == "scl_loop" for block in stack):
+        return 0
+    return max(block.indent for block in stack)
+
+
 def line_is_body(token: str, is_label: bool) -> bool:
     return not is_label and token not in NON_BODY_TOKENS
 
@@ -215,7 +225,7 @@ def format_lines(lines: list[str]) -> tuple[list[str], list[Issue]]:
             # Labels can deliberately mark a new logical region inside a
             # macro, so preserve their source level and constrain only their
             # following executable body.
-            expected_indent = source_indent
+            expected_indent = max(source_indent, label_indent_floor(stack))
             pending_label = expected_indent if standalone_label else None
         elif token in OPENERS:
             expected_indent = max(
