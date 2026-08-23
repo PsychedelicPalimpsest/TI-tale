@@ -17,16 +17,16 @@ _init_game:
     ; Setup the compositor task
     EXTERN task3
 
-    xor a
-    ld (task3), a  ; Leave disabled
+    ld a, 2
+    ld (task3), a  ; Unconditional
 
     ; Set the compositor thread to have a stack coming down from $FE80 (256+128 byte past where the stack normally is)
     ld hl, $FE80
     ld (task3+1+2), hl
 
-    ; EXTERN compositor_loop
-    ; ld hl, compositor_loop
-    ; ld ($FE80), hl
+    EXTERN compositor_loop
+    ld hl, compositor_loop
+    ld ($FE80), hl
 
 PUBLIC _game_loop
 _game_loop:

@@ -47,7 +47,6 @@ MACRO for_each_and_call name, offset
 endm
 
 MACRO _callbacks
-
     ; Do all the begin steps
     for_each_and_call begin_step, Object_begin_step
 

@@ -22,8 +22,14 @@ RDEF engine_globals,    cur_room_addr,      2
 RDEF engine_globals,    cur_camx,           2
 RDEF engine_globals,    cur_camy,           2
 
+
 RDEF engine_globals,    cur_camx_plusw,     2
 RDEF engine_globals,    cur_camy_plush,     2
+
+
+RDEF engine_globals,    cur_camprevx,           2
+RDEF engine_globals,    cur_camprevyy,           2
+
 
 RDEF engine_globals,   _gmctx,             GamemakerCTX_size
 

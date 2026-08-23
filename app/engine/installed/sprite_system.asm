@@ -1188,7 +1188,6 @@ calculate_rl:
     exx ; To get access to the width in cols
 
     ; TODO: Is this a bug?
-
     ld a, ixl  ; Left truncation
     add iyl    ; Right truncation
 
