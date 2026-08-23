@@ -1,0 +1,10 @@
+# Override built-in z80 grammar (nasm) with RubixDev tree-sitter-asm.
+# Matches the revision pinned by nvim-treesitter.
+[[language]]
+name = "z80"
+grammar = "asm"
+indent = { tab-width = 4, unit = "    " }
+
+[[grammar]]
+name = "asm"
+source = { git = "https://github.com/RubixDev/tree-sitter-asm", rev = "04962e15f6b464cf1d75eada59506dc25090e186" }
