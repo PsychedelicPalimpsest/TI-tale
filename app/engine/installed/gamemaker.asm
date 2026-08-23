@@ -22,31 +22,31 @@ room_init:
     ret
 
 
-
-MACRO _callbacks
-  macro for_each_and_call name, offset
+MACRO for_each_and_call name, offset
     LOCAL @scl_loop, @scl_loopend
     SCL_FOR name
-      ; hl = sprite
-      ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
-    
-      ld e, (hl) \ inc hl
-      ld d, (hl)
+    ; hl = sprite
+    ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
 
-      
-      ex de, hl
-      IF offset>0
+    ld e, (hl) \ inc hl
+    ld d, (hl)
+
+  
+    ex de, hl
+    IF offset>0
         ld bc, offset
         add hl, bc
-      endif
+    endif
 
-      ld a, (hl) \ inc hl 
-      ld h, (hl) 
-      ld l, a
+    ld a, (hl) \ inc hl 
+    ld h, (hl) 
+    ld l, a
 
-      call __hl
+    call __hl
     SCL_ENDFOR name
-  endm
+endm
+
+MACRO _callbacks
 
   ; Do all the begin steps
   for_each_and_call begin_step, Object_begin_step
