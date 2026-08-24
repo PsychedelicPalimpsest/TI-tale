@@ -40,7 +40,7 @@ render_background:
 @end_of_loop:
     ;  Backgrounds can take a LONG time, so lets give the main loop a chance
     ;  to fire (but only if that much time has passed)
-    
+
     call yield_raw ; We don't have any registers we care about, trash them!
 
     jp compositor_loop@rejoin
@@ -79,7 +79,7 @@ compositor_loop:
 
     MACRO _event_until_tail tail_ptr, head, event, do_self
         LOCAL @loop, @no_draw_event, @end_of_loop
-        
+
         ld bc, (tail_ptr)
         ld hl, head
         @loop:
@@ -95,7 +95,7 @@ compositor_loop:
                 ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
                 ld e, (hl) \ inc hl
                 ld d, (hl)
-            
+
 
                 ld hl, event
                 add hl, de
@@ -126,11 +126,11 @@ compositor_loop:
     ENDM
 
     _event_until_tail object_render_queue_tail, object_render_queue, Object_draw, 1
-        
-    
+
+
     for_each_and_call post_draw, Object_post_draw ; Does NOT need any order
 
-    
+
     _event_until_tail gui_render_queue_tail, gui_render_queue, Object_draw_gui, 1
 
     ld hl, fg_renderlist
@@ -144,11 +144,11 @@ compositor_loop:
         exx
         jp @display_loop
     @after_loop:
-        
-    call _greyscale_swap
-    
 
-    
+        call _greyscale_swap
+
+
+
 
 
 

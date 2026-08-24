@@ -51,7 +51,7 @@ MACRO mark_region_dirty
     add c \ add c
     ld d, h
     ld e, a
-    
+
     ld a, (dirty_cols)
     xor (hl)
     ex de, hl
@@ -59,7 +59,7 @@ MACRO mark_region_dirty
     ld (dirty_cols), a
 
     inc e \ inc l    ; Safe since it it aligned
-    
+
     ld a, (dirty_cols+1)
     xor (hl)
     ex de, hl
@@ -763,7 +763,7 @@ scrcpy:
 
     ; Optimization: With these few iterations, we have only no collisions
     ;               that would mandate checking more then one byte!
-    
+
     ; @chk_low:
     ;     ld a, $00
     ;     cp ixl
