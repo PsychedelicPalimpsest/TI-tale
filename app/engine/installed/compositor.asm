@@ -127,7 +127,7 @@ compositor_loop:
     @no_draw_event:
         IF 1=do_self
             EXTERN _draw_self
-            call _draw_self
+            call _draw_self ; Handles sprite blitting
         endif
         pop bc
         pop hl
@@ -144,20 +144,7 @@ compositor_loop:
 
     _event_until_tail gui_render_queue_tail, gui_render_queue, Object_draw_gui, 0
 
-    ld hl, fg_renderlist
-    ld bc, (fg_renderlist_tail)
-    ld de, 8
-    @display_loop:
-        CpHLBC
-        jr z, @after_loop
-        exx
-            ; Takess its input from hl', de', advances hl', and perserves bc' and de'
-            call blit_rl_entry
-        exx
-        jp @display_loop
-    @after_loop:
-
-        call _greyscale_swap
+    call _greyscale_swap
 
 
 
