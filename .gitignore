@@ -6,5 +6,7 @@ out*
 *.lis
 .pytest_cache/
 *.lib
+out.prof
+regions.txt
 testing/build/
 testing/node_modules/

@@ -1,4 +1,4 @@
-all: out.8xk
+all: out.8xk out.prof
 
 
 CFLAGS = "-pragma-define:CRT_ENABLE_STDIO=0" -m --list
@@ -22,6 +22,9 @@ rooms/rooms.h rooms/rooms.inc &: $(addprefix rooms/, $(shell python room.py --li
 struct_offsets.inc: $(shell python struct_to_asm.py --list)
 	python struct_to_asm.py --gen-inc > $@ || rm -f $@
 
+out.prof: $(shell python profile_gen.py --list) out.map
+	python profile_gen.py --gen-regions --map out.map > $@ || rm -f $@
+
 
 rooms/%.o:rooms/%.c rooms/rooms.h
 	zcc +ti83p -c $< -o $@ $(shell python room.py --room-defs $<) -crt0=core/custom_ti83papp_crt0.asm
@@ -30,4 +33,4 @@ out.8xk: first_page.c Makefile engine.lib core.lib core/custom_ti83papp_crt0.asm
 	zcc +ti83p -lcore -lengine -o out first_page.c -crt0=core/custom_ti83papp_crt0.asm $(CFLAGS)
 	z88dk-appmake +ti83papp --single-page --binfile out --crt0file core/custom_ti83papp_crt0.asm --output out.8xk
 clean:
-	rm -f out.8xk *.bin out *.lib **/*.o **/**.lis *.lis *.map struct_offsets.inc
+	rm -f out.8xk *.bin out *.lib **/*.o **/**.lis *.lis *.map struct_offsets.inc out.prof regions.txt
