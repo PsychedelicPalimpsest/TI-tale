@@ -39,10 +39,10 @@ ENDM
 ; Mark an area on screen as being dirty
 ; Inputs:
 ; a - starting col
-; c - ending col
+; c - column count (exclusive end is a + c)
 ;
-; Clobbers: hl, de, af
-; t-states: 127
+; Clobbers: b, hl, de, af
+; t-states: 135
 MACRO mark_region_dirty
     add a
     ld h, high(bitset_lookup)
@@ -52,18 +52,21 @@ MACRO mark_region_dirty
     ld d, h
     ld e, a
 
-    ld a, (dirty_cols)
-    xor (hl)
-    ex de, hl
-    xor (hl)
-    ld (dirty_cols), a
 
+    ld a, (de)
+    xor (hl)
+    ld b, a
+    ld a, (dirty_cols)
+    or b
+    ld (dirty_cols), a
+    
     inc e \ inc l    ; Safe since it it aligned
 
+    ld a, (de)
+    xor (hl)
+    ld b, a
     ld a, (dirty_cols+1)
-    xor (hl)
-    ex de, hl
-    xor (hl)
+    or b
     ld (dirty_cols+1), a
 endm
 
@@ -1278,10 +1281,9 @@ calculate_rl:
 DEFC render_sprite_screen = render_sprite@screen+1
 PUBLIC render_sprite, render_sprite_screen
 render_sprite:
-    ld a, (hl) \ inc hl
+    bit 0, (hl) \ inc hl
 
-    rra
-    ret nc ; Sprite is disabled
+    ret z ; Sprite is disabled
 
     ld de, Sprite_rotation_entries-1
     ex de, hl

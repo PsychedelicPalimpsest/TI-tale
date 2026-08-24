@@ -25,7 +25,8 @@ int main(){
   ld (st_camera_height), hl
 
   ld hl, _screen_buffer
-  ld (calculate_rl_screen), hl
+  EXTERN render_sprite_screen
+  ld (render_sprite_screen), hl
 
   ld hl, sprite
   call new_sprite_cache_entry2x
@@ -43,12 +44,9 @@ int main(){
     ld (hl), 0
   pop hl
 
-  call calculate_rl
-  jr nc, loop
-  call blit_rl_entry
+  EXTERN render_sprite
+  call render_sprite
 
-  ld hl, -1
-  ld (dirty_cols), hl
   call _greyscale_swap
 
 loop:

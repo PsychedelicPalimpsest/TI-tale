@@ -8,6 +8,7 @@ EXTERN rand16
 EXTERN _set_grey_timing
 EXTERN setup_interrupts
 EXTERN install_hooks
+EXTERN calculate_rl
 
 PUBLIC _test_mul_16_16x8_fast
 _test_mul_16_16x8_fast:
@@ -32,3 +33,7 @@ _test_setup_interrupts:
 PUBLIC _test_install_hooks
 _test_install_hooks:
     jp install_hooks
+
+PUBLIC _test_calculate_rl
+_test_calculate_rl:
+    jp calculate_rl

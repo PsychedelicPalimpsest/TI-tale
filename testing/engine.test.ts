@@ -47,16 +47,42 @@ describe('linked engine routines', () => {
     expect(m.readWord(mapAddress('grey_timingX6'))).toBe(0x03C0)
   })
 
-  it('copies installed code into its RAM phase', () => {
+  it('marks a region idempotently and preserves overlapping dirty columns', () => {
     const m = machine()
-    const source = mapAddress('install_origin')
-    const destination = mapAddress('install_location')
-    const firstByte = m.readByte(source)
-    m.writeByte(destination, 0)
+    const dirtyCols = mapAddress('dirty_cols')
+    const sprite = 0xA000
+    const calculateRenderList = () => m.runFrom(address('test_calculate_rl'))
 
-    m.runFrom(address('test_install_hooks'))
+    m.writeByte(sprite, 1)
+    m.writeWord(sprite + 1, 16)
+    m.writeByte(sprite + 3, 3)
+    m.writeWord(sprite + 4, 24)
+    m.writeWord(sprite + 6, 0)
+    m.writeByte(sprite + 8, 8)
+    m.writeWord(sprite + 17, 0xB000)
+    m.writeWord(mapAddress('cur_camx'), 0)
+    m.writeWord(mapAddress('cur_camy'), 0)
+    m.writeWord(mapAddress('calculate_rl_screen'), 0xC000)
+    m.writeWord(mapAddress('st_camera_width'), 96)
+    m.writeWord(mapAddress('st_camera_height'), 64)
 
-    expect(m.readByte(destination)).toBe(firstByte)
-    expect(m.readWord(mapAddress('greyscale_addr'))).toBe(mapAddress('greyscale_tick'))
+    m.regs.hl = sprite
+    calculateRenderList()
+    expect(m.readWord(dirtyCols)).toBe(0x3800)
+
+    m.regs.hl = sprite
+    calculateRenderList()
+    expect(m.readWord(dirtyCols)).toBe(0x3800)
+
+    m.writeWord(dirtyCols, 0x8000)
+    m.regs.hl = sprite
+    calculateRenderList()
+    expect(m.readWord(dirtyCols)).toBe(0xB800)
+
+    m.writeWord(dirtyCols, 0)
+    m.writeWord(sprite + 1, 72)
+    m.regs.hl = sprite
+    calculateRenderList()
+    expect(m.readWord(dirtyCols)).toBe(0x0070)
   })
 })
