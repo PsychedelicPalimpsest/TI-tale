@@ -15,10 +15,10 @@ engine_prepage_init:
 engine_init:
     call install_hooks
 
-; Zero out global vars for safety (first byte is already being used)
-    ld hl, _globals_start + 1
+; Zero out core global vars for safety (first two bytes are already being used)
+    ld hl, _globals_start + 2
     ld (hl), $00
-    ld de, _globals_start + 2
+    ld de, _globals_start + 3
     ld bc, $70
     ldir
 
