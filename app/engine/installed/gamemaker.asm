@@ -4,7 +4,7 @@
 PUBLIC room_init
 room_init:
     ; Cleanup the callback lists
-    REPTI name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_end, draw_gui, draw_gui_begin, draw_gui_end
+    REPTI name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_end, draw_gui
         scl_init name
     endr
 
@@ -148,7 +148,8 @@ gml_step:
     ret
 
 
-
+_draw_self:
+    ret
 
 
 

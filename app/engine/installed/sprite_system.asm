@@ -16,6 +16,61 @@ bitset_lookup2:
     ENDR
 
 
+; Mark a single col as being dirty:
+; t-states: 92
+MACRO mark_dirty
+; a - col count (0-15)
+    add a
+    add low(bitset_lookup2)     ; fold table offset into the index, no add_hl_a needed
+    ld l, a
+    ld h, high(bitset_lookup2)
+
+    ld a, (dirty_cols)
+    or (hl)
+    ld (dirty_cols), a
+
+    inc l  ; Safe since it it aligned
+
+    ld a, (dirty_cols+1)
+    or (hl)
+    ld (dirty_cols+1), a
+ENDM
+
+; Mark an area on screen as being dirty
+; Inputs:
+; a - starting col
+; c - ending col
+;
+; Clobbers: hl, de, af
+; t-states: 127
+MACRO mark_region_dirty
+    add a
+    ld h, high(bitset_lookup)
+    ld l, a
+
+    add c \ add c
+    ld d, h
+    ld e, a
+    
+    ld a, (dirty_cols)
+    xor (hl)
+    ex de, hl
+    xor (hl)
+    ld (dirty_cols), a
+
+    inc e \ inc l    ; Safe since it it aligned
+    
+    ld a, (dirty_cols+1)
+    xor (hl)
+    ex de, hl
+    xor (hl)
+    ld (dirty_cols+1), a
+endm
+
+
+
+
+
 ; ==============================================================================
 ; DATA STRUCTURE: Sprite Cache Entry (Runtime Sprite Instance)
 ; ==============================================================================
@@ -681,7 +736,7 @@ norot1x3_xorblit: _norot1xN_xorblit 3
 ; Inputs:
 ;  iy = source
 ;  ix = destination
-; T-states: 23,769, or 15.47 per byte
+; T-states: 23,562 or 15.34 per byte
 PUBLIC scrcpy
 scrcpy:
     ld (@sp_restore+1), sp
@@ -691,8 +746,9 @@ scrcpy:
     ld hl, 108 * 14 ; 768 + 744, leaving 24 (12*2) left over
     add hl, de
 
-    ld a, l
-    ld (@chk_low+1), a
+
+    ; ld a, l
+    ; ld (@chk_low+1), a
     ld a, h
     ld (@chk_high+1), a
 
@@ -700,14 +756,18 @@ scrcpy:
 
     di
     @loop:
-        REPT 12
+        REPT 36
             fastcpy_14s_stride
         ENDR
 
-    @chk_low:
-        ld a, $00
-        cp ixl
-        jp nz, @loop ; Unlikely to fall through
+
+    ; Optimization: With these few iterations, we have only no collisions
+    ;               that would mandate checking more then one byte!
+    
+    ; @chk_low:
+    ;     ld a, $00
+    ;     cp ixl
+    ;     jp nz, @loop ; Unlikely to fall through
 
     @chk_high:
         ld a, $00
@@ -715,7 +775,7 @@ scrcpy:
         jp nz, @loop
 
         ld de, 12
-        fastcpy_12s_stride \ fastcpy_12s_stride
+        fastcpy_12s_stride \ fastcpy_12s_stridenuke_faster
 
 @sp_restore: ld sp, 0000h
     ei
@@ -994,12 +1054,170 @@ set_nz:
     or a ; reset zero flag
     ret
 
+
+; Sprite geometry helper: Takes the inputs of sprite_truncation,
+;                         and puts the rl data on the stack
+; Inputs:
+;
+; ixl - left_truncation
+; ixh - top_truncation
+; iyl - right_truncation
+; iyh - bottom_truncation
+; hl  - Screen X position
+; de  - Screen Y position
+; bc  - Sprite height
+; c'  - Sprite Width in cols
+; a   - Rotation (based on position)
+;
+; @screen+1       - A ptr to the screen to display on
+; @sprite_table+1 - A ptr to the sprite ptr table
+
+    MACRO _sprite_geometry
+        ex af, af' ; Save rotation for later
+
+        ld a, c
+        ld (@full_height+1), a
+
+        push bc ; Save for later
+
+        bit 7, h
+
+    @style: ; SMC point for switching screen size
+        jp z, @positive_globalx_style64
+        ld hl, 0
+        jp @after_mult
+
+    @positive_globalx_style64:
+        ; Here, we are using a variation of the formula for the typical 64px tall screen
+        ; global_x /8 * 64 * 2 = global_x * 16
+
+        ; Remove pesky inter col crap
+        ld a, ~7
+        and l
+        ld l, a
+
+        REPT 4
+            add hl, hl
+        endr
+        jp @after_mult
+
+    @positive_globalx_style128:
+        ; Here, we are using a variation of the formula for the background 128px tall screen
+        ; global_x /8 * 128 * 2 = global_x * 32
+
+        ; Remove pesky inter col crap
+        ld a, ~7
+        and l
+        ld l, a
+
+        REPT 5
+            add hl, hl
+        endr
+@after_mult:
+
+        bit 7, d
+        jr nz, @screen
+        ; *2 for the screen size
+        add hl, de
+        add hl, de
+@screen:
+        ld bc, 0000h ; SMC: Screen location
+        add hl, bc
+
+    ; Put: screen location
+    ; Get: Sprite height
+        ex (sp), hl
+        ld a, ixh
+        or ixl
+        jr nz, @with_tl_truncation ; Likely hot path
+        ld de, 0
+        jp @sprite_table
+@with_tl_truncation:
+    ; c = sprite height *3
+        ; Note: We only allow sprites as big as the screen, and since 64*3 < 256, this is safe
+        ld a, l
+        add a
+        add l
+        ld b, $0
+        ld c, a
+
+    ; hl = 3*top truncation
+        ld h, b ; Zero high byte
+        ld a, ixh \ add a \ add ixh \ ld l, a
+
+    ; A = left truncation / 8
+        ld a, ixl ; left truncation
+
+    ; Pixel to col:
+        add 7 ; Round up
+        rrca \ rrca \ rrca \ and 31 ; >>3
+
+        cpl \ add 12+1
+        ld (@left_trunc_loop+1), a
+
+    ; This looks slow, but when you consider that truncations values must be lower
+    ; then 12, this always is better then mul_16_16x8_fast, and usually faster then
+    ; mul_16_16x4_fast (since zero truncation is the norm)
+    @left_trunc_loop:
+        jr $+2
+        REPT 12
+            add hl, bc
+        endr
+        ex de, hl
+
+; Re-entry point for no truncation path
+@sprite_table:
+        ld hl, 0000h
+
+        ex af, af'
+        add a
+        add_hl_a
+
+        ld a, (hl)
+        inc hl
+        ld h, (hl)
+        ld l, a
+
+        add hl, de ; Add in the offset
+        push hl
+
+        exx ; To get access to the width in cols
+
+    ; TODO: Is this a bug?
+        ld a, ixl  ; Left truncation
+        add iyl    ; Right truncation
+
+        jp z, @full_height ; No lr truncation = no need to change width
+
+    ; Pixel to col:
+        add 7 ; Round up
+        rrca \ rrca \ rrca \ and 31 ; >>3
+
+        neg \ add c
+        ld c, a   ; Little endian: First byte is little
+@full_height:
+        ld b, 00h ; SMC: Full height
+        push bc
+
+        ld a, ixh ; Top trunc
+        add iyh   ; Bottom trunc
+
+        ld b, a
+        ld c, 1   ; Set the do-display flag
+
+        push bc
+    endm
+
+
+
+
+
 ; Calculate the renderlist entry for a sprite, it updates a sprites exiting entry
 ; if one is found, otherise it uses the provided one
 ; Inputs:
 ; hl = Sprite list entry
 ; de = Render list entry
-; bc = Screen to place the sprite on
+; (calculate_rl_screen) = Screen to place the sprite on
 ; st_camera_width, st_camera_height MUST be set correctly
 ;
 ; Outputs:
@@ -1014,15 +1232,16 @@ set_nz:
 ;
 ; Clobbers: bc', ix, iy, hl, bc, af, af'
 ; Perserves: hl', de'
-PUBLIC calculate_rl
+
+
+DEFC calculate_rl_screen = calculate_rl@screen+1
+PUBLIC calculate_rl, calculate_rl_screen
 calculate_rl:
     ld a, (hl)
 
     rra
     ret nc ; Sprite is disabled
     jr nz, sprite_disabled
-
-    ld (@screen+1), bc
 
     inc hl
     push de ; Save for return
@@ -1073,143 +1292,14 @@ calculate_rl:
     ; a   - Rotation (based on position)
 
     jr c, not_on_screen ; Likely to fall through
-    ex af, af' ; Save rotation for later
-
-    ld a, c
-    ld (@full_height+1), a
 
 
     ld (@restore_sp+1), sp
 @set_sp: ld sp, 0000h
     ; Now the stack is our output
-    push bc ; Save for later
 
-    bit 7, h
+    _sprite_geometry
 
-    @style: ; SMC point for switching screen size
-        jp z, @positive_globalx_style64
-        ld hl, 0
-        jp @after_mult
-
-    @positive_globalx_style64:
-        ; Here, we are using a variation of the formula for the typical 64px tall screen
-        ; global_x /8 * 64 * 2 = global_x * 16
-
-        ; Remove pesky inter col crap
-        ld a, ~7
-        and l
-        ld l, a
-
-        REPT 4
-            add hl, hl
-        endr
-        jp @after_mult
-
-    @positive_globalx_style128:
-        ; Here, we are using a variation of the formula for the background 128px tall screen
-        ; global_x /8 * 128 * 2 = global_x * 32
-
-        ; Remove pesky inter col crap
-        ld a, ~7
-        and l
-        ld l, a
-
-        REPT 5
-            add hl, hl
-        endr
-@after_mult:
-
-    bit 7, d
-    jr nz, @screen
-        ; *2 for the screen size
-        add hl, de
-        add hl, de
-@screen:
-    ld bc, 0000h ; SMC: Screen location
-    add hl, bc
-
-    ; Put: screen location
-    ; Get: Sprite height
-    ex (sp), hl
-    ld a, ixh
-    or ixl
-    jr nz, @with_tl_truncation ; Likely hot path
-        ld de, 0
-        jp @sprite_table
-@with_tl_truncation:
-    ; c = sprite height *3
-        ; Note: We only allow sprites as big as the screen, and since 64*3 < 256, this is safe
-        ld a, l
-        add a
-        add l
-        ld b, $0
-        ld c, a
-
-    ; hl = 3*top truncation
-    ld h, b ; Zero high byte
-    ld a, ixh \ add a \ add ixh \ ld l, a
-
-    ; A = left truncation / 8
-    ld a, ixl ; left truncation
-
-    ; Pixel to col:
-        add 7 ; Round up
-        rrca \ rrca \ rrca \ and 31 ; >>3
-
-    cpl \ add 12+1
-    ld (@left_trunc_loop+1), a
-
-    ; This looks slow, but when you consider that truncations values must be lower
-    ; then 12, this always is better then mul_16_16x8_fast, and usually faster then
-    ; mul_16_16x4_fast (since zero truncation is the norm)
-    @left_trunc_loop:
-        jr $+2
-        REPT 12
-            add hl, bc
-        endr
-    ex de, hl
-
-; Re-entry point for no truncation path
-@sprite_table:
-    ld hl, 0000h
-
-    ex af, af'
-    add a
-    add_hl_a
-
-    ld a, (hl)
-    inc hl
-    ld h, (hl)
-    ld l, a
-
-    add hl, de ; Add in the offset
-    push hl
-
-    exx ; To get access to the width in cols
-
-    ; TODO: Is this a bug?
-    ld a, ixl  ; Left truncation
-    add iyl    ; Right truncation
-
-    jp z, @full_height ; No lr truncation = no need to change width
-
-    ; Pixel to col:
-        add 7 ; Round up
-        rrca \ rrca \ rrca \ and 31 ; >>3
-
-    neg \ add c
-    ld c, a   ; Little endian: First byte is little
-@full_height:
-    ld b, 00h ; SMC: Full height
-    push bc
-
-    ld a, ixh ; Top trunc
-    add iyh   ; Bottom trunc
-
-    ld b, a
-    ld c, 1   ; Set the do-display flag
-
-    push bc
 
     @restore_sp: ld sp, 0000h
     exx ; Round amount of shadow reg switches (minimize nuked shadows to bc)
@@ -1227,3 +1317,33 @@ calculate_rl:
     ret
 
 
+; Render a sprite to the screen directly (no rl entry), used for background tiles
+; Input:
+; hl - Sprite entry
+; (render_sprite_screen) = screen to place sprite on
+DEFC render_sprite_screen = render_sprite@screen+1
+PUBLIC render_sprite, render_sprite_screen
+render_sprite:
+    ld a, (hl) \ inc hl
+
+    rra
+    ret nc ; Sprite is disabled
+
+    ld de, Sprite_rotation_entries-1
+    ex de, hl
+        add hl, de
+        ld (@sprite_table+1), hl
+    ex de, hl
+
+    call sprite_truncation
+    ret c ; Sprite is not on screen
+    _sprite_geometry
+    exx ; Round amount of shadow reg switches (minimize nuked shadows to bc)
+
+    pop bc                  ; c = flags, b = vert_trunc (Height truncation)
+    pop ix                  ; ixl = vis_width_cols, ixh = full_height
+    ld a, ixh               ; a = full_height
+    pop de                  ; de = data_ptr (Input sprite pointer)
+    pop hl                  ; hl = screen_dest (Output screen location)
+
+    jp norot3x2_blit

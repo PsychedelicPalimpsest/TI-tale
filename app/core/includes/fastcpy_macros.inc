@@ -89,6 +89,51 @@ MACRO fastcpy_12s_stride
 ENDM
 
 
+
+; Copies 12 bytes with the stack.
+; NOTE: This one doesn't iterate iy, and clobbers de
+;
+; Inputs:
+;  iy = source
+;  ix = destination
+;  de = destination offset (typically 12)
+; Outputs:
+;  iy += de'
+;  sp = ix + 12
+;
+; Clobbers: af, bc, hl, af', bc', hl', de
+; Perserves: de, de`
+; T-states: 169
+MACRO fastcpy_12s_stridenuke_faster
+    ld sp, iy
+    add ix, de ; dst += dst_offset (12)
+
+    pop de
+    pop bc
+    pop hl
+
+    exx
+
+    pop af
+    pop bc
+    pop hl
+
+    ld sp, ix
+
+    push hl
+    push bc
+    push af
+
+    exx
+
+    push hl
+    push bc
+    push de
+ENDM
+
+
+
+
 ; 142 t-states
 MACRO fastcpy_8s_stride
     ld sp, iy

@@ -28,7 +28,7 @@ RDEF engine_globals,    cur_camy_plush,     2
 
 
 RDEF engine_globals,    cur_camprevx,           2
-RDEF engine_globals,    cur_camprevyy,           2
+RDEF engine_globals,    cur_camprevy,           2
 
 
 RDEF engine_globals,   _gmctx,             GamemakerCTX_size
@@ -51,6 +51,13 @@ RDEF engine_globals, object_render_queue_tail, 2
 RDEF engine_globals, object_render_queue,      4*64
 
 
+RDEF engine_globals, tile_render_queue_tail, 2
+RDEF engine_globals, tile_render_queue,      4*64
+
+
+RDEF engine_globals, gui_render_queue_tail, 2
+RDEF engine_globals, gui_render_queue,      4*6 ; Not alot are needed
+
 
     REPTI name, begin_step, step, end_step, draw
         scl_define engine_globals, name, 64,  Instance__##name
@@ -58,7 +65,7 @@ RDEF engine_globals, object_render_queue,      4*64
 
 
 ; These are less common, give them less space
-    REPTI name, pre_draw, post_draw, draw_end, draw_gui, draw_gui_begin, draw_gui_end
+    REPTI name, pre_draw, post_draw, draw_end, draw_gui
         scl_define engine_globals, name, 24,  Instance__##name
     endr
 
@@ -74,8 +81,7 @@ RDEF engine_globals, object_render_queue,      4*64
     fheap_def engine_globals, instances, 64, Instance_size
 
 
-; The core renderlists
-RDEF engine_globals, bg_renderlist, 8*64 ; 64 max sprites
+RDEF engine_globals, fg_renderlist_tail, 2
 RDEF engine_globals, fg_renderlist, 8*64
 
 

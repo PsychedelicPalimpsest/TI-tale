@@ -1,6 +1,8 @@
-
+INCLUDE "engine/engine_globals.inc"
 
 DEFC frame_pending = compositor_loop+1
+
+EXTERN yield, yield_raw
 
 ; When this happens, it is best to assume a frame will be dropped
 render_background:
@@ -12,10 +14,37 @@ render_background:
     ; Everything is likely fucked
     ld hl, -1
     ld (dirty_cols), hl
-    ; TODO: Background tiles
 
+    ld bc, (tile_render_queue_tail)
+    ld hl, tile_render_queue
+
+    ld hl, layer_background
+    ld (render_sprite_screen), hl
+
+    @loop:
+        CpHLBC
+        jr z, @end_of_loop
+
+        inc hl \ inc hl ; We don't care about the depth
+
+        ld e, (hl) \ inc hl
+        ld d, (hl) \ inc hl
+
+        push hl
+        push bc
+            ex de, hl
+            call render_sprite
+        pop bc
+        pop hl
+        jp @loop
+@end_of_loop:
+    ;  Backgrounds can take a LONG time, so lets give the main loop a chance
+    ;  to fire (but only if that much time has passed)
+    
+    call yield_raw ; We don't have any registers we care about, trash them!
 
     jp compositor_loop@rejoin
+
 
 
 PUBLIC compositor_loop
@@ -26,8 +55,6 @@ compositor_loop:
 
     xor a
     ld (frame_pending), a
-
-    for_each_and_call pre_draw, Object_pre_draw ; Dows NOT need any order
 
     ; We only re-render the background if the camera moves
     ld hl, (cur_camx)
@@ -41,12 +68,90 @@ compositor_loop:
     jr nz, render_background
 
 @rejoin:
+    ld iy, layer_background ; Src
+    ld ix, _screen_buffer   ; Dst
+    call scrcpy
+
+
+    ; Note: This is after the background to save a bit of time (move the big stuff down to use jr)
+    ;       since tiles can have not callbacks, this is valid
+    for_each_and_call pre_draw, Object_pre_draw ; Does NOT need any order
+
+    MACRO _event_until_tail tail_ptr, head, event, do_self
+        LOCAL @loop, @no_draw_event, @end_of_loop
+        
+        ld bc, (tail_ptr)
+        ld hl, head
+        @loop:
+            CpHLBC
+            jr z, @end_of_loop
+            inc hl \ inc hl ; Skip depth
+            ld e, (hl) \ inc hl
+            ld d, (hl) \ inc hl
+
+            push hl
+            push bc
+                ex de, hl
+                ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
+                ld e, (hl) \ inc hl
+                ld d, (hl)
+            
+
+                ld hl, event
+                add hl, de
+
+                ld e, (hl) \ inc hl
+                ld d, (hl)
+
+                ld a, d
+                or e
+                jr z, @no_draw_event
+
+                ex de, hl
+                call __hl
+            pop bc
+            pop hl
+            jp @loop
+
+    @no_draw_event:
+        IF 1=do_self
+            EXTERN _draw_self
+            call _draw_self
+        endif
+        pop bc
+        pop hl
+        jp @loop
+
+@end_of_loop:
+    ENDM
+
+    _event_until_tail object_render_queue_tail, object_render_queue, Object_draw, 1
+        
+    
+    for_each_and_call post_draw, Object_post_draw ; Does NOT need any order
+
+    
+    _event_until_tail gui_render_queue_tail, gui_render_queue, Object_draw_gui, 1
+
+    ld hl, fg_renderlist
+    ld bc, (fg_renderlist_tail)
+    ld de, 8
+    @display_loop:
+        CpHLBC
+        jr z, @after_loop
+        exx
+            call blit_rl_entry
+        exx
+        jp @display_loop
+    @after_loop:
+        
+    call _greyscale_swap
+    
+
     
 
 
 
-
 @yield_and_loop:
-    EXTERN yield
-    call yield
+    call yield_raw ; No registers betweem loops
     jp compositor_loop

@@ -96,7 +96,7 @@ __next_task:
     inc hl
 
     dec a
-    jp nz, @unconditional_task
+    jr nz, @unconditional_task
 
     push hl
         ld a, (hl)
@@ -112,7 +112,7 @@ __next_task:
         pop bc
         pop de
     pop hl
-    jp nc, @next
+    jr nc, @next
     ; Fall through
 @unconditional_task:
     ; Always run unconditional tasks
