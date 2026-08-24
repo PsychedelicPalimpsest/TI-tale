@@ -24,10 +24,10 @@ render_background:
     ld de, (bg_fill_color)
     call scrset
 
-    
+
     ld hl, layer_background
     ld (render_sprite_screen), hl
-    
+
     ld bc, (tile_render_queue_tail)
     ld hl, tile_render_queue
 

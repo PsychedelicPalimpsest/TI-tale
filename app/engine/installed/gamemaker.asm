@@ -153,17 +153,17 @@ gml_step:
 PUBLIC _draw_self
 _draw_self:
     ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
-    
+
     ld a, (hl)
     rra \ rra ; Bit 1: Is visible
     ret nc ; Not visable
 
     rra ; Bit 2: Needs new RL
     jr c, @new_rl
-    
+
     ld bc, Instance_displayed_sprite+Sprite_rl_entry
     add hl, bc
-    
+
     jp blit_rl_entry
 
 @new_rl:
