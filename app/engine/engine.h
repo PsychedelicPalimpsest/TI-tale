@@ -32,7 +32,7 @@ typedef struct {
     int16_t y_pos;
     uint8_t height_px;
 
-    Renderlist_Entry* rl_entry; // Might be null
+    Renderlist_Entry rl_entry; // Might be null
     void* rotation_entries[8];
     
     char sprite_data[]; // Only exists for the sprite cache entries, not
@@ -70,15 +70,15 @@ typedef struct {
     uint8_t flags;
                 // Bit 0: Is Active (Does it step?)
                 // Bit 1: Is visible
-                // Bit 2: Is persistent
-                // Bit 3: Is solid (tbd) 
+                // Bit 2: Needs new RL
+                // Bit 3: Is persistent
+                // Bit 4: Is solid (tbd) 
     uint16_t depth;
 
     uint8_t sprite_index_max;
     uint8_t sprite_index;    // An index into the sprite_cache_entries in obj
     
     uint16_t x, y;
-    uint16_t xprevdraw, yprevdraw;
     uint16_t xprev, yprev;
 
     uint16_t hspeed, vspeed;

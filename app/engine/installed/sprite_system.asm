@@ -160,10 +160,10 @@ MACRO _new_sprite_cache_entry N
             inc hl
 
             ; RL entry
-            ld (hl), a ; A is still zero
-            inc hl
-            ld (hl), a
-            inc hl
+            REPT Renderlist_Entry_size
+                ld (hl), a ; A is still zero
+                inc hl
+            ENDR
         ex de, hl
     push de
         ld l, b
@@ -550,41 +550,16 @@ no_render:
 
 
 
-PUBLIC blit_rl_entry_direct
+PUBLIC blit_rl_entry
 ; Input: hl = Render list entry
-blit_rl_entry_direct:
+blit_rl_entry:
     bit 0, (hl)
     ret z
 
-    ld (blit_rl_entry@restore_sp+1), sp
+    ld (@restore_sp+1), sp
     di
     ld sp, hl
-    jp blit_rl_entry@rejoin
     
-
-
-
-; Input:
-; hl' = Render list entry
-; de' = 8
-; Output:
-; hl' = Next RL entry
-;
-; All shadow registers perserved
-PUBLIC blit_rl_entry
-blit_rl_entry:
-    exx
-        bit 0, (hl)
-        jr z, no_render     ; Likely to fall through
-
-        ld (@restore_sp+1), sp
-        di
-
-        ld sp, hl           ; SP = entry + 0 (aligned to entry boundary)
-        add hl, de          ; hl' = entry + 1 + 7 = entry + 8 (next entry)
-    exx
-
-@rejoin:
     ; Memory Layout:
     ; +0: flags          +1: vert_trunc
     ; +2: vis_width_cols +3: full_height
@@ -1041,36 +1016,6 @@ sprite_truncation:
             ret
 
 
-
-sprite_disabled:
-    ld bc, 9
-    add hl, bc
-
-    ld c, (hl) \ inc hl
-    ld a, (hl)
-
-    or a
-    jr z, set_nz ; No need to do anything else
-
-        ld b, a
-        ; Set rendering to disabled
-        xor a
-        ld (bc), a
-        ret
-not_on_screen:
-    pop af ; Trash the 'is in'
-    pop de ; Restore RL entry
-    jr z, set_nz ; Skip if no rl entry allocated
-        ld hl, (calculate_rl@set_sp+1) ; rl entry + 8
-        ld bc, -8
-        add hl, bc
-        ld (hl), 0 ; Set rendering to disabled
-set_nz:
-    ld a, 1
-    or a ; reset zero flag
-    ret
-
-
 ; Sprite geometry helper: Takes the inputs of sprite_truncation,
 ;                         and puts the rl data on the stack
 ; Inputs:
@@ -1247,19 +1192,26 @@ set_nz:
 
 
 
+not_on_screen:
+    pop hl ; At rotation_entries
+    ld bc, Sprite_rl_entry-Sprite_rotation_entries
+    add hl, bc
 
+    xor a ; Reset carry
+    ld (hl), a
+    
+    ret
 
 ; Calculate the renderlist entry for a sprite, it updates a sprites exiting entry
 ; if one is found, otherise it uses the provided one
 ; Inputs:
 ; hl = Sprite list entry
-; de = Render list entry
 ; (calculate_rl_screen) = Screen to place the sprite on
 ; st_camera_width, st_camera_height MUST be set correctly
 ;
 ; Outputs:
-;  Zero flag is set iff renderlist was incremented
-;  de = renderlist entry, possibly incremented
+; Carry is set iff sprite is rendered
+; hl = rl entrty (only valid if cary is set)
 ;
 ; Clobbers: All but sp
 
@@ -1269,41 +1221,17 @@ calculate_rl:
     ld a, (hl)
 
     rra
-    ret nc ; Sprite is disabled
-    jr nz, sprite_disabled
+    ret nc ; Sprite is disabled (carry reset by definition)
 
-    inc hl
-    push de ; Save for return
-    push hl ; Save for later
-
-    ; Skip to rl entry
-    ld bc, 9+1-1 ; Plus high byte, minus the flag byte
+    ; Skip to END if rl entry (start of rotation entries)
+    ld bc, Sprite_rotation_entries
     add hl, bc
+        push hl
+        ld (@sprite_table+1), hl ; Start of sprite table
+        ld (@set_sp+1), hl       ; End if rl entry
+    sbc hl, bc ; Carry should be reset; restore sprite
 
-    ld a, (hl)
-    or a   ; A valid rl entry CANNOT have a zero high byte
-    jp nz, @has_rl_entry
-    ; Has no rl entry
-        ld (hl), d
-        dec hl
-        ld (hl), e
-        inc hl \ inc hl
-        jp @de_set
-    @has_rl_entry:
-        ld d, a
-        dec hl
-        ld e, (hl)
-        inc hl \ inc hl
-@de_set:
-    ld (@sprite_table+1), hl
-
-    ld hl, 8 ; RL entry size
-    add hl, de
-    ld (@set_sp+1), hl
-
-    pop hl  ; Start of sprite
-    push af ; Save zero flag for later (not clobbered by add)
-
+    inc hl ; Skip flags
     call sprite_truncation
 
     ; Ouputs:
@@ -1333,16 +1261,11 @@ calculate_rl:
     @restore_sp: ld sp, 0000h
     exx ; Round amount of shadow reg switches (minimize nuked shadows to bc)
 
-    pop af ; Zero flag from earlier
-    pop de
-
-    ret nz ; Return if rl does not need incremented (most common)
-
-    ; Increment de:
-        ld hl, 8
-        add hl, de
-        ex de, hl
-
+    pop hl ; At rotation_entries
+    ld bc, Sprite_rl_entry-Sprite_rotation_entries
+    add hl, bc
+    scf ; Is this needed???
+    
     ret
 
 

@@ -10,6 +10,10 @@ extern void greyscale_swap();
 int main(){
   #asm
 
+  EXTERN calculate_rl, blit_rl_entry
+  call calculate_rl
+  ret nc
+  call blit_rl_entry
 
 
   #endasm
