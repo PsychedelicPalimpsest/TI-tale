@@ -6,6 +6,7 @@ EXTERN yield, yield_raw
 
 ; When this happens, it is best to assume a frame will be dropped
 render_background:
+
     ld hl, (cur_camx)
     ld (cur_camprevx), hl
     ld hl, (cur_camy)
@@ -15,11 +16,21 @@ render_background:
     ld hl, -1
     ld (dirty_cols), hl
 
+    ; TODO: Can we expand the screen size, and then simply move
+    ;       the background instead of a complete redraw?
+
+    ; Fill the background
+    ld hl, layer_background + 768*2
+    ld de, (bg_fill_color)
+    call scrset
+
+    
+    ld hl, layer_background
+    ld (render_sprite_screen), hl
+    
     ld bc, (tile_render_queue_tail)
     ld hl, tile_render_queue
 
-    ld hl, layer_background
-    ld (render_sprite_screen), hl
 
     @loop:
         CpHLBC
@@ -131,7 +142,7 @@ compositor_loop:
     for_each_and_call post_draw, Object_post_draw ; Does NOT need any order
 
 
-    _event_until_tail gui_render_queue_tail, gui_render_queue, Object_draw_gui, 1
+    _event_until_tail gui_render_queue_tail, gui_render_queue, Object_draw_gui, 0
 
     ld hl, fg_renderlist
     ld bc, (fg_renderlist_tail)
@@ -140,6 +151,7 @@ compositor_loop:
         CpHLBC
         jr z, @after_loop
         exx
+            ; Takess its input from hl', de', advances hl', and perserves bc' and de'
             call blit_rl_entry
         exx
         jp @display_loop
