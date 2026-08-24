@@ -78,7 +78,9 @@ typedef struct {
     uint8_t sprite_index;    // An index into the sprite_cache_entries in obj
     
     uint16_t x, y;
+    uint16_t xprevdraw, yprevdraw;
     uint16_t xprev, yprev;
+
     uint16_t hspeed, vspeed;
 
     // These are the 'back pointers' used for callback book

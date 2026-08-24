@@ -549,6 +549,21 @@ no_render:
 
 
 
+
+PUBLIC blit_rl_entry_direct
+; Input: hl = Render list entry
+blit_rl_entry_direct:
+    bit 0, (hl)
+    ret z
+
+    ld (blit_rl_entry@restore_sp+1), sp
+    di
+    ld sp, hl
+    jp blit_rl_entry@rejoin
+    
+
+
+
 ; Input:
 ; hl' = Render list entry
 ; de' = 8
@@ -569,6 +584,7 @@ blit_rl_entry:
         add hl, de          ; hl' = entry + 1 + 7 = entry + 8 (next entry)
     exx
 
+@rejoin:
     ; Memory Layout:
     ; +0: flags          +1: vert_trunc
     ; +2: vis_width_cols +3: full_height
@@ -1072,7 +1088,7 @@ set_nz:
 ; @screen+1       - A ptr to the screen to display on
 ; @sprite_table+1 - A ptr to the sprite ptr table
 
-    MACRO _sprite_geometry
+    MACRO _sprite_geometry do_dirty
         ex af, af' ; Save rotation for later
 
         ld a, c
@@ -1080,8 +1096,29 @@ set_nz:
 
         push bc ; Save for later
 
-        bit 7, h
+        IF 1=do_dirty
+            push hl
 
+            exx
+                pop hl
+
+                ; Safty for negative values
+                xor a
+                bit 7, h
+                jr nz, @skip_shift
+                    ld a, l
+
+                    REPT 3
+                        srl h
+                        rra
+                    ENDR
+            @skip_shift:
+            mark_region_dirty
+            exx
+        endif
+    
+
+        bit 7, h
     @style: ; SMC point for switching screen size
         jp z, @positive_globalx_style64
         ld hl, 0
@@ -1099,6 +1136,7 @@ set_nz:
         REPT 4
             add hl, hl
         endr
+
         jp @after_mult
 
     @positive_globalx_style128:
@@ -1114,7 +1152,6 @@ set_nz:
             add hl, hl
         endr
 @after_mult:
-
         bit 7, d
         jr nz, @screen
         ; *2 for the screen size
@@ -1224,15 +1261,7 @@ set_nz:
 ;  Zero flag is set iff renderlist was incremented
 ;  de = renderlist entry, possibly incremented
 ;
-;  Only valid if on screen (not reliable):
-;   ixl - left_truncation
-;   ixh - top_truncation
-;   iyl - right_truncation
-;   iyh - bottom_truncation
-;
-; Clobbers: bc', ix, iy, hl, bc, af, af'
-; Perserves: hl', de'
-
+; Clobbers: All but sp
 
 DEFC calculate_rl_screen = calculate_rl@screen+1
 PUBLIC calculate_rl, calculate_rl_screen
@@ -1298,7 +1327,7 @@ calculate_rl:
 @set_sp: ld sp, 0000h
     ; Now the stack is our output
 
-    _sprite_geometry
+    _sprite_geometry 1
 
 
     @restore_sp: ld sp, 0000h
@@ -1317,7 +1346,9 @@ calculate_rl:
     ret
 
 
-; Render a sprite to the screen directly (no rl entry), used for background tiles
+; Render a sprite to the screen directly (no rl entry), used for background tiles.
+; NOTE: Does NOT set the screen as being dirty (for background blits, it is safest to assume everything is drawn over)
+; 
 ; Input:
 ; hl - Sprite entry
 ; (render_sprite_screen) = screen to place sprite on
@@ -1337,7 +1368,7 @@ render_sprite:
 
     call sprite_truncation
     ret c ; Sprite is not on screen
-    _sprite_geometry
+    _sprite_geometry 0
     exx ; Round amount of shadow reg switches (minimize nuked shadows to bc)
 
     pop bc                  ; c = flags, b = vert_trunc (Height truncation)

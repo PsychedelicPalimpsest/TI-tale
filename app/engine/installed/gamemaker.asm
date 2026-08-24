@@ -147,9 +147,63 @@ gml_step:
     _callbacks
     ret
 
-
+PUBLIC _draw_self
 _draw_self:
-    ret
+    ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
+    
+    ; TODO: is this check needed (if we got this far)
+    ; bit 1, (hl)
+    ; ret z ; Not visable
+    
+    ld de, Instance_x
+    add hl, de
+
+    ; Bc = x
+    ld c, (hl) \ inc hl
+    ld b, (hl) \ inc hl
+
+    ; De = y
+    ld e, (hl) \ inc hl
+    ld d, (hl)
+
+    push hl ; Hl = inst + Instance_y+1
+        REPTI test8, c, b, e, d
+            inc hl
+            ld a, test8
+            cp (hl)
+            jr nz, @new_rl
+        endr
+    pop af
+
+    
+    jp @draw_rl
+
+@new_rl:
+    pop hl
+    push hl
+
+    ld (hl), c \ inc hl
+    ld (hl), b \ inc hl
+    ld (hl), e \ inc hl
+    ld (hl), d
+
+
+    ld de, Instance_displayed_sprite-Instance_yprevdraw-1
+    add hl, de
+
+    ld de, (fg_renderlist_tail)
+    call calculate_rl
+    ld (fg_renderlist_tail), de
+@draw_rl:
+
+    ld de, -(Instance_y+1)+Instance_displayed_sprite+Sprite_rl_entry
+    add hl, de
+
+    ld e, (hl) \ inc hl
+    ld d, (hl)
+    ex de, hl
+    jp blit_rl_entry_direct
+
 
 
 
