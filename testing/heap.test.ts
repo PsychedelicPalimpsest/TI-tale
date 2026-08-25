@@ -25,9 +25,14 @@ function allocate(
 }
 
 function free(m: TestMachine, ptr: number, name = 'testing') {
-  m.regs.hl = heapOrigin(name)
   m.regs.de = ptr
-  m.runFrom(address('test_fheap_free'))
+  const routine =
+    name === 'single'
+      ? 'test_fheap_free_single'
+      : name === 'boundary'
+        ? 'test_fheap_free_boundary'
+        : 'test_fheap_free'
+  m.runFrom(address(routine))
 }
 
 function iterate(
@@ -166,12 +171,12 @@ describe('fixed heap free lists', () => {
     expect(m.readByte(ptr + 2)).toBe(0xCC)
   })
 
-  it('preserves HL and DE and decrements BC by two when freeing', () => {
+  it('preserves DE and decrements BC by two when freeing and sets HL to heap origin', () => {
     const m = machine()
     initialize(m)
     const ptr = allocate(m)
     const origin = heapOrigin()
-    m.regs.hl = origin
+    m.regs.hl = 0xbeef
     m.regs.de = ptr
     m.regs.bc = 0x1234
 

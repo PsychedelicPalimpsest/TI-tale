@@ -130,13 +130,13 @@ MACRO fheap_alloc obj_size
 endm
 
 ; Inputs:
-; hl = heap to free on
 ; de = ptr to free
+; name = heap name
 ; Outputs:
 ; bc-=2
-; hl=hl
+; hl=fh_freehead_name
 ; de=de
-MACRO fheap_free
+MACRO fheap_free name
     ; Psudocode:
     ; *ptr = freehead
     ; freehead = ptr
@@ -147,6 +147,7 @@ MACRO fheap_free
     ld (de), a
     inc de
 
+    ld hl, fh_freehead_##name
     ldi ; Copy first byte of old heap head
     ldd ; Copy secound byte, then restore hl and de
 
