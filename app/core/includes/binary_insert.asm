@@ -6,6 +6,7 @@ INCLUDE "core/includes/utils.inc"
 ; Upper bound into an already sorted array
 ; BC - key
 ; OUT: DE - first record with key > BC
+; t-states: 72 + ~147*I   (I ≈ ⌈log₂(n+1)⌉)
 MACRO sorted_array_bsearch head, tail_ptr
     ld de, head
     ld hl, (tail_ptr)
@@ -58,6 +59,7 @@ endm
 ; BC - key
 ; HL - value
 ; OUT: DE - matching record, or RET if not found
+; t-states: ~69 + ~87*S   (S = equals scanned before match/miss)
 MACRO _sorted_array_scan_eq head
     LOCAL @scan, @go, @nomatch, @found
 @scan:
@@ -97,6 +99,7 @@ endm
 ; Insert into an already sorted array
 ; HL - key
 ; BC - value
+; t-states: bsearch + 256 + 74*N   (N = records shifted)
 MACRO sorted_array_insert head, tail_ptr, bsearch
     push bc
     ld bc, hl
@@ -142,6 +145,7 @@ endm
 ; Remove from an already sorted array
 ; HL - key
 ; BC - value
+; t-states: bsearch + scan + 187 + 74*N   (N = records shifted)
 MACRO sorted_array_remove head, tail_ptr, bsearch
     push bc
     ld bc, hl
@@ -150,22 +154,24 @@ MACRO sorted_array_remove head, tail_ptr, bsearch
 
     _sorted_array_scan_eq head
 
+    ld hl, 4
+    add hl, de
+    ex de, hl
     ld hl, (tail_ptr)
-    ld bc, -4
-    add hl, bc
-        ld (tail_ptr), hl
-    or a
     sbc hl, de
-    ret z
-
         ld bc, hl
     ld hl, de
-    inc hl \ inc hl \ inc hl \ inc hl
+    dec de \ dec de \ dec de \ dec de
+
+    ld a, b \ or c
+    jr z, @no_cpy
 
     ; Copy FORWARDS, from found+4 -> found
     @cpy_loop:
         ldi \ ldi \ ldi \ ldi
         jp pe, @cpy_loop
+@no_cpy:
+    ld (tail_ptr), de
     ret
 endm
 
@@ -174,6 +180,7 @@ endm
 ; HL - old key
 ; DE - new key
 ; BC - value
+; t-states: 2*bsearch + scan + 207 + 74*N   (N = records shifted)
 MACRO sorted_array_change_depth head, tail_ptr, bsearch
     ld a, l
     cp e
@@ -219,7 +226,6 @@ MACRO sorted_array_change_depth head, tail_ptr, bsearch
     push bc ; Key
         ld bc, 4
         add hl, bc
-        or a
         sbc hl, de
         jr c, @right
 
