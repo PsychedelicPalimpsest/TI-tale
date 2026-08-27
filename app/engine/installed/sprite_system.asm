@@ -732,6 +732,7 @@ norot1x3_xorblit: _norot1xN_xorblit 3
 ;  ix = destination
 ; T-states: 23,562 or 15.34 per byte
 PUBLIC scrcpy
+;#[PROFILE_ROUTINE]
 scrcpy:
     ld (@sp_restore+1), sp
 
@@ -822,6 +823,7 @@ scrcpy_stride:
 ;
 ; T-states: 8,660
 PUBLIC scrset
+;#[PROFILE_ROUTINE]
 scrset:
     ld (@sp_restore+1), sp
     di

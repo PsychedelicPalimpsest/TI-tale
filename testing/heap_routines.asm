@@ -53,7 +53,17 @@ _test_fheap_alloc_small:
 
 PUBLIC _test_fheap_free
 _test_fheap_free:
-    fheap_free
+    fheap_free testing
+    ret
+
+PUBLIC _test_fheap_free_single
+_test_fheap_free_single:
+    fheap_free single
+    ret
+
+PUBLIC _test_fheap_free_boundary
+_test_fheap_free_boundary:
+    fheap_free boundary
     ret
 
 PUBLIC _test_fheap_foreach

@@ -20,16 +20,16 @@ MACRO scl_init name
     ld (scl_head_##name), hl
 endm
 
-; Appends a sprite to the end of the list
+
+; Appends a sprite to the end of the list, provided a ptr
+; already at the offset+1
+; 
 ; Inputs:
-;   HL = Address of the sprite struct
+;   HL = Address of the back ptr+1 (Aka the high byte)
 ; Clobbers:
 ;   DE, HL, AF
-MACRO scl_append name
+MACRO scl_append_from_scloff name
     LOCAL @no_append
-
-    ld de, __scl_off(name) + 1
-    add hl, de
 
     ld a, (hl)
     or a \ jr nz, @no_append
@@ -49,6 +49,18 @@ MACRO scl_append name
 
         inc hl \ ld (hl), 0
     @no_append:
+endm
+
+; Appends a sprite to the end of the list
+; Inputs:
+;   HL = Address of the sprite struct
+; Clobbers:
+;   DE, HL, AF
+MACRO scl_append name
+    ld de, __scl_off(name) + 1
+    add hl, de
+
+    scl_append_from_scloff name
 endm
 
 ; Removes a sprite from the list

@@ -1,7 +1,49 @@
-#define objects_base 0000h ; TODO: Real location
+
+; de - Object callback ptr +1
+; hl - back ptr +1
+macro _maybe_register _name
+    LOCAL @next
+    ld a, (de)
+    inc de \ inc de ; Move until next
+    
+    ; or a ; Test the high byte of the callback
+    jp z, @next ; Highly unlikely to fall through
+        push de        
+        push hl
+            scl_append_from_scloff _name
+        pop hl
+        pop de
+    @next:
+    inc hl \ inc hl
+endm
+
+MACRO _register_instance
+    ex de, hl
+        ld hl, Instance__step
+        add hl, de
+
+        ; Zero out the callback back ptrs
+        REPT Instance__alarms-Instance__begin_step
+            ld (hl), 0 \ inc hl
+        endr
+    ex de, hl
+    ; Get the object ptr
+    ld e, (hl) \ inc hl
+    ld d, (hl)
+    inc de
+
+    ld bc, Instance__begin_step-1+1
+    add hl, bc
+
+    REPTI _name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_end, draw_gui
+        _maybe_register _name
+    endr
+endm
+
 
 
 PUBLIC room_init
+;#[PROFILE_ROUTINE]
 room_init:
     ; Cleanup the callback lists
     REPTI name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_end, draw_gui
@@ -10,13 +52,44 @@ room_init:
 
     scl_init alarm
 
+    ld hl, _gmctx + GamemakerCTX_old_history
+    ld (_gmctx+GamemakerCTX_old_history), hl
+
 
     ; TODO: Does this need moved out?
     ld hl, object_render_queue
     ld (object_render_queue_tail), hl
 
-    ld hl, sprite_pool
-    ld (sprite_pool_tail), hl
+
+@init_jump:
+    jp @is_not_initialized ; SMC: This way we only init certain things as the start of the game
+@is_not_initialized: 
+    ld hl, @is_initialized
+    ld (@init_jump+1), hl
+
+    ; Init the instance heap allocator
+    fheap_init_inline instances
+
+@is_initialized:
+
+    ld hl, fheap_addr(instances)
+    fheap_foreach Instance_size   
+        inc hl \ inc hl
+            bit 3, (hl) ; Is persistant
+        dec hl \ dec hl
+        jr nz, @setup
+
+        ; Cleanup
+            fheap_free instances
+            jp @loop
+
+
+        @setup:
+            _register_instance
+            jp @loop
+        
+    @end_of_loop:
+
 
 
     ret
@@ -94,7 +167,6 @@ MACRO _callbacks
     @zero:
         ; This case is quite unlikely, so a bit extra compute is ok
 
-
         ; We do not trust the callee to perserve anything
         push bc
         push hl
@@ -127,7 +199,6 @@ MACRO _callbacks
                 pop bc
                 djnz @alarm_loop
     @end_of_loop:
-
         ld a, ixl
         or a
         jp nz, @after_check ; Unlikely to fall through
@@ -143,6 +214,7 @@ endm
 
 
 PUBLIC gml_step
+;#[PROFILE_ROUTINE]
 gml_step:
     _callbacks
     ret
@@ -151,6 +223,7 @@ gml_step:
 
 
 PUBLIC _draw_self
+;#[PROFILE_ROUTINE]
 _draw_self:
     ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
 
@@ -181,6 +254,7 @@ _draw_self:
 
 ; void set_alarm(uint16_t alarm_idx, int16_t value) __z88dk_callee
 PUBLIC  _inst_update_alarms
+;#[PROFILE_ROUTINE]
 _inst_update_alarms:
     ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
     ld bc, Instance_alarms
@@ -204,7 +278,83 @@ _inst_update_alarms:
     ret
 
 
+; Allocate a new instance
+; Output: hl = allocated object
+_allocate_instance:
+    ld hl, fheap_addr(instances)
+    fheap_alloc Instance_size
 
 
+; Arguments should be on the stack in the z88dk order,
+; then the return values are put on the stack.
+; They are push in order:
+; * Depth
+; * Sprite
+; 
+; Note: Nukes the shadow registers (but only hl is nuked in the regular registers)
+; _instance_create_without_render(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
+;#[PROFILE_ROUTINE]
+__instance_create_without_render:
+    pop hl \ exx ; Return value
 
-_instance_create:
+    call _allocate_instance
+
+    pop bc ; obj
+
+    ld (hl), c \ inc hl
+    ld (hl), b \ inc hl
+
+    ; TODO: Where do flags come from?
+    ld (hl), 1 \ inc hl ; Is visible
+
+    inc hl \ inc hl ; Skip depth
+
+    pop bc ; y
+    pop de ; x
+
+    ld (hl), e \ inc hl
+    ld (hl), d \ inc hl
+
+    ld (hl), c \ inc hl
+    ld (hl), b  
+
+    dec hl \ dec hl \ dec hl
+
+    pop de ; Depth
+
+    ld (hl), d \ dec hl
+    ld (hl), e \ dec hl
+
+    ; Get back to start
+    dec hl \ dec hl \ dec hl
+
+    push de
+    push hl
+        _register_instance   
+
+    exx \ jp (hl) 
+    
+INCLUDE "core/includes/binary_insert.asm"
+; Inputs:
+;  hl - depth
+;  bc - instance ptr
+__insert_render_queue_item:
+    sorted_array_insert gui_render_queue, tile_render_queue_tail
+
+
+; Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
+;#[PROFILE_ROUTINE]
+_instance_create_depth:
+    call __instance_create_without_render
+    pop hl
+    pop bc
+    push hl
+        call __insert_render_queue_item
+    pop hl
+    ret
+
+PUBLIC _START_WITH
+_START_WITH:
+
+    ret
+

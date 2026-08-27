@@ -5,6 +5,7 @@ DEFC frame_pending = compositor_loop+1
 EXTERN yield, yield_raw
 
 ; When this happens, it is best to assume a frame will be dropped
+;#[PROFILE_START render_background]
 render_background:
 
     ld hl, (cur_camx)
@@ -48,6 +49,8 @@ render_background:
         pop bc
         pop hl
         jp @loop
+
+;#[PROFILE_STOP render_background]
 @end_of_loop:
     ;  Backgrounds can take a LONG time, so lets give the main loop a chance
     ;  to fire (but only if that much time has passed)
@@ -64,6 +67,8 @@ compositor_loop:
     rra
     jp nc, @yield_and_loop
 
+;#[PROFILE_START compose]
+@compose_start:
     xor a
     ld (frame_pending), a
 
@@ -78,6 +83,7 @@ compositor_loop:
     CpHLDE
     jr nz, render_background
 
+;#[PROFILE_START compose_core]
 @rejoin:
     ld iy, layer_background ; Src
     ld ix, _screen_buffer   ; Dst
@@ -148,9 +154,8 @@ compositor_loop:
 
 
 
-
-
-
+;#[PROFILE_STOP compose_core]
+;#[PROFILE_STOP compose]
 @yield_and_loop:
     call yield_raw ; No registers betweem loops
     jp compositor_loop

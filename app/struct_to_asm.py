@@ -69,8 +69,17 @@ def _pycparser_structs(path, marker_lines):
             f"-I{APP_ROOT}",
             "-D__attribute__(x)=",
             "-D__asm(x)=",
+            "-D__asm__(x)=",
             "-D__inline=",
+            "-D__inline__=",
+            "-Dinline=",
             "-D__extension__=",
+            "-D__z88dk_callee=",
+            "-D__z88dk_fastcall=",
+            "-D__z88dk_params_offset(x)=",
+            "-D__z88dk_caller=",
+            "-D__z88dk_interrupt=",
+            "-D__z88dk_interrupt_inline=",
         ],
     )
 
@@ -116,9 +125,13 @@ def _field_names(inner):
         while re.search(r"\([^()]*\)", decl):
             decl = re.sub(r"\([^()]*\)", "", decl)
         decl = re.sub(r"\[[^\]]*\]", "", decl)
-        ids = re.findall(r"[A-Za-z_]\w*", decl)
-        if ids:
-            names.append(ids[-1])
+        for part in decl.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            ids = re.findall(r"[A-Za-z_]\w*", part)
+            if ids:
+                names.append(ids[-1])
     return names
 
 
@@ -168,7 +181,17 @@ def parse_structs(path, marker_lines):
 
 def generate_offsets(parsed):
     """Compile offsetof()/sizeof() through z88dk and return sym -> value."""
-    c_lines = ["#include <stddef.h>", "#include <stdint.h>"]
+    c_lines = [
+        "#define __z88dk_callee",
+        "#define __z88dk_fastcall",
+        "#define __z88dk_params_offset(x)",
+        "#define __z88dk_caller",
+        "#define inline",
+        "#define __inline",
+        "#define __inline__",
+        "#include <stddef.h>",
+        "#include <stdint.h>",
+    ]
     expected = {}
     for path in {p for p, _, _ in parsed}:
         c_lines.append(f'#include "{path.relative_to(APP_ROOT)}"')

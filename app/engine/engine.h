@@ -43,6 +43,7 @@ typedef struct {
 
 //#[ASM_EXPOSED]
 typedef struct {
+    // Keep these first
     void* begin_step;
     void* step;
     void* end_step;
@@ -53,8 +54,6 @@ typedef struct {
     void* draw_begin;
     void* draw_end;
     void* draw_gui;
-    void* draw_gui_begin;
-    void* draw_gui_end;
 
     
     Sprite* sprite_cache_entries[16];
@@ -74,14 +73,11 @@ typedef struct {
                 // Bit 3: Is persistent
                 // Bit 4: Is solid (tbd) 
     uint16_t depth;
-
-    uint8_t sprite_index_max;
-    uint8_t sprite_index;    // An index into the sprite_cache_entries in obj
     
-    uint16_t x, y;
-    uint16_t xprev, yprev;
+    int16_t x, y;
+    int16_t xprev, yprev;
 
-    uint16_t hspeed, vspeed;
+    int16_t hspeed, vspeed;
 
     // These are the 'back pointers' used for callback book
     // keeping, NEVER touch these yourself! Only init to null
@@ -95,8 +91,6 @@ typedef struct {
     void* _draw_begin;
     void* _draw_end;
     void* _draw_gui;
-    void* _draw_gui_begin;
-    void* _draw_gui_end;
 
     void* _alarms;
     
@@ -106,6 +100,8 @@ typedef struct {
     uint8_t  alarm_count;
     int16_t alarms[12];
 
+    uint8_t sprite_index_max;
+    uint8_t sprite_index;    // An index into the sprite_cache_entries in obj
     Sprite displayed_sprite;
 } Instance;
 
@@ -114,12 +110,39 @@ typedef struct {
 typedef struct {
     Instance* instance;
     Instance* other;
+    
+    Instance** old_history; // A pointer WITHIN with_history
+
+    
+    Instance* with_history[8];
 } GamemakerCTX;
 
 
 extern GamemakerCTX gmctx;
 
 
+extern Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
+
+#define instance_create(x, y, obj) \
+    instance_create_depth(gmctx.instance->depth, (x), (y), (obj))
+
+#define BEGIN_WITH(obj) \
+    *(gmctc.old_history++) = gmctx.instance; \
+    gmctx.instance = obj;
+
+#define END_WITH() \
+    gmctx.instance = *(--gmctx.old_history)
+
+
+#define set_x(__OBJ, __X) \
+    __OBJ->x = __X; \
+    __OBJ->displayed_sprite->x = __X;     
+
+#define set_y(__OBJ, __Y) \
+    __OBJ->y = __Y; \
+    __OBJ->displayed_sprite->y = __Y;     
+
+extern Instance* instance_create_depth(Instance* instance, int16_t depth) __z88dk_callee __z88dk_fastcall;
 
 #ifdef ROOM
 // This stuff is common setup done for each room. 

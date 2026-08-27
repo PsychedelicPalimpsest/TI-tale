@@ -22,7 +22,7 @@ MACRO fheap_def arena, name, reservation, obj_size
     ; it is allocated
 endm
 
-#define fheap_addr(name) fh_origin_##name
+#define fheap_addr(__NAME__) fh_origin_##__NAME__
 
 
 
