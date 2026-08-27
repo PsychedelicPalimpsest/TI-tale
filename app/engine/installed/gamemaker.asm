@@ -5,16 +5,16 @@ macro _maybe_register _name
     LOCAL @next
     ld a, (de)
     inc de \ inc de ; Move until next
-    
+
     ; or a ; Test the high byte of the callback
     jp z, @next ; Highly unlikely to fall through
-        push de        
+        push de
         push hl
             scl_append_from_scloff _name
         pop hl
         pop de
     @next:
-    inc hl \ inc hl
+        inc hl \ inc hl
 endm
 
 MACRO _register_instance
@@ -63,7 +63,7 @@ room_init:
 
 @init_jump:
     jp @is_not_initialized ; SMC: This way we only init certain things as the start of the game
-@is_not_initialized: 
+@is_not_initialized:
     ld hl, @is_initialized
     ld (@init_jump+1), hl
 
@@ -73,7 +73,7 @@ room_init:
 @is_initialized:
 
     ld hl, fheap_addr(instances)
-    fheap_foreach Instance_size   
+    fheap_foreach Instance_size
         inc hl \ inc hl
             bit 3, (hl) ; Is persistant
         dec hl \ dec hl
@@ -87,37 +87,37 @@ room_init:
         @setup:
             _register_instance
             jp @loop
-        
+
     @end_of_loop:
 
 
 
-    ret
+        ret
 
 
-MACRO for_each_and_call name, offset
-    LOCAL @scl_loop, @scl_loopend
-    SCL_FOR name
+        MACRO for_each_and_call name, offset
+            LOCAL @scl_loop, @scl_loopend
+            SCL_FOR name
     ; hl = sprite
-        ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
+                ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
 
-        ld e, (hl) \ inc hl
-        ld d, (hl)
+                ld e, (hl) \ inc hl
+                ld d, (hl)
 
 
-        ex de, hl
-        IF offset>0
-            ld bc, offset
-            add hl, bc
-        endif
+                ex de, hl
+                IF offset>0
+                    ld bc, offset
+                    add hl, bc
+                endif
 
-        ld a, (hl) \ inc hl
-        ld h, (hl)
-        ld l, a
+                ld a, (hl) \ inc hl
+                ld h, (hl)
+                ld l, a
 
-        call __hl
-    SCL_ENDFOR name
-endm
+                call __hl
+            SCL_ENDFOR name
+        endm
 
 MACRO _callbacks
     ; Do all the begin steps
@@ -290,7 +290,7 @@ _allocate_instance:
 ; They are push in order:
 ; * Depth
 ; * Sprite
-; 
+;
 ; Note: Nukes the shadow registers (but only hl is nuked in the regular registers)
 ; _instance_create_without_render(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
 ;#[PROFILE_ROUTINE]
@@ -316,7 +316,7 @@ __instance_create_without_render:
     ld (hl), d \ inc hl
 
     ld (hl), c \ inc hl
-    ld (hl), b  
+    ld (hl), b
 
     dec hl \ dec hl \ dec hl
 
@@ -330,16 +330,19 @@ __instance_create_without_render:
 
     push de
     push hl
-        _register_instance   
+        _register_instance
 
-    exx \ jp (hl) 
-    
+    exx \ jp (hl)
+
 INCLUDE "core/includes/binary_insert.asm"
 ; Inputs:
 ;  hl - depth
 ;  bc - instance ptr
+__render_queue_bsearch:
+    sorted_array_bsearch gui_render_queue, tile_render_queue_tail
+
 __insert_render_queue_item:
-    sorted_array_insert gui_render_queue, tile_render_queue_tail
+    sorted_array_insert gui_render_queue, tile_render_queue_tail, __render_queue_bsearch
 
 
 ; Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;

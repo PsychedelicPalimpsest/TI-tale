@@ -23,7 +23,7 @@ endm
 
 ; Appends a sprite to the end of the list, provided a ptr
 ; already at the offset+1
-; 
+;
 ; Inputs:
 ;   HL = Address of the back ptr+1 (Aka the high byte)
 ; Clobbers:
