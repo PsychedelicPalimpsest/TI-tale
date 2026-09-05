@@ -141,8 +141,8 @@ extern Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Ob
 #define set_y(__OBJ, __Y) \
     __OBJ->y = __Y; \
     __OBJ->displayed_sprite->y = __Y;     
+extern void set_depth(Instance* ins, int16_t depth) __z88dk_callee;
 
-extern Instance* instance_create_depth(Instance* instance, int16_t depth) __z88dk_callee __z88dk_fastcall;
 
 #ifdef ROOM
 // This stuff is common setup done for each room. 

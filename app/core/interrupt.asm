@@ -122,7 +122,6 @@ non_grey_case:
     ld a, (_first_rom_page)
     out (6), a
 
-
     ; Note: TiOS fixes the stack for us (no interupt cleanup needed)
     ;       __Exit also does interupt mask cleanup
     jp __Exit

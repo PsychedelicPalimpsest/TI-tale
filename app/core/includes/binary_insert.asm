@@ -1,7 +1,8 @@
+; Routines for working with sorted arrays. 
+; I'll be honsest, I had AI write half of these...
+
+
 INCLUDE "core/includes/utils.inc"
-
-
-
 
 ; Upper bound into an already sorted array
 ; BC - key

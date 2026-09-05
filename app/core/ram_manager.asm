@@ -85,23 +85,22 @@ cleanup_ram:
     pop hl   ; Save the ret ptr in the shadow realm
 
     ld a, (_ram_restore_page)
-    ld b, a ; Save to b
 
     exx
-    out (7), a                  ; Set the restore page to $8000
+        out (7), a                  ; Set the restore page to $8000
 
-    ld a, 1
-    out (5), a ; Set $C000 to the regular $8000 page
+        ld a, 1
+        out (5), a ; Set $C000 to the regular $8000 page
 
-    ld hl, $8000
-    ld de, $C000
-    ld bc, $4000
-    ldir
+        ld hl, $8000
+        ld de, $C000
+        ld bc, $4000
+        ldir
 
-    ld a, $81   ; Restore regular $8000 page
-    out (7), a
-    xor a      ; Restore regular $C000 page
-    out (5), a
+        ld a, $81   ; Restore regular $8000 page
+        out (7), a
+        xor a      ; Restore regular $C000 page
+        out (5), a
 
     exx
     jp (hl)

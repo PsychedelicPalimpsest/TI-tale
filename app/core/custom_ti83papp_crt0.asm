@@ -188,6 +188,12 @@ start:
     in a, (6)
     ld (_first_rom_page), a
 
+    ; Tell the profiler where our app starts.
+    ; See: https://github.com/PsychedelicPalimpsest/NeoWxWabbit
+    ; On regular hardware, this is a nop
+    ld ($50), a
+
+    
     ; Note: Interupts are currently disabled
     call    _main		; call main()
 

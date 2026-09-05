@@ -335,29 +335,54 @@ __instance_create_without_render:
     exx \ jp (hl)
 
 INCLUDE "core/includes/binary_insert.asm"
-; Inputs:
-;  hl - depth
-;  bc - instance ptr
-__render_queue_bsearch:
-    sorted_array_bsearch gui_render_queue, tile_render_queue_tail
 
-__insert_render_queue_item:
-    sorted_array_insert gui_render_queue, tile_render_queue_tail, __render_queue_bsearch
+
+
+; Inputs: bc = key
+;#[PROFILE_ROUTINE]
+__bsearch_render_queue: sorted_array_bsearch object_render_queue, object_render_queue_tail
+
+; Inputs:
+; HL - key
+; BC - value
+;#[PROFILE_ROUTINE]
+__insert_render_queue: sorted_array_insert object_render_queue, object_render_queue_tail, __bsearch_render_queue
+
+; Inputs:
+; HL - old key
+; DE - new key
+; BC - value
+;#[PROFILE_ROUTINE]
+__change_render_queue: sorted_array_change_depth object_render_queue, object_render_queue_tail, __bsearch_render_queue
 
 
 ; Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
-;#[PROFILE_ROUTINE]
+PUBLIC _instance_create_depth
 _instance_create_depth:
     call __instance_create_without_render
+
+    pop bc ; Sprite
+    pop hl ; Depth
+
+    push bc
+        call __insert_render_queue
     pop hl
+    ret
+
+
+; void set_depth(Instance* ins, int16_t depth) __z88dk_callee;
+PUBLIC _set_depth
+_set_depth:
+    pop de ; New depth
+
+    pop ix ; Instance
+
+    ld hl, (ix+Instance_depth)
+    ld (ix+Instance_depth), de
+    
+    push ix
     pop bc
-    push hl
-        call __insert_render_queue_item
-    pop hl
-    ret
+    jp __change_render_queue
 
-PUBLIC _START_WITH
-_START_WITH:
-
-    ret
+    
 
