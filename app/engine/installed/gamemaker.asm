@@ -89,9 +89,6 @@ room_init:
             jp @loop
 
     @end_of_loop:
-
-
-
         ret
 
 

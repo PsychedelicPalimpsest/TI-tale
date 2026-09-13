@@ -14,8 +14,8 @@ int main(){
 
 
 
-
   ei
   #endasm
+  greyscale_swap();
   while (1);
 }

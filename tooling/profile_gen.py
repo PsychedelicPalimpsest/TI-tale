@@ -48,6 +48,16 @@ STOP_MARKER = re.compile(r"#\[PROFILE_STOP\s+(\w+)\]")
 FUNC_RE = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
 CONTROL_KW = {"if", "for", "while", "switch", "return", "sizeof"}
 
+# RAM page indices seen by the wxWabbitemu profiler at runtime.
+# TI names RAM pages with bit7 set ($83 at $8000, $81 at $C000), but the
+# emulator stores the masked index in bank->page (see 83psehw.c port5/port7:
+# change_page(cpu, bank, (bus & 0x7F) % ram_pages, ...)) and the profiler
+# matches RAM points by exact bank->page (see profiler/profiler.c:
+# current_point/point_matches). So $83 -> 3 at $8000, $81 (written as 1
+# to port 5) -> 1 at $C000. These must agree with core/ram_manager.asm:init_ram.
+RAM_PAGE_8000 = 3
+RAM_PAGE_C000 = 1
+
 @dataclass
 class Region:
     kind: str
@@ -249,10 +259,10 @@ def resolve_symbol(symbol: str, source: Path, label_line: int, map_dict: dict[st
 def addr_to_point(addr: int) -> str:
     if addr >= 0xC000:
         off = addr & 0x3FFF
-        return f"ram:1:0x{off:04X}"
+        return f"ram:{RAM_PAGE_C000}:0x{off:04X}"
     if addr >= 0x8000:
         off = addr & 0x3FFF
-        return f"ram:0:0x{off:04X}"
+        return f"ram:{RAM_PAGE_8000}:0x{off:04X}"
     off = addr & 0x3FFF
     return f"flash:0:0x{off:04X}"
 
