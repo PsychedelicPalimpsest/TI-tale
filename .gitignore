@@ -8,5 +8,6 @@ out*
 *.lib
 out.prof
 regions.txt
+app/game/sprites/*.asm
 testing/build/
 testing/node_modules/
