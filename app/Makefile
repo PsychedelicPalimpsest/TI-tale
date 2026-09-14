@@ -14,9 +14,9 @@ engine.lib: $(ENGINE_LIB_FILES) $(wildcard engine/installed/*.asm) struct_offset
 	z88dk-z80asm $(SFLAGS) -xengine.lib $(ENGINE_LIB_FILES)
 
 
-rooms/rooms.h rooms/rooms.inc &: $(addprefix rooms/, $(shell python room.py --list))
-	python room.py --gen-room-inc > rooms/rooms.inc
-	python room.py --gen-room-h > rooms/rooms.h
+game/rooms/rooms.h game/rooms/rooms.inc &: $(addprefix game/rooms/, $(shell python room.py --list))
+	python room.py --gen-room-inc > game/rooms/rooms.inc
+	python room.py --gen-room-h > game/rooms/rooms.h
 
 
 struct_offsets.inc: $(shell python struct_to_asm.py --list)
@@ -26,7 +26,7 @@ out.prof: $(shell python profile_gen.py --list) out.map
 	python profile_gen.py --gen-regions --map out.map > $@ || rm -f $@
 
 
-rooms/%.o:rooms/%.c rooms/rooms.h
+game/rooms/%.o:game/rooms/%.c game/rooms/rooms.h
 	zcc +ti83p -c $< -o $@ $(shell python room.py --room-defs $<) -crt0=core/custom_ti83papp_crt0.asm
 
 out.8xk: first_page.c Makefile engine.lib core.lib core/custom_ti83papp_crt0.asm struct_offsets.inc

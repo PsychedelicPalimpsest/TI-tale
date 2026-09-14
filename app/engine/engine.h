@@ -155,3 +155,13 @@ extern void set_depth(Instance* ins, int16_t depth) __z88dk_callee;
 
 
 #endif
+
+
+#ifdef OBJECT
+
+#ifndef OBJECTID
+#error Something went wrong, ROOMID is NOT defined
+#endif
+
+
+#endif

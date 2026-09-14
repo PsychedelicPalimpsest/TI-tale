@@ -1,0 +1,9 @@
+{
+  "id": "spr_charar",
+  "width": 17,
+  "height": 28,
+  "frames" : [
+    {"index": 0, "path": "images/spr_charar_0.png"},
+    {"index": 1, "path": "images/spr_charar_1.png"},
+  ]
+}
