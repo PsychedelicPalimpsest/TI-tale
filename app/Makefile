@@ -1,3 +1,5 @@
+.DEFAULT_GOAL := all
+
 all: out.8xk out.prof
 
 
@@ -5,18 +7,21 @@ CFLAGS = "-pragma-define:CRT_ENABLE_STDIO=0" -m --list
 SFLAGS = -l
 
 
-CORE_LIB_FILES = core/interrupt.asm core/flash_lockunlock.asm core/ram_manager.asm
-core.lib: $(CORE_LIB_FILES) core/audio.inc
-	z88dk-z80asm $(SFLAGS) -xcore.lib $(CORE_LIB_FILES)
+CORE_LIB_FILES := core/interrupt.asm core/flash_lockunlock.asm core/ram_manager.asm
+core.lib: $(CORE_LIB_FILES) core/audio.inc core/common.inc
+	z88dk-z80asm $(SFLAGS) -x$@ $(CORE_LIB_FILES)
 
-ENGINE_LIB_FILES = $(wildcard engine/*.asm)
-engine.lib: $(ENGINE_LIB_FILES) $(wildcard engine/installed/*.asm) struct_offsets.inc
-	z88dk-z80asm $(SFLAGS) -xengine.lib $(ENGINE_LIB_FILES)
+# Each source file is one z88dk library module. Keep code copied to RAM
+# separate from the optional ROM routines linked into individual room pages.
+RESIDENT_ENGINE_FILES := $(sort $(wildcard engine/resident/*.asm))
+RESIDENT_ENGINE_INCLUDES := $(wildcard engine/resident/installed/*.asm) engine/engine_globals.inc engine/scl.inc struct_offsets.inc
+PAGE_ENGINE_FILES := $(sort $(wildcard engine/page/*.asm))
 
+engine_resident.lib: $(RESIDENT_ENGINE_FILES) $(RESIDENT_ENGINE_INCLUDES) core/common.inc
+	z88dk-z80asm $(SFLAGS) -x$@ $(RESIDENT_ENGINE_FILES)
 
-game/rooms/rooms.h game/rooms/rooms.inc &: $(addprefix game/rooms/, $(shell python room.py --list))
-	python room.py --gen-room-inc > game/rooms/rooms.inc
-	python room.py --gen-room-h > game/rooms/rooms.h
+engine_page.lib: $(PAGE_ENGINE_FILES) core/common.inc
+	z88dk-z80asm $(SFLAGS) -x$@ $(PAGE_ENGINE_FILES)
 
 
 struct_offsets.inc: $(shell python struct_to_asm.py --list)
@@ -26,11 +31,9 @@ out.prof: $(shell python profile_gen.py --list) out.map
 	python profile_gen.py --gen-regions --map out.map > $@ || rm -f $@
 
 
-game/rooms/%.o:game/rooms/%.c game/rooms/rooms.h
-	zcc +ti83p -c $< -o $@ $(shell python room.py --room-defs $<) -crt0=core/custom_ti83papp_crt0.asm
-
-out.8xk: first_page.c Makefile engine.lib core.lib core/custom_ti83papp_crt0.asm struct_offsets.inc
-	zcc +ti83p -lcore -lengine -o out first_page.c -crt0=core/custom_ti83papp_crt0.asm $(CFLAGS)
+out.8xk out.map &: first_page.c Makefile engine_resident.lib engine_page.lib core.lib core/custom_ti83papp_crt0.asm struct_offsets.inc
+	zcc +ti83p -L. -lcore -lengine_resident -lengine_page -o out first_page.c -crt0=core/custom_ti83papp_crt0.asm $(CFLAGS)
 	z88dk-appmake +ti83papp --single-page --binfile out --crt0file core/custom_ti83papp_crt0.asm --output out.8xk
+	test -s out.map
 clean:
 	rm -f out.8xk *.bin out *.lib **/*.o **/**.lis *.lis *.map struct_offsets.inc out.prof regions.txt

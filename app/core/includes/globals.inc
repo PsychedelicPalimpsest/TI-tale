@@ -88,7 +88,7 @@ RDEF interupt_globals,            branch_stack,  3*6
 
 
 
-; This symbol is set by engine/install.asm, aka code installed to ram. After this
+; This symbol is set by engine/resident/install.asm, aka code installed to ram. After this
 ; point the dynamic variable allocations start.
 
 
@@ -100,5 +100,4 @@ RDEF interupt_globals,            branch_stack,  3*6
 
 
 ENDIF
-
 

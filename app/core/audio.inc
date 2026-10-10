@@ -1,5 +1,5 @@
 ; This file handles the fast, almost instantanious, audio outputs. It only cares about tones.
-; See core/installed/audio_engine.asm for actually using it.
+; See engine/resident/installed/audio_engine.asm for actually using it.
 ;
 ; Audio subsytem notes:
 ; - The timer is GOD. All must be designed around it.
@@ -178,4 +178,3 @@ EXTERN test_instrument
     jp @lookup_instrument
 
 endm
-
