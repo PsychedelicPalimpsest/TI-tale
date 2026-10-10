@@ -1,4 +1,15 @@
 {
+  "id": "room_test",
   "page": 0,
-  "id": "room_test" 
+  "width": 96,
+  "height": 64,
+  "speed": 30,
+  "instances": [
+    {
+      "object": "obj_test",
+      "x": 40,
+      "y": 24,
+      "depth": 0
+    }
+  ]
 }

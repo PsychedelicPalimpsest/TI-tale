@@ -1,4 +1,0 @@
-//[META]
-//OBJID=overwoldcontroler
-//[/META]
-

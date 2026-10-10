@@ -1,0 +1,14 @@
+{
+  "id": "obj_test",
+  "sprite": "spr_test",
+  "visible": true,
+  "solid": false,
+  "persistent": false,
+  "depth": 0,
+  "events": [
+    "create",
+    "step",
+    "draw",
+    "alarm0"
+  ]
+}

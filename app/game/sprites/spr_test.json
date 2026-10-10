@@ -1,0 +1,9 @@
+{
+  "id": "spr_test",
+  "width": 16,
+  "height": 16,
+  "frames": [
+    { "index": 0, "path": "images/spr_test_0.png" },
+    { "index": 1, "path": "images/spr_test_1.png" }
+  ]
+}
