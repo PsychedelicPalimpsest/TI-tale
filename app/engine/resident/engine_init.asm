@@ -8,6 +8,7 @@ EXTERN install_hooks
 
 INCLUDE "engine/engine_globals.inc"
 INCLUDE "core/common.inc"
+PUBLIC _gmctx
 
 engine_prepage_init:
     ret
@@ -82,7 +83,6 @@ _set_grey_timing:
     add hl, hl
     ld (grey_timingX6), hl
     ret
-
 
 
 

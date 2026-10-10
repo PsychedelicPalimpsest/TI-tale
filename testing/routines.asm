@@ -11,6 +11,9 @@ EXTERN install_hooks
 EXTERN calculate_rl
 EXTERN room_init
 EXTERN engine_init
+EXTERN _inst_update_alarms
+EXTERN _instance_create_depth
+EXTERN _set_depth
 
 PUBLIC _test_mul_16_16x8_fast
 _test_mul_16_16x8_fast:
@@ -47,3 +50,15 @@ _test_room_init:
 PUBLIC _test_engine_init
 _test_engine_init:
     jp engine_init
+
+PUBLIC _test_inst_update_alarms
+_test_inst_update_alarms:
+    jp _inst_update_alarms
+
+PUBLIC _test_instance_create_depth
+_test_instance_create_depth:
+    jp _instance_create_depth
+
+PUBLIC _test_set_depth
+_test_set_depth:
+    jp _set_depth

@@ -4,6 +4,7 @@ PUBLIC setup_interrupts
 PUBLIC greyscale_addr
 
 INCLUDE "common.inc"
+PUBLIC _current_keymap
 EXTERN __Exit
 
 

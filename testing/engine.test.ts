@@ -2,6 +2,19 @@ import { describe, expect, it } from 'vitest'
 import { address, machine, mapAddress } from './test_machine.js'
 
 describe('linked engine routines', () => {
+  it('keeps frame dispatch and self-modifying queue code in RAM, with instance APIs in ROM', () => {
+    const installedStart = mapAddress('install_location')
+    const installedEnd = mapAddress('end_of_install')
+    for (const name of ['gml_step', '_draw_self', '__insert_render_queue', '__change_render_queue']) {
+      expect(mapAddress(name), name).toBeGreaterThanOrEqual(installedStart)
+      expect(mapAddress(name), name).toBeLessThan(installedEnd)
+    }
+    for (const name of ['_inst_update_alarms', '_instance_create_depth', '_set_depth']) {
+      expect(mapAddress(name), name).toBeGreaterThanOrEqual(0x4000)
+      expect(mapAddress(name), name).toBeLessThan(0x8000)
+    }
+  })
+
   it('boots the resident engine and initializes the first room', () => {
     const m = machine()
     const installStart = mapAddress('install_location')

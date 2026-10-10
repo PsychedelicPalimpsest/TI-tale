@@ -3,6 +3,7 @@
 
 #include "engine/engine.h"
 #include "game/sprites/spr_test.h"
+#include "game/objects/obj_test.h"
 
 // TODO: Move this ergonomic alias into engine/engine.h
 #ifndef self
@@ -11,38 +12,30 @@
 
 // TODO: Expose keyboard / input scan helpers in engine/input.h
 // Port 1 Group 7 keys (active low: 0 = pressed, 1 = released)
-extern uint8_t _current_keymap[8];
+extern uint8_t current_keymap[8];
 #define KEY_GROUP_ARROWS 7
 #define KEY_MASK_DOWN    (1 << 0)
 #define KEY_MASK_LEFT    (1 << 1)
 #define KEY_MASK_RIGHT   (1 << 2)
 #define KEY_MASK_UP      (1 << 3)
 
-#define keyboard_check_arrow(mask) (!(_current_keymap[KEY_GROUP_ARROWS] & (mask)))
+#define keyboard_check_arrow(mask) (!(current_keymap[KEY_GROUP_ARROWS] & (mask)))
 
 // TODO: Add proper GML naming alias set_alarm(idx, val) in engine.h
-extern void _inst_update_alarms(uint16_t alarm_idx, int16_t value) __z88dk_callee;
-#define set_alarm(idx, val) _inst_update_alarms((idx), (val))
+extern void inst_update_alarms(uint16_t alarm_idx, int16_t value) __z88dk_callee;
+#define set_alarm(idx, val) inst_update_alarms((idx), (val))
 
 // TODO: Add draw_self() alias in engine.h
-extern void _draw_self(void);
-#define draw_self() _draw_self()
+extern void draw_self(void);
 
 
 /*
  * Create Event: Executed once when this instance is spawned.
  */
 void object_create(void) {
-    // Initial position on the 96x64 LCD
-    self->x = 40;
-    self->y = 24;
-
     // Movement velocity
     self->hspeed = 0;
     self->vspeed = 0;
-
-    // Default depth
-    self->depth = 0;
 
     // Start with frame 0 of spr_test
     self->sprite_index = 0;
@@ -117,7 +110,7 @@ void object_step(void) {
 /*
  * Alarm 0 Event: Periodically triggered when alarm[0] reaches 0.
  */
-void object_alarm_0(void) {
+void object_alarm0(void) {
     // Toggle between frame 0 and frame 1 (winking animation)
     self->sprite_index ^= 1;
 

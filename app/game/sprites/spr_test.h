@@ -6,11 +6,11 @@
 #include "engine/engine.h"
 
 // frame 0: source 16x16, cache 3 cols x 16
-extern Sprite _spr_test_0;
+extern Sprite spr_test_0;
 // frame 1: source 16x16, cache 3 cols x 16
-extern Sprite _spr_test_1;
+extern Sprite spr_test_1;
 
-extern void *_spr_test_frames[];
+extern void *spr_test_frames[];
 // frame count = 2
 
 #endif // SPR_SPR_TEST_H

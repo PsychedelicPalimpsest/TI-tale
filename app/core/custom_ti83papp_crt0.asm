@@ -241,6 +241,14 @@ ENDIF
     ; End of startup part, routines following
     ;----------------------------------------
 
+IF (startup!=0 && startup!=1)
+    ; The interrupt library references this symbol even on secondary pages.
+    ; Interrupt execution stays on page zero; this satisfies that link only.
+    PUBLIC __Exit
+__Exit:
+    ret
+ENDIF
+
     l_dcal:
         jp	(hl)		; used as "call (hl)"
 
@@ -258,4 +266,3 @@ ENDIF
 
 
     ; Needed for printf
-

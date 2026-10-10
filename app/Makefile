@@ -4,6 +4,7 @@ all: out.8xk out.prof
 
 
 CFLAGS = "-pragma-define:CRT_ENABLE_STDIO=0" -m --list
+export CFLAGS
 SFLAGS = -l
 
 
@@ -15,7 +16,7 @@ core.lib: $(CORE_LIB_FILES) $(CORE_INCLUDES)
 # Each source file is one z88dk library module. Keep code copied to RAM
 # separate from the optional ROM routines linked into individual room pages.
 RESIDENT_ENGINE_FILES := $(sort $(wildcard engine/resident/*.asm))
-RESIDENT_ENGINE_INCLUDES := $(wildcard engine/resident/installed/*.asm engine/resident/installed/*.inc) engine/gamemaker_register.inc engine/engine_globals.inc engine/scl.inc struct_offsets.inc
+RESIDENT_ENGINE_INCLUDES := $(wildcard engine/resident/installed/*.asm engine/resident/installed/*.inc) engine/engine_globals.inc engine/scl.inc struct_offsets.inc
 PAGE_ENGINE_FILES := $(sort $(wildcard engine/page/*.asm))
 
 engine_resident.lib: $(RESIDENT_ENGINE_FILES) $(RESIDENT_ENGINE_INCLUDES) $(CORE_INCLUDES)
@@ -32,9 +33,7 @@ out.prof: $(shell python profile_gen.py --list) out.map
 	python profile_gen.py --gen-regions --map out.map > $@ || rm -f $@
 
 
-out.8xk out.map &: first_page.c Makefile engine_resident.lib engine_page.lib core.lib core/custom_ti83papp_crt0.asm struct_offsets.inc $(CORE_INCLUDES)
-	zcc +ti83p -L. -lcore -lengine_resident -lengine_page -o out first_page.c -crt0=core/custom_ti83papp_crt0.asm $(CFLAGS)
-	z88dk-appmake +ti83papp --single-page --binfile out --crt0file core/custom_ti83papp_crt0.asm --output out.8xk
-	test -s out.map
+out.8xk out.map &: first_page.c build_pages.py gm_comp.py $(wildcard game/rooms/*.json game/rooms/*.c game/objects/*.json game/objects/*.c game/sprites/*.json game/sprites/images/*.png) Makefile engine_resident.lib engine_page.lib core.lib core/custom_ti83papp_crt0.asm struct_offsets.inc $(CORE_INCLUDES)
+	python build_pages.py
 clean:
-	rm -f out.8xk *.bin out *.lib **/*.o **/**.lis *.lis *.map struct_offsets.inc out.prof regions.txt
+	rm -f out.8xk *.bin out *.lib **/*.o **/**.lis *.lis *.map struct_offsets.inc out.prof regions.txt page_[0-9]*

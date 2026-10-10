@@ -1,0 +1,10 @@
+{
+  "id": "room_second",
+  "page": 1,
+  "width": 96,
+  "height": 64,
+  "speed": 30,
+  "instances": [
+    {"object": "obj_test", "x": 16, "y": 16, "depth": 0}
+  ]
+}

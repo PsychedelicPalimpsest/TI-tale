@@ -2,6 +2,7 @@
 
 #include "engine/engine.h"
 #include "core/globalc.h"
+extern void init_first_room(void);
 
 extern void greyscale_swap();
 
@@ -16,6 +17,7 @@ int main(){
 
   ei
   #endasm
+  init_first_room();
   greyscale_swap();
   while (1);
 }

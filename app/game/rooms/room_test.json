@@ -4,6 +4,7 @@
   "width": 96,
   "height": 64,
   "speed": 30,
+  "on_entry": true,
   "instances": [
     {
       "object": "obj_test",

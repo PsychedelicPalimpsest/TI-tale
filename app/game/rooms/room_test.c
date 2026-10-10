@@ -2,6 +2,8 @@
 #define ROOMID room_test
 
 #include "engine/engine.h"
+void room_entry(void);
+#include "game/rooms/room_test.h"
 
 // TODO: Generated object header will declare `extern Object obj_test;`
 // Declaring it here allows room creation code to instantiate it dynamically.
