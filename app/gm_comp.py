@@ -48,7 +48,9 @@
 
 import sys
 import json
+import os
 import re
+import shlex
 import struct
 from os.path import join, abspath, dirname, basename, splitext, getmtime, exists
 from os import walk
@@ -90,14 +92,30 @@ SPRITE_PLANES_PER_ROW = 3  # mask, light, dark
 
 
 
+def _env_flags(var):
+    """Split extra compiler flags from env var (e.g. CFLAGS/ASMFLAGS)."""
+    raw = os.environ.get(var, "")
+    if not raw or not raw.strip():
+        return []
+    try:
+        return shlex.split(raw)
+    except ValueError as e:
+        sys.stderr.write(f"warning: could not parse ${var}={raw!r}: {e}\n")
+        return []
+
+
 def _compile_transient_asm(path):
     return [
-        "z88dk-z80asm", path
+        "z88dk-z80asm",
+        *_env_flags("ASMFLAGS"),
+        path,
     ]
 
 def _compile_transient_c(path):
     return [
-        "zcc", path
+        "zcc","+ti83p", "-c",
+        *_env_flags("CFLAGS"),
+        path,
     ]
 
 
@@ -590,7 +608,17 @@ def object_paths(json_path):
 
 
 
-def check_asm_only_compilation(json_path):
+def sprite_o_path(json_path):
+    base, _ext = splitext(json_path)
+    return base + ".o"
+
+
+def object_o_path(json_path):
+    base, _ext = splitext(json_path)
+    return base + ".o"
+
+
+def check_sprite_codegen(json_path):
     """True if the generated .asm/.h are newer than inputs.
 
     Inputs are the JSON, its frame PNGs, and ti-img-pallette.gpl.
@@ -611,13 +639,37 @@ def check_asm_only_compilation(json_path):
             return False
     return True
 
+
+def check_sprite_o(json_path):
+    """True if the assembled .o exists and is newer than the .asm."""
+    asm_path, _h_path = sprite_output_paths(json_path)
+    o_path = sprite_o_path(json_path)
+    if not exists(o_path):
+        return False
+    try:
+        if getmtime(o_path) < getmtime(asm_path):
+            return False
+    except OSError:
+        return False
+    return True
+
+
+def check_asm_only_compilation(json_path):
+    """True if sprites are fully up-to-date (codegen + .o)."""
+    return check_sprite_codegen(json_path) and check_sprite_o(json_path)
+
 def get_parent_path(jso):
     if "parent" in jso:
         return join(GAME_DIR, jso["parent"])
 
-def check_obj_compilation(path, past=None):
+def check_object_codegen(path, past=None):
+    """True if the generated object .h is newer than its inputs.
+
+    Inputs are the object JSON, its .c file, and (recursively) the
+    parent's codegen state.
+    """
     past = past or []
-    
+
     c_file, h_file = object_paths(path)
 
     if not exists(h_file):
@@ -637,22 +689,54 @@ def check_obj_compilation(path, past=None):
             return False
 
     try:
-        jso = json.load(json_path)
-    except:
+        jso = _load_json(path)
+    except (OSError, json.JSONDecodeError, ValueError):
         return False
 
-    # Recompile of parent is out of date
+    # Parent codegen out of date forces our codegen out of date
+    # (child .h inlines parent event ids).
     parent = get_parent_path(jso)
-    if parent is not None and parent not in past and not check_obj_compilation(parent, past + [parent]):
+    if parent is not None and parent not in past and not check_object_codegen(parent, past + [parent]):
         return False
-    
+
+    return True
+
+
+def check_object_o(path):
+    """True if the compiled object .o exists and is newer than .c/.h."""
+    c_file, h_file = object_paths(path)
+    o_file = object_o_path(path)
+    if not exists(o_file):
+        return False
+    try:
+        o_mtime = getmtime(o_file)
+        if o_mtime < getmtime(c_file):
+            return False
+        if o_mtime < getmtime(h_file):
+            return False
+    except OSError:
+        return False
+    return True
+
+
+def check_obj_compilation(path, past=None):
+    """True if objects are fully up-to-date (codegen + .o)."""
+    past = past or []
+    if not check_object_codegen(path, past):
+        return False
+    if not check_object_o(path):
+        return False
     return True
 
 
 def _all_events(jso, depth=1):
     events = set(jso.get('events', []))
     if depth < 50 and 'parent' in jso:
-        events += _all_parent_events(json.load(open(get_parent_path(jso))), depth=depth+1)
+        try:
+            parent_jso = _load_json(get_parent_path(jso))
+        except (OSError, json.JSONDecodeError, ValueError):
+            return events
+        events |= _all_events(parent_jso, depth=depth+1)
     return events
 
 
@@ -697,6 +781,8 @@ def _compile_object(json_path, jso):
     with open(h_file, "w") as f:
         f.write("\n".join(out))
 
+    return _compile_transient_c(c_file)
+
     
 
 def compile_transients(gpl_path=GPL_PATH):
@@ -704,7 +790,7 @@ def compile_transients(gpl_path=GPL_PATH):
     for jso in get_transients(["sprites"]):
         if check_asm_only_compilation(jso):
             print(f"up-to-date: {jso}")
-        else:
+        elif not check_sprite_codegen(jso):
             print(f"compiling sprite: {jso}")
             try:
                 asm_path, h_path = compile_sprite(jso, gpl_path)
@@ -714,13 +800,25 @@ def compile_transients(gpl_path=GPL_PATH):
             print(f"  -> {asm_path}, {h_path}")
 
             yield _compile_transient_asm(asm_path)
+        else:
+            # Codegen (.asm/.h) is fresh but .o is missing/stale:
+            # reassemble without regenerating.
+            print(f"assembling sprite: {jso}")
+            asm_path, _h_path = sprite_output_paths(jso)
+            yield _compile_transient_asm(asm_path)
 
     for jso in get_transients(["objects"]):
         if check_obj_compilation(jso):
             print(f"up-to-date: {jso}")
-        else:
+        elif not check_object_codegen(jso):
             print(f"compiling object: {jso}")
-            _compile_object(jso, json.load(open(jso)))
+            yield _compile_object(jso, _load_json(jso))
+        else:
+            # Generated .h is fresh but .o is missing/stale:
+            # recompile the .c without regenerating.
+            print(f"compiling object (.o stale): {jso}")
+            c_file, _h_file = object_paths(jso)
+            yield _compile_transient_c(c_file)
 
 
 
@@ -730,21 +828,8 @@ def main():
             list_transients()
         elif "--compile-transients" == sys.argv[1]:
             _compile(compile_transients())
-        elif "--compile-sprite" == sys.argv[1]:
-            if len(sys.argv) < 3:
-                print("usage: gm_comp.py --compile-sprite <sprite.json>",
-                      file=sys.stderr)
-                raise SystemExit(2)
-            asm_path, h_path = compile_sprite(sys.argv[2])
-            print(f"{asm_path}, {h_path}")
-        elif "--check" == sys.argv[1]:
-            if len(sys.argv) < 3:
-                print("usage: gm_comp.py --check <sprite.json>",
-                      file=sys.stderr)
-                raise SystemExit(2)
-            ok = check_asm_only_compilation(sys.argv[2])
-            print("up-to-date" if ok else "stale")
-            raise SystemExit(0 if ok else 1)
+        elif "--compile-rooms" == sys.argv[1]:
+            _compile(compile_rooms())
         else:
             print("unknown operation")
     else:
