@@ -73,6 +73,7 @@ RDEF interupt_globals,            _last_keymap,     8
 
 ; Down, left, right, up
 RDEF interupt_globals,            _nav_key_change,  1
+RDEF interupt_globals,            room_init_done,  1
 
 
 
@@ -100,4 +101,3 @@ RDEF interupt_globals,            branch_stack,  3*6
 
 
 ENDIF
-

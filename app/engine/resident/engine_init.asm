@@ -37,7 +37,7 @@ engine_init:
     ld (hl), a
 
     ld de, buffers_start+1
-    ld bc, buffers_end-buffers_start ; TODO: Should I clear the screen buffer?
+    ld bc, buffers_end-buffers_start-1 ; First byte was already cleared
     ldir
 
 
@@ -82,7 +82,6 @@ _set_grey_timing:
     add hl, hl
     ld (grey_timingX6), hl
     ret
-
 
 
 

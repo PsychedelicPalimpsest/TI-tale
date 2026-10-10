@@ -2,7 +2,7 @@
 
 This directory runs headless routine tests with
 [`z80-testing-library`](https://github.com/jannone/z80-testing-library). It
-loads the project's `core.lib` and `engine.lib` into the library's bare
+loads the project's `core.lib`, `engine_resident.lib`, and `engine_page.lib` into the library's bare
 `Z80TestMachine`; it does not load a TI-84 CRT or emulate TI-OS.
 
 ## Run
@@ -17,8 +17,8 @@ npm run typecheck
 
 `make test-binary` can be used when only the Z80 image is needed. The build
 emits split section images and a map under `build/`. The loader maps the
-ordinary code, core code, packed install source, and phased `$8500` engine
-code into their linked addresses.
+ordinary code, core code, packed install source, ROM engine code, and phased
+`$8400` engine code into their linked addresses.
 
 ## Add A Routine
 

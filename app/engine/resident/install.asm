@@ -34,7 +34,7 @@ install_hooks:
 install_origin:
 PHASE install_location
 start_of_install:
-    ; NOTE: ALWAYS KEEP THIS FIRST. is saves <256 bytes due to alignment
+    ; NOTE: ALWAYS KEEP THIS FIRST. It saves <256 bytes due to alignment.
 INCLUDE "installed/sprite_system.asm"
 
 INCLUDE "installed/game_tick.asm"
@@ -114,5 +114,3 @@ __hl: jp (hl)
 
     end_of_install:
 DEPHASE
-
-

@@ -22,6 +22,7 @@ const coreOrigin = mapAddress('__code_core_head')
 const engineOrigin = mapAddress('__code_engine_head')
 const enginePhaseOffset = mapAddress('install_origin') - engineOrigin
 const installOrigin = mapAddress('install_location')
+const installedSize = mapAddress('end_of_install') - installOrigin
 
 export const CODE_ORIGIN = codeOrigin
 export const machine = () =>
@@ -30,7 +31,7 @@ export const machine = () =>
       [codeOrigin, code],
       [coreOrigin, core],
       [engineOrigin, engine],
-      [installOrigin, engine.subarray(enginePhaseOffset)],
+      [installOrigin, engine.subarray(enginePhaseOffset, enginePhaseOffset + installedSize)],
     ],
     stackPointer: 0xF000,
   })

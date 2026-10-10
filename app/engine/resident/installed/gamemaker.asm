@@ -1,96 +1,4 @@
-
-; de - Object callback ptr +1
-; hl - back ptr +1
-macro _maybe_register _name
-    LOCAL @next
-    ld a, (de)
-    inc de \ inc de ; Move until next
-
-    ; or a ; Test the high byte of the callback
-    jp z, @next ; Highly unlikely to fall through
-        push de
-        push hl
-            scl_append_from_scloff _name
-        pop hl
-        pop de
-    @next:
-        inc hl \ inc hl
-endm
-
-MACRO _register_instance
-    ex de, hl
-        ld hl, Instance__step
-        add hl, de
-
-        ; Zero out the callback back ptrs
-        REPT Instance__alarms-Instance__begin_step
-            ld (hl), 0 \ inc hl
-        endr
-    ex de, hl
-    ; Get the object ptr
-    ld e, (hl) \ inc hl
-    ld d, (hl)
-    inc de
-
-    ld bc, Instance__begin_step-1+1
-    add hl, bc
-
-    REPTI _name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_end, draw_gui
-        _maybe_register _name
-    endr
-endm
-
-
-
-PUBLIC room_init
-;#[PROFILE_ROUTINE]
-room_init:
-    ; Cleanup the callback lists
-    REPTI name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_end, draw_gui
-        scl_init name
-    endr
-
-    scl_init alarm
-
-    ld hl, _gmctx + GamemakerCTX_old_history
-    ld (_gmctx+GamemakerCTX_old_history), hl
-
-
-    ; TODO: Does this need moved out?
-    ld hl, object_render_queue
-    ld (object_render_queue_tail), hl
-
-
-@init_jump:
-    jp @is_not_initialized ; SMC: This way we only init certain things as the start of the game
-@is_not_initialized:
-    ld hl, @is_initialized
-    ld (@init_jump+1), hl
-
-    ; Init the instance heap allocator
-    fheap_init_inline instances
-
-@is_initialized:
-
-    ld hl, fheap_addr(instances)
-    fheap_foreach Instance_size
-        inc hl \ inc hl
-            bit 3, (hl) ; Is persistant
-        dec hl \ dec hl
-        jr nz, @setup
-
-        ; Cleanup
-            fheap_free instances
-            jp @loop
-
-
-        @setup:
-            _register_instance
-            jp @loop
-
-    @end_of_loop:
-        ret
-
+INCLUDE "engine/gamemaker_register.inc"
 
         MACRO for_each_and_call name, offset
             LOCAL @scl_loop, @scl_loopend
@@ -208,16 +116,11 @@ MACRO _callbacks
     for_each_and_call end_step,   Object_end_step
 endm
 
-
-
 PUBLIC gml_step
 ;#[PROFILE_ROUTINE]
 gml_step:
     _callbacks
     ret
-
-
-
 
 PUBLIC _draw_self
 ;#[PROFILE_ROUTINE]
@@ -243,11 +146,6 @@ _draw_self:
     call calculate_rl
     ret nc
     jp blit_rl_entry
-
-
-
-
-
 
 ; void set_alarm(uint16_t alarm_idx, int16_t value) __z88dk_callee
 PUBLIC  _inst_update_alarms
@@ -380,6 +278,3 @@ _set_depth:
     push ix
     pop bc
     jp __change_render_queue
-
-    
-

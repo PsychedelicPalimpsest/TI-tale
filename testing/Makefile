@@ -6,6 +6,7 @@ Z80ASM ?= z88dk-z80asm
 
 CORE_LIB := $(APP)/core.lib
 ENGINE_LIB := $(APP)/engine_resident.lib
+ENGINE_PAGE_LIB := $(APP)/engine_page.lib
 TEST_BINARY := $(BUILD)/routines.bin
 TEST_CODE := $(BUILD)/routines_code.bin
 TEST_CORE := $(BUILD)/routines_code_core.bin
@@ -15,9 +16,16 @@ TEST_MAP := $(BUILD)/routines.map
 CORE_ASM := $(APP)/core/interrupt.asm \
 	$(APP)/core/flash_lockunlock.asm \
 	$(APP)/core/ram_manager.asm \
-	$(APP)/core/audio.inc
+	$(APP)/core/audio.inc \
+	$(APP)/core/includes/globals.inc
 ENGINE_ASM := $(wildcard $(APP)/engine/resident/*.asm) \
 	$(wildcard $(APP)/engine/resident/installed/*.asm) \
+	$(wildcard $(APP)/engine/resident/installed/*.inc) \
+	$(APP)/engine/gamemaker_register.inc \
+	$(APP)/struct_offsets.inc
+ENGINE_PAGE_ASM := $(wildcard $(APP)/engine/page/*.asm) \
+	$(APP)/engine/gamemaker_register.inc \
+	$(APP)/engine/engine_globals.inc \
 	$(APP)/struct_offsets.inc
 TEST_ASM := routines.asm heap_routines.asm scl_routines.asm utils_routines.asm binary_insert_routines.asm test_stubs.asm \
 	$(APP)/core/includes/fixed_heap.inc \
@@ -38,9 +46,12 @@ $(CORE_LIB): $(APP)/Makefile $(CORE_ASM)
 $(ENGINE_LIB): $(APP)/Makefile $(ENGINE_ASM)
 	$(MAKE) -C $(APP) engine_resident.lib
 
-$(TEST_CODE) $(TEST_CORE) $(TEST_ENGINE) $(TEST_BINARY) $(TEST_MAP): $(TEST_ASM) $(CORE_LIB) $(ENGINE_LIB)
+$(ENGINE_PAGE_LIB): $(APP)/Makefile $(ENGINE_PAGE_ASM)
+	$(MAKE) -C $(APP) engine_page.lib
+
+$(TEST_CODE) $(TEST_CORE) $(TEST_ENGINE) $(TEST_BINARY) $(TEST_MAP): $(TEST_ASM) $(CORE_LIB) $(ENGINE_LIB) $(ENGINE_PAGE_LIB)
 	mkdir -p $(BUILD)
-	$(Z80ASM) -I$(APP) -L$(APP) -b -split-bin -m -r0x4000 -o$(TEST_BINARY) -lcore -lengine_resident routines.asm heap_routines.asm scl_routines.asm utils_routines.asm binary_insert_routines.asm test_stubs.asm
+	$(Z80ASM) -I$(APP) -L$(APP) -b -split-bin -m -r0x4000 -o$(TEST_BINARY) -lcore -lengine_resident -lengine_page routines.asm heap_routines.asm scl_routines.asm utils_routines.asm binary_insert_routines.asm test_stubs.asm
 
 clean:
 	rm -rf $(BUILD)

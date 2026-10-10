@@ -9,6 +9,8 @@ EXTERN _set_grey_timing
 EXTERN setup_interrupts
 EXTERN install_hooks
 EXTERN calculate_rl
+EXTERN room_init
+EXTERN engine_init
 
 PUBLIC _test_mul_16_16x8_fast
 _test_mul_16_16x8_fast:
@@ -37,3 +39,11 @@ _test_install_hooks:
 PUBLIC _test_calculate_rl
 _test_calculate_rl:
     jp calculate_rl
+
+PUBLIC _test_room_init
+_test_room_init:
+    jp room_init
+
+PUBLIC _test_engine_init
+_test_engine_init:
+    jp engine_init
