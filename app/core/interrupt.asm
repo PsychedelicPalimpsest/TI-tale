@@ -119,7 +119,7 @@ non_grey_case:
     out ($03), a
 
     ; Load in the first rom page of app
-    ld a, (_first_rom_page)
+    ld a, (_base_rom_page)
     out (6), a
 
     ; Note: TiOS fixes the stack for us (no interupt cleanup needed)

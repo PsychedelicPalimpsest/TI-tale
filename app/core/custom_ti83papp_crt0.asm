@@ -186,7 +186,7 @@ start:
 
     ; Save the current rom page (where this is on)
     in a, (6)
-    ld (_first_rom_page), a
+    ld (_base_rom_page), a
 
     ; Tell the profiler where our app starts.
     ; See: https://github.com/PsychedelicPalimpsest/NeoWxWabbit
