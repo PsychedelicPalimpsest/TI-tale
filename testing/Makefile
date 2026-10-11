@@ -21,6 +21,9 @@ CORE_ASM := $(APP)/core/interrupt.asm \
 ENGINE_ASM := $(wildcard $(APP)/engine/resident/*.asm) \
 	$(wildcard $(APP)/engine/resident/installed/*.asm) \
 	$(wildcard $(APP)/engine/resident/installed/*.inc) \
+	$(APP)/engine/engine_globals.inc \
+	$(APP)/engine/scl.inc \
+	$(APP)/core/includes/binary_insert.asm \
 	$(APP)/struct_offsets.inc
 ENGINE_PAGE_ASM := $(wildcard $(APP)/engine/page/*.asm) \
 	$(APP)/engine/gamemaker_register.inc \

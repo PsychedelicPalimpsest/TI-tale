@@ -215,13 +215,10 @@ MACRO sorted_array_change_depth head, tail_ptr, bsearch
     cp h
     jp z, @in_place
 @not_eq:
-    ld a, l
-    add a, 4
-    cp e
-    jr nz, @move
-    ld a, h
-    adc a, 0
-    cp d
+    push hl
+    inc hl \ inc hl \ inc hl \ inc hl
+    CpHLDE
+    pop hl
     jp z, @in_place
 @move:
     push bc ; Key

@@ -16,7 +16,7 @@ core.lib: $(CORE_LIB_FILES) $(CORE_INCLUDES)
 # Each source file is one z88dk library module. Keep code copied to RAM
 # separate from the optional ROM routines linked into individual room pages.
 RESIDENT_ENGINE_FILES := $(sort $(wildcard engine/resident/*.asm))
-RESIDENT_ENGINE_INCLUDES := $(wildcard engine/resident/installed/*.asm engine/resident/installed/*.inc) engine/engine_globals.inc engine/scl.inc struct_offsets.inc
+RESIDENT_ENGINE_INCLUDES := $(wildcard engine/resident/installed/*.asm engine/resident/installed/*.inc) engine/engine_globals.inc engine/scl.inc core/includes/binary_insert.asm struct_offsets.inc
 PAGE_ENGINE_FILES := $(sort $(wildcard engine/page/*.asm))
 
 engine_resident.lib: $(RESIDENT_ENGINE_FILES) $(RESIDENT_ENGINE_INCLUDES) $(CORE_INCLUDES)

@@ -99,6 +99,21 @@ describe('SCL initialization and append', () => {
     ])
     expect(m.readWord(tail())).toBe(head() + 8)
   })
+
+  it('does not write beyond a full callback list', () => {
+    const m = machine()
+    const [a, b, c, d] = sprites()
+    const extra = 0xA800
+    initialize(m)
+    for (const sprite of [a, b, c, d]) append(m, sprite)
+    m.writeByte(head() + 8, 0xA5)
+
+    append(m, extra)
+
+    expect(m.readWord(tail())).toBe(head() + 8)
+    expect(m.readByte(head() + 8)).toBe(0xA5)
+    expect(backPointer(m, extra)).toBe(0)
+  })
 })
 
 describe('SCL iteration', () => {

@@ -5,7 +5,7 @@ macro _maybe_register _name
     ld a, (de)
     inc de \ inc de ; Move until next
 
-    ; or a ; Test the high byte of the callback
+    or a ; Test the high byte of the callback
     jp z, @next ; Highly unlikely to fall through
         push de
         push hl
@@ -35,7 +35,7 @@ MACRO _register_instance
     ld bc, Instance__begin_step-1+1
     add hl, bc
 
-    REPTI _name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_end, draw_gui
+    REPTI _name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_begin, draw_end, draw_gui
         _maybe_register _name
     endr
 endm

@@ -38,7 +38,10 @@ DEFC Object_sprite_count = 20
 DEFC Object_sprites = 21
 DEFC Object_user_events = 53
 DEFC Object_alarm_callbacks = 85
-DEFC Object_size = 109
+DEFC Object_destroy = 109
+DEFC Object_clean_up = 111
+DEFC Object_initial_flags = 113
+DEFC Object_size = 114
 
 ; Instance from engine/engine.h
 DEFC Instance_obj = 0
@@ -66,7 +69,9 @@ DEFC Instance_sprite_index_max = 62
 DEFC Instance_sprite_index = 63
 DEFC Instance_last_sprite_index = 64
 DEFC Instance_displayed_sprite = 65
-DEFC Instance_size = 98
+DEFC Instance_id = 98
+DEFC Instance_queued_depth = 100
+DEFC Instance_size = 102
 
 ; RoomObj from engine/engine.h
 DEFC RoomObj_create = 0

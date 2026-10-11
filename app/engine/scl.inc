@@ -7,6 +7,7 @@
 ; *tail = 0x00??  - allows for quick iteration (high byte zero)
 MACRO scl_define arena, name, reservation, in_sprite_offset
     DEFC __scl_off(name) = in_sprite_offset
+    DEFC scl_limit_##name = arena + 2 + ((reservation) * 2)
     RDEF arena, scl_tail_##name, 2 ; ptr to the last element+2
 
     RDEF arena, scl_head_##name, ((reservation) * 2)
@@ -35,6 +36,12 @@ MACRO scl_append_from_scloff name
     or a \ jr nz, @no_append
 
     ld de, (scl_tail_##name) ; Get the high byte of the tail
+    push hl
+    ld hl, scl_limit_##name
+    or a \ sbc hl, de
+    pop hl
+    jr z, @no_append
+    jr c, @no_append
 
     ; Set the sprites location to the tail (the first empty element)
         ld (hl), d \ dec hl
@@ -47,7 +54,12 @@ MACRO scl_append_from_scloff name
     ; Set the new tail
         ld (scl_tail_##name), hl
 
-        inc hl \ ld (hl), 0
+        push hl
+        ld de, scl_limit_##name
+        or a \ sbc hl, de
+        pop hl
+        jr z, @no_append
+        ld (hl), 0
     @no_append:
 endm
 
@@ -151,4 +163,3 @@ MACRO SCL_ENDFOR name
     jp @scl_loop
 @scl_loopend:
 endm
-

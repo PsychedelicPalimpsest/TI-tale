@@ -64,6 +64,10 @@ typedef struct {
 
     void* user_events[16];
     void* alarm_callbacks[12];
+
+    void* destroy;
+    void* clean_up;
+    uint8_t initial_flags;
 } Object;
 
 
@@ -77,6 +81,9 @@ typedef struct {
                 // Bit 2: Needs new RL
                 // Bit 3: Is persistent
                 // Bit 4: Is solid (tbd) 
+                // Bit 5: Pending destruction
+                // Bit 6: Awaiting render-queue insertion
+                // Bit 7: Awaiting render-queue depth update
     uint16_t depth;
     
     int16_t x, y;
@@ -109,6 +116,8 @@ typedef struct {
     uint8_t sprite_index;    // An index into the sprite_cache_entries in obj
     uint8_t last_sprite_index;
     Sprite displayed_sprite;
+    uint16_t id; // Stable until destruction; zero is never assigned
+    int16_t queued_depth; // Depth currently stored in the render queue
 } Instance;
 
 
@@ -157,9 +166,13 @@ extern void room_goto_next();
 extern void room_goto_prev();
 
 extern Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
+extern Instance* instance_find_id(uint16_t id) __z88dk_fastcall;
+extern void instance_destroy(uint16_t id) __z88dk_fastcall;
+extern void event_perform_user(uint8_t index) __z88dk_fastcall;
+extern void inst_update_alarms(uint16_t alarm_idx, int16_t value) __z88dk_callee;
 
 #define instance_create(x, y, obj) \
-    instance_create_depth(gmctx.instance->depth, (x), (y), (obj))
+    instance_create_depth(gmctx.instance ? gmctx.instance->depth : 0, (x), (y), (obj))
 
 #define BEGIN_WITH(obj) \
     *(gmctc.old_history++) = gmctx.instance; \

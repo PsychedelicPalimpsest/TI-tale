@@ -101,10 +101,12 @@ compositor_loop:
     
     ; Note: This is after the background to save a bit of time (move the big stuff down to use jr)
     ;       since tiles can have not callbacks, this is valid
-    for_each_and_call pre_draw, Object_pre_draw ; Does NOT need any order
+    ld a, 1
+    ld (draw_in_progress), a
+    for_each_and_call pre_draw, Object_pre_draw, 3 ; Does NOT need any order
 
     MACRO _event_until_tail tail_ptr, head, event, do_self
-        LOCAL @loop, @no_draw_event, @end_of_loop
+        LOCAL @loop, @no_draw_event, @skip_entry, @end_of_loop
 
         ld bc, (tail_ptr)
         ld hl, head
@@ -118,6 +120,14 @@ compositor_loop:
             push hl
             push bc
                 ex de, hl
+                push hl
+                ld de, Instance_flags
+                add hl, de
+                ld a, (hl)
+                and %00100011 ; Active, visible, and not pending destruction
+                cp 3
+                pop hl
+                jr nz, @skip_entry
                 ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
                 ld e, (hl) \ inc hl
                 ld d, (hl)
@@ -144,6 +154,7 @@ compositor_loop:
             EXTERN _draw_self
             call _draw_self ; Handles sprite blitting
         endif
+    @skip_entry:
         pop bc
         pop hl
         jp @loop
@@ -151,13 +162,22 @@ compositor_loop:
 @end_of_loop:
     ENDM
 
+    _event_until_tail object_render_queue_tail, object_render_queue, Object_draw_begin, 0
     _event_until_tail object_render_queue_tail, object_render_queue, Object_draw, 1
+    _event_until_tail object_render_queue_tail, object_render_queue, Object_draw_end, 0
 
 
-    for_each_and_call post_draw, Object_post_draw ; Does NOT need any order
+    for_each_and_call post_draw, Object_post_draw, 3 ; Does NOT need any order
 
 
     _event_until_tail gui_render_queue_tail, gui_render_queue, Object_draw_gui, 0
+
+    ; Draw callbacks can request destruction. Remove those instances only
+    ; after all draw queues have finished iterating.
+    xor a
+    ld (draw_in_progress), a
+    call instance_sweep
+    call instance_flush_render_queue
 
     ; Full column conversion keeps the previous sprite footprint clean while
     ; the position-based dirty region API is still being developed.

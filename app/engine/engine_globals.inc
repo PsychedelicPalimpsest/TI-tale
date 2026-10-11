@@ -27,6 +27,8 @@ RDEF engine_globals,    cur_camprevy,           2
 
 
 RDEF engine_globals,   _gmctx,             GamemakerCTX_size
+RDEF engine_globals,   next_instance_id,   2
+RDEF engine_globals,   draw_in_progress,    1
 
 
 RDEF engine_globals,    gameloop_stack,           2
@@ -63,9 +65,9 @@ RDEF engine_globals, gui_render_queue,      4*6 ; Not alot are needed
     endr
 
 
-; These are less common, give them less space
-    REPTI name, pre_draw, post_draw, draw_end, draw_gui
-        scl_define engine_globals, name, 24,  Instance__##name
+; Any of the 64 instances may register any callback.
+    REPTI name, pre_draw, post_draw, draw_begin, draw_end, draw_gui
+        scl_define engine_globals, name, 64,  Instance__##name
     endr
 
 

@@ -10,7 +10,19 @@ _inst_update_alarms:
         pop de ; alarm index
     push hl
 
-    ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
+    ; Alarm slots are 0..11. Reject invalid indices before seeking into
+    ; the instance, including a null current instance.
+    ld a, d
+    or a
+    ret nz
+    ld a, e
+    cp 12
+    ret nc
+    ld hl, (_gmctx + GamemakerCTX_instance)
+    ld a, h \ or l
+    ret z
+
+    ; Current sprite instance
     push de
         ld de, Instance_alarms
         add hl, de

@@ -70,6 +70,8 @@ TRANSIENT_TYPES = [
 # Just the events we support
 VALID_EVENTS = [
     "create",
+    "destroy",
+    "clean_up",
     "begin_step",
     "step",
     "end_step",
@@ -827,6 +829,18 @@ def _compile_object(json_path, jso):
         f"OBJ_user{i}_{oid}" if f"user{i}" in events else "0" for i in range(16)) + "},")
     out.append("    {" + ", ".join(
         f"OBJ_alarm{i}_{oid}" if f"alarm{i}" in events else "0" for i in range(12)) + "},")
+    out.append(f"    {'OBJ_destroy_' + oid if 'destroy' in events else '0'},")
+    out.append(f"    {'OBJ_clean_up_' + oid if 'clean_up' in events else '0'},")
+    def object_bool(key, default):
+        value = jso.get(key, parent_jso.get(key, default))
+        if type(value) is not bool:
+            raise ValueError(f"{oid}: {key} must be a boolean")
+        return value
+
+    initial_flags = (1 | (2 if object_bool("visible", True) else 0)
+                     | (8 if object_bool("persistent", False) else 0)
+                     | (16 if object_bool("solid", False) else 0))
+    out.append(f"    {initial_flags},")
     out.append("};")
     out.append("#endif")
 

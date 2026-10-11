@@ -77,14 +77,7 @@ void object_step(void) {
         set_y(self, self->y + dy);
     }
 
-    // 2. GameMaker standard speed integration
-    // TODO: Move automatic (x += hspeed; y += vspeed;) into gml_step runtime
-    if (self->hspeed != 0 || self->vspeed != 0) {
-        set_x(self, self->x + self->hspeed);
-        set_y(self, self->y + self->vspeed);
-    }
-
-    // 3. Keep within 96x64 screen boundaries (16x16 sprite)
+    // Keep within 96x64 screen boundaries (16x16 sprite)
     if (self->x < 0) {
         set_x(self, 0);
         self->hspeed = -self->hspeed;
@@ -101,7 +94,7 @@ void object_step(void) {
         self->vspeed = -self->vspeed;
     }
 
-    // TODO: Add instance_destroy(self) demonstration when off-screen or on specific key
+    // TODO: Add instance_destroy(self->id) demonstration when off-screen or on specific key
     // if (keyboard_check_arrow(KEY_MASK_CLEAR)) {
     //     instance_destroy(self);
     // }

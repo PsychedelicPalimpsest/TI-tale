@@ -1,9 +1,21 @@
 INCLUDE "engine/gamemaker_register.inc"
 
-MACRO for_each_and_call name, offset
-    LOCAL @scl_loop, @scl_loopend
+MACRO for_each_and_call name, offset, required_flags
+    LOCAL @scl_loop, @scl_loopend, @skip
     SCL_FOR name
 ; hl = sprite
+        push hl
+        ld de, Instance_flags
+        add hl, de
+        ld a, (hl)
+        IF required_flags=1
+            and %00100001 ; Step callbacks ignore visibility
+        ELSE
+            and %00100011 ; Draw callbacks require visibility
+        endif
+        cp required_flags
+        pop hl
+        jr nz, @skip
         ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
 
         ld e, (hl) \ inc hl
@@ -21,6 +33,7 @@ MACRO for_each_and_call name, offset
         ld l, a
 
         call __hl
+    @skip:
     SCL_ENDFOR name
 endm
 
@@ -33,12 +46,20 @@ MACRO _callbacks
 
 
     ; Do all the begin steps
-    for_each_and_call begin_step, Object_begin_step
+    for_each_and_call begin_step, Object_begin_step, 1
 
 
     ; All instances with an alarm pressed
     SCL_FOR alarm
     ; hl = sprite object
+        push hl
+        ld de, Instance_flags
+        add hl, de
+        ld a, (hl)
+        and %00100001
+        cp 1
+        pop hl
+        jp nz, @after_check
 
         ld (@sprite_origin+1), hl
 
@@ -106,7 +127,8 @@ MACRO _callbacks
                 ld h, (hl)
                 ld l, a
 
-                call __hl
+                ld a, h \ or l
+                call nz, __hl
                 pop ix
                 pop hl
                 pop bc
@@ -120,19 +142,268 @@ MACRO _callbacks
     @after_check:
     SCL_ENDFOR alarm
 
-    for_each_and_call step,       Object_step
-    for_each_and_call end_step,   Object_end_step
+    for_each_and_call step,       Object_step, 1
+    call instance_move
+    for_each_and_call end_step,   Object_end_step, 1
 endm
 
+PUBLIC instance_copy_previous
+instance_copy_previous:
+    ld hl, fheap_addr(instances)
+    fheap_foreach Instance_size
+        inc hl
+        push hl \ pop ix
+        ld a, (ix+Instance_flags)
+        and %00100001
+        cp 1
+        jp nz, @loop
+
+        ld a, (ix+Instance_x)
+        ld (ix+Instance_xprev), a
+        ld a, (ix+Instance_x+1)
+        ld (ix+Instance_xprev+1), a
+        ld a, (ix+Instance_y)
+        ld (ix+Instance_yprev), a
+        ld a, (ix+Instance_y+1)
+        ld (ix+Instance_yprev+1), a
+        jp @loop
+    @end_of_loop:
+        ret
+
+PUBLIC instance_move
+instance_move:
+    ld hl, fheap_addr(instances)
+    fheap_foreach Instance_size
+        inc hl
+        push hl \ pop ix
+        ld a, (ix+Instance_flags)
+        and %00100001
+        cp 1
+        jp nz, @loop
+
+        ld a, (ix+Instance_hspeed)
+        or (ix+Instance_hspeed+1)
+        or (ix+Instance_vspeed)
+        or (ix+Instance_vspeed+1)
+        jp z, @loop
+
+        ld l, (ix+Instance_x)
+        ld h, (ix+Instance_x+1)
+        ld e, (ix+Instance_hspeed)
+        ld d, (ix+Instance_hspeed+1)
+        add hl, de
+        ld (ix+Instance_x), l
+        ld (ix+Instance_x+1), h
+        ld (ix+Instance_displayed_sprite+Sprite_x_pos), l
+        ld (ix+Instance_displayed_sprite+Sprite_x_pos+1), h
+
+        ld l, (ix+Instance_y)
+        ld h, (ix+Instance_y+1)
+        ld e, (ix+Instance_vspeed)
+        ld d, (ix+Instance_vspeed+1)
+        add hl, de
+        ld (ix+Instance_y), l
+        ld (ix+Instance_y+1), h
+        ld (ix+Instance_displayed_sprite+Sprite_y_pos), l
+        ld (ix+Instance_displayed_sprite+Sprite_y_pos+1), h
+
+        set 2, (ix+Instance_flags)
+        jp @loop
+    @end_of_loop:
+        ret
 
 
 
 
+
+
+; Instance* instance_find_id(uint16_t id) __z88dk_fastcall;
+PUBLIC _instance_find_id
+_instance_find_id:
+    ld a, h \ or l
+    ret z
+    ld b, h
+    ld c, l
+    ld hl, fheap_addr(instances)
+    fheap_foreach Instance_size
+        inc hl
+        push hl \ pop ix
+        bit 5, (ix+Instance_flags)
+        jp nz, @loop
+        ld a, (ix+Instance_id)
+        cp c
+        jp nz, @loop
+        ld a, (ix+Instance_id+1)
+        cp b
+        jp nz, @loop
+        push ix \ pop hl
+        ret
+    @end_of_loop:
+        ld hl, 0
+        ret
+
+; IDs can wrap, but skip any ID still in use. Zero is reserved for "none".
+PUBLIC __allocate_instance_id
+__allocate_instance_id:
+    ld hl, (next_instance_id)
+@next_id:
+    inc hl
+    ld a, h \ or l
+    jr nz, @check_id
+        inc hl
+@check_id:
+    push hl
+    call _instance_find_id
+    ld a, h \ or l
+    pop hl
+    jr nz, @next_id
+    ld (next_instance_id), hl
+    ret
+
+; void instance_destroy(uint16_t id) __z88dk_fastcall;
+; Mark first, so a Destroy event can safely request destruction again.
+PUBLIC _instance_destroy
+_instance_destroy:
+    call _instance_find_id
+    ld a, h \ or l
+    ret z
+
+    push hl \ pop ix
+    ld a, (ix+Instance_flags)
+    bit 5, a
+    ret nz
+    set 5, a
+    ld (ix+Instance_flags), a
+
+    ld hl, (_gmctx + GamemakerCTX_instance)
+    push hl
+    ld hl, (_gmctx + GamemakerCTX_other)
+    push hl
+    ld hl, (_gmctx + GamemakerCTX_instance)
+    ld (_gmctx + GamemakerCTX_other), hl
+    push ix \ pop hl
+    ld (_gmctx + GamemakerCTX_instance), hl
+
+    ld l, (ix+Instance_obj)
+    ld h, (ix+Instance_obj+1)
+    ld de, Object_destroy
+    add hl, de
+    ld e, (hl) \ inc hl
+    ld d, (hl)
+    ld a, d \ or e
+    jr z, @no_destroy
+        ex de, hl
+        push ix
+        call __hl
+        pop ix
+@no_destroy:
+    pop hl
+    ld (_gmctx + GamemakerCTX_other), hl
+    pop hl
+    ld (_gmctx + GamemakerCTX_instance), hl
+    ret
+
+; Sweep only after an event pass. SCL_FOR cannot safely remove an entry
+; other than the current one while it is iterating.
+PUBLIC instance_sweep
+instance_sweep:
+    ld ix, fh_heap_instances+1
+@loop:
+    ; Check the live heap boundary on every pass: Clean Up may create an
+    ; instance and extend it while this scan is in progress.
+    push ix \ pop hl
+    dec hl
+    ld de, (fh_tailplus_instances)
+    or a \ sbc hl, de
+    jp nc, @end_of_loop
+    ld a, (ix-1)
+    or a
+    jp nz, @next
+    bit 5, (ix+Instance_flags)
+    jp z, @next
+
+        push ix \ pop hl
+        ld (_gmctx + GamemakerCTX_instance), hl
+        ld hl, 0
+        ld (_gmctx + GamemakerCTX_other), hl
+
+        ld l, (ix+Instance_obj)
+        ld h, (ix+Instance_obj+1)
+        ld de, Object_clean_up
+        add hl, de
+        ld e, (hl) \ inc hl
+        ld d, (hl)
+        ld a, d \ or e
+        jr z, @no_clean_up
+            ex de, hl
+            push ix
+            call __hl
+            pop ix
+    @no_clean_up:
+        REPTI name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_begin, draw_end, draw_gui, alarm
+            push ix \ pop hl
+            scl_pop name
+        endr
+
+        bit 6, (ix+Instance_flags)
+        jr nz, @not_in_queue
+            ld l, (ix+Instance_queued_depth)
+            ld h, (ix+Instance_queued_depth+1)
+            push ix \ pop bc
+            call __remove_render_queue
+    @not_in_queue:
+
+        push ix \ pop de
+        fheap_free instances
+@next:
+    ld de, Instance_size+1
+    add ix, de
+    jp @loop
+@end_of_loop:
+        ld hl, 0
+        ld (_gmctx + GamemakerCTX_instance), hl
+        ld (_gmctx + GamemakerCTX_other), hl
+        ret
+
+PUBLIC instance_flush_render_queue
+instance_flush_render_queue:
+    ld hl, fheap_addr(instances)
+    fheap_foreach Instance_size
+        inc hl
+        push hl \ pop ix
+        bit 6, (ix+Instance_flags)
+        jp z, @check_depth
+        res 6, (ix+Instance_flags)
+        res 7, (ix+Instance_flags)
+        ld l, (ix+Instance_depth)
+        ld h, (ix+Instance_depth+1)
+        ld (ix+Instance_queued_depth), l
+        ld (ix+Instance_queued_depth+1), h
+        push ix \ pop bc
+        call __insert_render_queue
+        jp @loop
+    @check_depth:
+        bit 7, (ix+Instance_flags)
+        jp z, @loop
+        res 7, (ix+Instance_flags)
+        ld l, (ix+Instance_queued_depth)
+        ld h, (ix+Instance_queued_depth+1)
+        ld e, (ix+Instance_depth)
+        ld d, (ix+Instance_depth+1)
+        ld (ix+Instance_queued_depth), e
+        ld (ix+Instance_queued_depth+1), d
+        push ix \ pop bc
+        call __change_render_queue
+        jp @loop
+    @end_of_loop:
+        ret
 
 PUBLIC gml_step
 ;#[PROFILE_ROUTINE]
 gml_step:
+    call instance_copy_previous
     _callbacks
+    call instance_sweep
     ret
 
 PUBLIC _draw_self
@@ -184,6 +455,9 @@ __insert_render_queue: sorted_array_insert object_render_queue, object_render_qu
 PUBLIC __change_render_queue
 ;#[PROFILE_ROUTINE]
 __change_render_queue: sorted_array_change_depth object_render_queue, object_render_queue_tail, __bsearch_render_queue
+
+PUBLIC __remove_render_queue
+__remove_render_queue: sorted_array_remove object_render_queue, object_render_queue_tail, __bsearch_render_queue
 
 PUBLIC _room_goto_prev
 _room_goto_prev:

@@ -25,8 +25,17 @@ MACRO _instance_create_unsafe_without_render
     ld (hl), c \ inc hl
     ld (hl), b \ inc hl
 
-    ; TODO: Where do flags come from?
-    ld (hl), 7 \ inc hl ; Active, visible, needs rl
+    push hl
+        ld hl, Object_initial_flags
+        add hl, bc
+        ld a, (hl)
+        or a
+        jr nz, @has_defaults
+            ld a, 3 ; Legacy object tables default to active and visible
+    @has_defaults:
+        or 4 ; Needs render-list setup
+    pop hl
+    ld (hl), a \ inc hl
 
     push hl ; Save ptr
         ld de, Instance_alarm_count-3
@@ -45,6 +54,8 @@ MACRO _instance_create_unsafe_without_render
         ld hl, Object_sprite_count
         add hl, bc
         
+        ld a, (hl)
+        push af
         ldi ; Copy sprite count to instance        
 
         ; Zero out sprite_index and last_sprite_index
@@ -53,6 +64,10 @@ MACRO _instance_create_unsafe_without_render
         ld (de), a \ inc de
 
         ; Deref the first sprite
+        pop af
+        or a
+        jr z, @no_sprite
+
         ld a, (hl) \ inc hl
         ld h, (hl)
         ld l, a
@@ -61,6 +76,18 @@ MACRO _instance_create_unsafe_without_render
         ; TODO: This is of known size, should it be optimized?
         ld bc, Sprite_size
         ldir
+        jr @sprite_done
+
+    @no_sprite:
+        ; Controllers can have no sprite. Clear the displayed sprite so
+        ; draw_self has nothing to render.
+        ex de, hl
+        ld b, Sprite_size
+        xor a
+    @clear_sprite:
+        ld (hl), a \ inc hl
+        djnz @clear_sprite
+    @sprite_done:
     pop hl  ; Restore ptr at depth
     
 
@@ -131,6 +158,23 @@ endm
 PUBLIC _instance_create_depth
 ;#[PROFILE_ROUTINE]
 _instance_create_depth:
+    ; The heap is fixed-size. Never let fheap_alloc run past its reservation.
+    ld hl, (fh_freehead_instances)
+    ld a, h \ or l
+    jr nz, @has_slot
+    ld hl, (fh_tailplus_instances)
+    ld de, fh_heap_instances + fh_reservation_instances*(Instance_size+1)
+    or a \ sbc hl, de
+    jr c, @has_slot
+        pop de ; Return address
+        pop bc ; obj
+        pop bc ; y
+        pop bc ; x
+        pop bc ; depth
+        push de
+        ld hl, 0
+        ret
+@has_slot:
     pop de ; Return ptr
     exx
         _instance_create_unsafe_without_render
@@ -141,9 +185,32 @@ _instance_create_depth:
 
     push de ; Return ptr
 
+    ld a, (draw_in_progress)
+    or a
+    jr z, @insert_render
+        push bc \ pop ix
+        set 6, (ix+Instance_flags)
+        jr @after_render
+@insert_render:
     push bc
         call __insert_render_queue
+    pop bc
+@after_render:
+    push bc
     pop hl \ push hl ; Instance*
+
+    ; Assign an ID before Create so code in that event can pass it around.
+    push hl
+        EXTERN __allocate_instance_id
+        call __allocate_instance_id
+    pop ix
+    ld (ix+Instance_id), l
+    ld (ix+Instance_id+1), h
+    ld a, (ix+Instance_depth)
+    ld (ix+Instance_queued_depth), a
+    ld a, (ix+Instance_depth+1)
+    ld (ix+Instance_queued_depth+1), a
+    push ix \ pop hl
 
     ld de, (_gmctx + GamemakerCTX_instance)
     ld (_gmctx + GamemakerCTX_instance), hl
