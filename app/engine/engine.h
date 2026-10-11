@@ -113,8 +113,8 @@ typedef struct {
     int16_t alarms[12];
 
     uint8_t sprite_index_max;
-    uint8_t sprite_index;    // An index into the sprite_cache_entries in obj
-    uint8_t last_sprite_index;
+    uint8_t sprite_index;    // Frame in obj->sprites; applied by draw_self
+    uint8_t last_sprite_index; // Frame currently copied into displayed_sprite
     Sprite displayed_sprite;
     uint16_t id; // Stable until destruction; zero is never assigned
     int16_t queued_depth; // Depth currently stored in the render queue
@@ -182,12 +182,22 @@ extern void inst_update_alarms(uint16_t alarm_idx, int16_t value) __z88dk_callee
     gmctx.instance = *(--gmctx.old_history)
 
 #define set_x(__OBJ, __X) do { \
-    (__OBJ)->x = (__OBJ)->displayed_sprite.x_pos = (__X); \
-    (__OBJ)->flags |= 0x04; \
+    Instance* _set_x_instance = (__OBJ); \
+    int16_t _set_x_value = (__X); \
+    if (_set_x_instance->x != _set_x_value || \
+        _set_x_instance->displayed_sprite.x_pos != _set_x_value) { \
+        _set_x_instance->x = _set_x_instance->displayed_sprite.x_pos = _set_x_value; \
+        _set_x_instance->flags |= 0x04; \
+    } \
 } while (0)
 #define set_y(__OBJ, __Y) do { \
-    (__OBJ)->y = (__OBJ)->displayed_sprite.y_pos = (__Y); \
-    (__OBJ)->flags |= 0x04; \
+    Instance* _set_y_instance = (__OBJ); \
+    int16_t _set_y_value = (__Y); \
+    if (_set_y_instance->y != _set_y_value || \
+        _set_y_instance->displayed_sprite.y_pos != _set_y_value) { \
+        _set_y_instance->y = _set_y_instance->displayed_sprite.y_pos = _set_y_value; \
+        _set_y_instance->flags |= 0x04; \
+    } \
 } while (0)
 
 

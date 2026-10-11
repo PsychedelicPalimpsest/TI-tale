@@ -1,13 +1,5 @@
-; Takes the greyscale screen bufer, and converts them into optimized phased buffers
-; for the greyscale IRQ. Then, swaps the buffer used by the greyscale IRQ
-;
-; T-State Analysis:
-;   T_total = 416 + 7502*D + 3395*C + 122*S
-;   where D+C+S = 12 columns
-;
-;   Min  (D=0,  C=0,  S=12): 1,880   T-states (Static screen)
-;   Max  (D=12, C=0,  S=0):  90,440  T-states (Full redraw)
-;   Mean (D=4,  C=4,  S=4):  44,076  T-states (Average motion)
+; Convert the full interleaved screen into all three grayscale phases, then
+; swap the buffers used by the grayscale IRQ.
 
 PUBLIC _greyscale_swap
 
@@ -86,39 +78,10 @@ endm
 ; hl = input buffer
 ; de = alt phase buffer 1
 phase_component:
-    ; Register allocation:
-    ; hl' = dirty cols
-    ; de' = prev dirty cosl
-    ; b'  = col loop counter
-    ;
-    ; hl = input buffer
-    ; de = first output phase buffer
-
-    ; bc under copy = cell loop counters
-    ;
-    MACRO end_loop
-        exx
-        dec b
-        jp nz, @col_loop
-        ret
-    endm
-
+    ; PIXEL_BASE consumes BC, so keep the column counter in the shadow bank.
     exx
-    ld hl, (previous_dirty_cols)
-    ex de, hl
-    ld hl, (dirty_cols)
-
     ld b, 12
 @col_loop:
-; Advance the diry bitset, if the carry is set,
-; we know that col is dirty
-    add hl, hl
-    jp nc, @non_diry_copy
-
-; Advance the last frames dirty bitset, carry is not used
-    ex de, hl
-    add hl, hl
-    ex de, hl
     exx
 
     di
@@ -136,7 +99,7 @@ phase_component:
     PIXEL_DOWN M1, M2, M3
 
 
-@dirty_cell_loop:
+@cell_loop:
 ; Big code size, but this code is so hot it is needed
     REPT 2
         PIXEL_UP M2, M3, M1
@@ -151,7 +114,7 @@ phase_component:
     ; back around to the next col
     ld a, 63
     and e
-    jp nz, @dirty_cell_loop
+    jp nz, @cell_loop
 
     ld hl, sp ; Note: z88dk macro
 
@@ -159,118 +122,21 @@ phase_component:
 @sp_restore: ld sp, 0000h
     ei
 
-@post_pixels:
-    end_loop ; handles dec and ret
-
-@non_diry_copy:
-
-; Advance last frame's dirty bitset
-    ex de, hl
-    add hl, hl
-    ex de, hl
     exx
-
-; If the col is was dirty last frame, no need to copy it, as
-; it is still in this buffer.
-    jp nc, @nondirty_end_of_loop
-
-    push hl
-
-; hl = the phase buffer currently being displayed
-; de = the alt buffer we are copying too
-
-; Flip the bit required to get to and from the alt buffers.
-; They are exactly $1000 bytes apart, so this works
-
-    ld a, d
-    xor (grey_phase1_buff^grey_phase1_altbuff) >> 8
-
-    ld h, a
-    ld l, e
-
-    ld bc, 64
-@nondirty_copy_loop1:
-    ldi \ ldi \ ldi \ ldi
-    ldi \ ldi \ ldi \ ldi
-    ldi \ ldi \ ldi \ ldi
-    ldi \ ldi \ ldi \ ldi
-
-    ; The P/V flag is reset (PO) if BC == 0
-    jp pe, @nondirty_copy_loop1
-
-; Get to next phase (phase 2)
-    inc h \ inc h \ inc h
-    inc d \ inc d \ inc d
-
-; Now, we are at the next phase + 64, to save cycles, we can use the ldd
-; instruction, which copies backward (decs de, hl, bc)
-
-    ld bc, 64
-@nondirty_copy_loop2:
-    ldd \ ldd \ ldd \ ldd
-    ldd \ ldd \ ldd \ ldd
-    ldd \ ldd \ ldd \ ldd
-    ldd \ ldd \ ldd \ ldd
-
-    jp pe, @nondirty_copy_loop2
-
-; Get to next phase (phase 3)
-    inc h \ inc h \ inc h
-    inc d \ inc d \ inc d
-
-    ld bc, 64
-@nondirty_copy_loop3:
-    ldi \ ldi \ ldi \ ldi
-    ldi \ ldi \ ldi \ ldi
-    ldi \ ldi \ ldi \ ldi
-    ldi \ ldi \ ldi \ ldi
-
-    ; The P/V flag is reset (PO) if BC == 0
-    jp pe, @nondirty_copy_loop3
-
-; Get d back to the correct phase.
-; NOTE: due to the last round of LDIs, it is +64 already
-    ld a, -6
-    add d
-    ld d, a
-
-    pop hl
-
-; bc = 128 (b = 0 from ldi loop)
-    ld c, 128
-    add hl, bc
-    end_loop ; Handles jp and ret
-@nondirty_end_of_loop:
-    ld bc, 128
-    add hl, bc
-
-    ex de, hl
-
-    ld bc, 64
-    add hl, bc
-
-    ex de, hl
-    end_loop ; Handles jp and ret
+    dec b
+    jp nz, @col_loop
+    ret
 
 
 
 
 
-
+;#[PROFILE_ROUTINE]
 _greyscale_swap:
 ; =========Convert the individual buffers=========
     ld hl, _screen_buffer
     ld de, (alt_phase1)
     call phase_component
-
-; Save old dirty cols
-    ld hl, (dirty_cols)
-    ld (previous_dirty_cols), hl
-
-; Mark entire frame non-dirty
-    ld hl, 0
-    ld (dirty_cols), hl
-
 
 ; =========Swap the buffer ptrs=========
     ; Total Swap: 236 t-states

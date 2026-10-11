@@ -15,9 +15,7 @@ render_background:
     ld hl, (cur_camy)
     ld (cur_camprevy), hl
 
-    ; Everything is likely fucked
-    ld hl, -1
-    ld (dirty_cols), hl
+    call invalidate_all_renderlists
 
     ; TODO: Can we expand the screen size, and then simply move
     ;       the background instead of a complete redraw?
@@ -36,8 +34,15 @@ render_background:
 
 
     @loop:
-        CpHLBC
+        ; The low-byte mismatch is the common case. This costs 20 T-states
+        ; per entry instead of 37 for CpHLBC plus the branch.
+        ld a, l
+        cp c
+        jr nz, @tile_entry
+        ld a, h
+        cp b
         jr z, @end_of_loop
+    @tile_entry:
 
         inc hl \ inc hl ; We don't care about the depth
 
@@ -87,6 +92,7 @@ compositor_loop:
 
 ;#[PROFILE_START compose_core]
 @rejoin:
+
     ld iy, layer_background ; Src
     ld ix, layer_foreground   ; Dst
     call scrcpy
@@ -99,20 +105,21 @@ compositor_loop:
     ld (calculate_rl_screen), hl
 
     
-    ; Note: This is after the background to save a bit of time (move the big stuff down to use jr)
-    ;       since tiles can have not callbacks, this is valid
-    ld a, 1
-    ld (draw_in_progress), a
-    for_each_and_call pre_draw, Object_pre_draw, 3 ; Does NOT need any order
+
 
     MACRO _event_until_tail tail_ptr, head, event, do_self
-        LOCAL @loop, @no_draw_event, @skip_entry, @end_of_loop
+        LOCAL @loop, @queue_entry, @no_draw_event, @skip_entry, @end_of_loop
 
         ld bc, (tail_ptr)
         ld hl, head
         @loop:
-            CpHLBC
+            ld a, l
+            cp c
+            jr nz, @queue_entry
+            ld a, h
+            cp b
             jr z, @end_of_loop
+        @queue_entry:
             inc hl \ inc hl ; Skip depth
             ld e, (hl) \ inc hl
             ld d, (hl) \ inc hl
@@ -120,13 +127,11 @@ compositor_loop:
             push hl
             push bc
                 ex de, hl
-                push hl
-                ld de, Instance_flags
-                add hl, de
+                inc hl \ inc hl
                 ld a, (hl)
+                dec hl \ dec hl
                 and %00100011 ; Active, visible, and not pending destruction
                 cp 3
-                pop hl
                 jr nz, @skip_entry
                 ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
                 ld e, (hl) \ inc hl
@@ -162,33 +167,80 @@ compositor_loop:
 @end_of_loop:
     ENDM
 
+
+
+;#[PROFILE_START compose_pre_draw]
+@__1:
+    ; Note: This is after the background to save a bit of time (move the big stuff down to use jr)
+    ;       since tiles can have not callbacks, this is valid
+    ld a, 1
+    ld (draw_in_progress), a
+    for_each_and_call pre_draw, Object_pre_draw, 3 ; Does NOT need any order
+
+;#[PROFILE_START compose_draw_begin]
+;#[PROFILE_STOP compose_pre_draw]
+@__2:
     _event_until_tail object_render_queue_tail, object_render_queue, Object_draw_begin, 0
+
+;#[PROFILE_START compose_draw]
+;#[PROFILE_STOP compose_draw_begin]
+@__3:
+
     _event_until_tail object_render_queue_tail, object_render_queue, Object_draw, 1
+
+;#[PROFILE_START compose_draw_end]
+;#[PROFILE_STOP compose_draw]
+@__4:
     _event_until_tail object_render_queue_tail, object_render_queue, Object_draw_end, 0
 
 
+;#[PROFILE_START compose_post_draw]
+;#[PROFILE_STOP compose_draw_end]
+@__5:
     for_each_and_call post_draw, Object_post_draw, 3 ; Does NOT need any order
 
-
+;#[PROFILE_START compose_draw_gui]
+;#[PROFILE_STOP compose_post_draw]
+@__6:
     _event_until_tail gui_render_queue_tail, gui_render_queue, Object_draw_gui, 0
 
-    ; Draw callbacks can request destruction. Remove those instances only
-    ; after all draw queues have finished iterating.
+
+;#[PROFILE_STOP compose_draw_gui]
+@__7:
+
+
+    ; Draw callbacks can request destruction. Queue changes wait until all
+    ; draw callbacks have finished iterating.
     xor a
     ld (draw_in_progress), a
-    call instance_sweep
-    call instance_flush_render_queue
 
-    ; Full column conversion keeps the previous sprite footprint clean while
-    ; the position-based dirty region API is still being developed.
-    ld hl, $ffff
-    ld (dirty_cols), hl
     call _greyscale_swap
 
-
+    ; Run deferred changes after the swap. Any invalidation they request now
+    ; belongs to the next composed frame.
+    ld a, (instances_pending_destroy)
+    or a
+    call nz, instance_sweep
+    ld a, (render_queue_pending)
+    or a
+    call nz, instance_flush_render_queue
 
 ;#[PROFILE_STOP compose_core]
 ;#[PROFILE_STOP compose]
 @yield_and_loop:
     call yield_raw ; No registers betweem loops
     jp compositor_loop
+
+; The camera position is part of every cached render-list entry. Include
+; invisible and disabled sprites so a later draw cannot use an old location.
+invalidate_all_renderlists:
+    ld a, (room_init_done)
+    or a
+    ret z
+    ld hl, fheap_addr(instances)
+    fheap_foreach Instance_size
+        inc hl \ inc hl \ inc hl
+        set 2, (hl)
+        jp @loop
+    @end_of_loop:
+        ret

@@ -1,6 +1,9 @@
 SECTION code
 INCLUDE "struct_offsets.inc"
 
+; Keep offsets read directly by TypeScript visible in the linker map.
+PUBLIC Instance_xprev, Instance_yprev
+
 ; These aliases are the roots that pull selected routines out of the app
 ; archives. Add another alias here when a routine becomes a test target.
 EXTERN mul_16_16x8_fast
@@ -174,6 +177,22 @@ _test_draw_end_callback:
     inc (hl)
     ld a, (hl)
     ld ($A909), a
+    ret
+
+PUBLIC _test_pre_draw_callback
+_test_pre_draw_callback:
+    ld hl, $A906
+    inc (hl)
+    ld a, (hl)
+    ld ($A90A), a
+    ret
+
+PUBLIC _test_post_draw_callback
+_test_post_draw_callback:
+    ld hl, $A906
+    inc (hl)
+    ld a, (hl)
+    ld ($A90B), a
     ret
 
 PUBLIC _test_clean_up_creates_callback

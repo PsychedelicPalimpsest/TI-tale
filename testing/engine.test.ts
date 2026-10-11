@@ -9,7 +9,9 @@ describe('linked engine routines', () => {
     m.writeWord(0xE004, x)
     m.writeWord(0xE006, depth)
     m.runFrom(address('test_instance_create_depth'), 200_000)
-    return m.regs.hl
+    const instance = m.regs.hl
+    m.regs.sp = 0xF000 // Compositor stack must stay outside the screen buffer.
+    return instance
   }
 
   it('keeps frame dispatch and self-modifying queue code in RAM, with instance APIs in ROM', () => {
@@ -66,8 +68,6 @@ describe('linked engine routines', () => {
     expect(m.readWord(mapAddress('cur_camy'))).toBe(0)
     expect(m.readWord(mapAddress('cur_camprevx'))).toBe(0xFFFF)
     expect(m.readWord(mapAddress('cur_camprevy'))).toBe(0xFFFF)
-    expect(m.readWord(mapAddress('dirty_cols'))).toBe(0xFFFF)
-    expect(m.readWord(mapAddress('previous_dirty_cols'))).toBe(0xFFFF)
     for (const [current, buffer] of [
       ['current_phase1', 'grey_phase1_buff'],
       ['current_phase2', 'grey_phase2_buff'],
@@ -162,9 +162,8 @@ describe('linked engine routines', () => {
     expect(m.readWord(mapAddress('grey_timingX6'))).toBe(0x03C0)
   })
 
-  it('marks a region idempotently and preserves overlapping dirty columns', () => {
+  it('reuses a stable render list and updates its destination when a sprite moves', () => {
     const m = machine()
-    const dirtyCols = mapAddress('dirty_cols')
     const sprite = 0xA000
     const calculateRenderList = () => m.runFrom(address('test_calculate_rl'))
 
@@ -172,7 +171,7 @@ describe('linked engine routines', () => {
     m.writeWord(sprite + 1, 16)
     m.writeByte(sprite + 3, 3)
     m.writeWord(sprite + 4, 24)
-    m.writeWord(sprite + 6, 0)
+    m.writeWord(sprite + 6, 24)
     m.writeByte(sprite + 8, 8)
     m.writeWord(sprite + 17, 0xB000)
     m.writeWord(mapAddress('cur_camx'), 0)
@@ -183,22 +182,19 @@ describe('linked engine routines', () => {
 
     m.regs.hl = sprite
     calculateRenderList()
-    expect(m.readWord(dirtyCols)).toBe(0x3800)
+    const entry = Array.from({ length: 8 }, (_, i) => m.readByte(sprite + 9 + i))
+    expect(entry[0] & 1).toBe(1)
+    expect(entry[2]).toBe(3)
+    expect(m.readWord(sprite + 15)).toBe(0xC130)
 
     m.regs.hl = sprite
     calculateRenderList()
-    expect(m.readWord(dirtyCols)).toBe(0x3800)
+    expect(Array.from({ length: 8 }, (_, i) => m.readByte(sprite + 9 + i))).toEqual(entry)
 
-    m.writeWord(dirtyCols, 0x8000)
-    m.regs.hl = sprite
-    calculateRenderList()
-    expect(m.readWord(dirtyCols)).toBe(0xB800)
-
-    m.writeWord(dirtyCols, 0)
     m.writeWord(sprite + 1, 72)
     m.regs.hl = sprite
     calculateRenderList()
-    expect(m.readWord(dirtyCols)).toBe(0x0070)
+    expect(m.readWord(sprite + 15)).toBe(0xC4B0)
   })
 
   it('draw_self uses instance visibility rather than the object address byte', () => {
@@ -208,6 +204,7 @@ describe('linked engine routines', () => {
     const screen = 0xC000
     m.writeWord(mapAddress('_gmctx'), instance)
     m.writeWord(instance, 0x0002) // Object pointer low byte has visibility bit set.
+    m.writeByte(instance + mapAddress('Instance_displayed_sprite') + mapAddress('Sprite_flags'), 1)
     m.writeByte(entry, 1)
     m.writeByte(entry + 1, 0)
     m.writeByte(entry + 2, 1)
@@ -360,6 +357,35 @@ describe('linked engine routines', () => {
     m.regs.hl = 1
     m.runFrom(address('test_instance_find_id'))
     expect(m.regs.hl).toBe(first)
+  })
+
+  it('allocates sequential IDs without scanning and skips all live IDs on wrap', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const a = createInstance(m, 0xD000)
+    const b = createInstance(m, 0xD000)
+    expect(m.readWord(a + mapAddress('Instance_id'))).toBe(1)
+    expect(m.readWord(b + mapAddress('Instance_id'))).toBe(2)
+
+    // Both IDs are live; wrapping must skip past both of them.
+    m.writeWord(mapAddress('next_instance_id'), 0xFFFF)
+    const c = createInstance(m, 0xD000)
+    expect(m.readWord(c + mapAddress('Instance_id'))).toBe(3)
+  })
+
+  it('hides a pending-destruction instance from find before the sweep', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const instance = createInstance(m, 0xD000)
+    const id = m.readWord(instance + mapAddress('Instance_id'))
+    m.regs.hl = id
+    m.runFrom(address('test_instance_destroy'))
+    expect(m.readByte(mapAddress('instances_pending_destroy'))).toBe(1)
+    m.regs.hl = id
+    m.runFrom(address('test_instance_find_id'))
+    expect(m.regs.hl).toBe(0)
+    m.runFrom(address('test_instance_sweep'), 200_000)
+    expect(m.readByte(mapAddress('instances_pending_destroy'))).toBe(0)
   })
 
   it('skips an instance destroyed earlier in the same event pass', () => {
@@ -525,6 +551,290 @@ describe('linked engine routines', () => {
     m.regs.bc = 0xB600
     m.runFrom(address('test_change_render_queue'))
     expect(m.readWord(head)).toBe(5)
+  })
+
+  it('does not queue a depth update when the requested depth is unchanged', () => {
+    const m = machine()
+    const object = 0xD000
+    m.runFrom(address('test_room_init'))
+    const instance = createInstance(m, object, 8, 8, 5)
+    const queue = mapAddress('object_render_queue')
+    const tail = m.readWord(mapAddress('object_render_queue_tail'))
+
+    m.regs.sp = 0xE000
+    m.writeWord(0xE000, 5)
+    m.writeWord(0xE002, instance)
+    m.runFrom(address('test_set_depth'), 200_000)
+
+    expect(m.readWord(instance + mapAddress('Instance_depth'))).toBe(5)
+    expect(m.readByte(instance + mapAddress('Instance_flags')) & 0x80).toBe(0)
+    expect(m.readWord(mapAddress('object_render_queue_tail'))).toBe(tail)
+    expect(m.readWord(queue)).toBe(5)
+  })
+
+  it('uses the queued depth as the old key for an immediate depth update', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const instance = createInstance(m, 0xD000, 8, 8, 5)
+
+    m.regs.sp = 0xE000
+    m.writeWord(0xE000, 7)
+    m.writeWord(0xE002, instance)
+    m.runFrom(address('test_set_depth'), 200_000)
+
+    expect(m.readWord(instance + mapAddress('Instance_depth'))).toBe(7)
+    expect(m.readWord(instance + mapAddress('Instance_queued_depth'))).toBe(7)
+    expect(m.readWord(mapAddress('object_render_queue'))).toBe(7)
+    expect(m.readByte(instance + mapAddress('Instance_flags')) & 0x80).toBe(0)
+  })
+
+  it('clears deferred flags and forces a background redraw on room_init', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    m.writeByte(mapAddress('instances_pending_destroy'), 3)
+    m.writeByte(mapAddress('render_queue_pending'), 2)
+    m.writeByte(mapAddress('draw_in_progress'), 1)
+    m.writeWord(mapAddress('cur_camprevx'), 0)
+    m.writeWord(mapAddress('cur_camprevy'), 0)
+
+    m.runFrom(address('test_room_init'))
+
+    expect(m.readByte(mapAddress('instances_pending_destroy'))).toBe(0)
+    expect(m.readByte(mapAddress('render_queue_pending'))).toBe(0)
+    expect(m.readByte(mapAddress('draw_in_progress'))).toBe(0)
+    expect(m.readWord(mapAddress('cur_camprevx'))).toBe(0xFFFF)
+    expect(m.readWord(mapAddress('cur_camprevy'))).toBe(0xFFFF)
+  })
+
+  it('ignores queue updates for destroyed and pending-insertion instances', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const queue = mapAddress('object_render_queue')
+    const tailAddr = mapAddress('object_render_queue_tail')
+
+    const destroyed = createInstance(m, 0xD000, 8, 8, 5)
+    const tailBefore = m.readWord(tailAddr)
+    m.writeByte(destroyed + mapAddress('Instance_flags'), m.readByte(destroyed + mapAddress('Instance_flags')) | 0x20)
+    m.regs.sp = 0xE000
+    m.writeWord(0xE000, 9)
+    m.writeWord(0xE002, destroyed)
+    m.runFrom(address('test_set_depth'), 200_000)
+    // Depth is still recorded so a later flush/sweep sees the latest value,
+    // but the live queue keeps the old key and no deferred work is queued.
+    expect(m.readWord(destroyed + mapAddress('Instance_depth'))).toBe(9)
+    expect(m.readWord(destroyed + mapAddress('Instance_queued_depth'))).toBe(5)
+    expect(m.readWord(tailAddr)).toBe(tailBefore)
+    expect(m.readWord(queue)).toBe(5)
+    expect(m.readByte(destroyed + mapAddress('Instance_flags')) & 0x80).toBe(0)
+    expect(m.readByte(mapAddress('render_queue_pending'))).toBe(0)
+
+    const pending = createInstance(m, 0xD000, 8, 8, 6)
+    const tailMid = m.readWord(tailAddr)
+    m.writeByte(pending + mapAddress('Instance_flags'), m.readByte(pending + mapAddress('Instance_flags')) | 0x40)
+    m.regs.sp = 0xE000
+    m.writeWord(0xE000, 12)
+    m.writeWord(0xE002, pending)
+    m.runFrom(address('test_set_depth'), 200_000)
+    // A pending insertion will use the new depth at flush time; no extra update needed.
+    expect(m.readWord(pending + mapAddress('Instance_depth'))).toBe(12)
+    expect(m.readByte(pending + mapAddress('Instance_flags')) & 0x80).toBe(0)
+    expect(m.readWord(tailAddr)).toBe(tailMid)
+    expect(m.readByte(mapAddress('render_queue_pending'))).toBe(0)
+  })
+
+  it('defers depth changes during draw and flushes them afterwards', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const queue = mapAddress('object_render_queue')
+    const instance = createInstance(m, 0xD000, 8, 8, 5)
+
+    m.writeByte(mapAddress('draw_in_progress'), 1)
+    m.regs.sp = 0xE000
+    m.writeWord(0xE000, 11)
+    m.writeWord(0xE002, instance)
+    m.runFrom(address('test_set_depth'), 200_000)
+
+    expect(m.readWord(instance + mapAddress('Instance_depth'))).toBe(11)
+    expect(m.readWord(instance + mapAddress('Instance_queued_depth'))).toBe(5)
+    expect(m.readByte(instance + mapAddress('Instance_flags')) & 0x80).toBe(0x80)
+    expect(m.readByte(mapAddress('render_queue_pending'))).toBe(1)
+    expect(m.readWord(queue)).toBe(5)
+
+    m.writeByte(mapAddress('draw_in_progress'), 0)
+    m.runFrom(mapAddress('instance_flush_render_queue'), 200_000)
+
+    expect(m.readWord(instance + mapAddress('Instance_queued_depth'))).toBe(11)
+    expect(m.readWord(queue)).toBe(11)
+    expect(m.readByte(instance + mapAddress('Instance_flags')) & 0x80).toBe(0)
+    expect(m.readByte(mapAddress('render_queue_pending'))).toBe(0)
+  })
+
+  it('defers render-queue insertion for instances created during draw', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const tailAddr = mapAddress('object_render_queue_tail')
+    const tailBefore = m.readWord(tailAddr)
+
+    m.writeByte(mapAddress('draw_in_progress'), 1)
+    const instance = createInstance(m, 0xD000, 10, 12, 3)
+
+    expect(m.readByte(instance + mapAddress('Instance_flags')) & 0x40).toBe(0x40)
+    expect(m.readByte(mapAddress('render_queue_pending'))).toBe(1)
+    expect(m.readWord(tailAddr)).toBe(tailBefore)
+
+    m.writeByte(mapAddress('draw_in_progress'), 0)
+    m.runFrom(mapAddress('instance_flush_render_queue'), 200_000)
+
+    expect(m.readByte(instance + mapAddress('Instance_flags')) & 0x40).toBe(0)
+    expect(m.readByte(instance + mapAddress('Instance_flags')) & 0x80).toBe(0)
+    expect(m.readWord(tailAddr)).toBe(tailBefore + 4)
+    expect(m.readByte(mapAddress('render_queue_pending'))).toBe(0)
+  })
+
+  it('flushes multiple deferred depth changes in one pass', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const queue = mapAddress('object_render_queue')
+    const a = createInstance(m, 0xD000, 8, 8, 5)
+    const b = createInstance(m, 0xD000, 8, 8, 6)
+
+    m.writeByte(mapAddress('draw_in_progress'), 1)
+    for (const [inst, depth] of [[a, 10], [b, 1]] as const) {
+      m.regs.sp = 0xE000
+      m.writeWord(0xE000, depth)
+      m.writeWord(0xE002, inst)
+      m.runFrom(address('test_set_depth'), 200_000)
+    }
+    expect(m.readByte(mapAddress('render_queue_pending'))).toBe(1)
+
+    m.writeByte(mapAddress('draw_in_progress'), 0)
+    m.runFrom(mapAddress('instance_flush_render_queue'), 300_000)
+
+    expect(m.readWord(a + mapAddress('Instance_queued_depth'))).toBe(10)
+    expect(m.readWord(b + mapAddress('Instance_queued_depth'))).toBe(1)
+    // Queue stays sorted by depth.
+    expect(m.readWord(queue)).toBe(1)
+    expect(m.readWord(queue + 4)).toBe(10)
+    expect(m.readByte(a + mapAddress('Instance_flags')) & 0x80).toBe(0)
+    expect(m.readByte(b + mapAddress('Instance_flags')) & 0x80).toBe(0)
+    expect(m.readByte(mapAddress('render_queue_pending'))).toBe(0)
+  })
+
+  it('leaves stationary and inactive instances unmoved', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const flagsOff = mapAddress('Instance_flags')
+    const moving = createInstance(m, 0xD000, 10, 20, 0)
+    const stationary = createInstance(m, 0xD000, 30, 40, 0)
+    const inactive = createInstance(m, 0xD000, 50, 60, 0)
+    m.writeWord(moving + mapAddress('Instance_hspeed'), 3)
+    m.writeWord(moving + mapAddress('Instance_vspeed'), 0xFFFF) // -1
+    m.writeWord(inactive + mapAddress('Instance_hspeed'), 5)
+    m.writeWord(inactive + mapAddress('Instance_vspeed'), 5)
+    m.writeByte(inactive + flagsOff, 0)
+    // Move x so copy_previous can prove it skips inactive instances.
+    m.writeWord(inactive + mapAddress('Instance_x'), 51)
+    for (const inst of [moving, stationary]) {
+      m.writeByte(inst + flagsOff, m.readByte(inst + flagsOff) & ~4)
+    }
+
+    m.runFrom(mapAddress('instance_copy_previous'), 200_000)
+    expect(m.readWord(moving + mapAddress('Instance_xprev'))).toBe(10)
+    expect(m.readWord(moving + mapAddress('Instance_yprev'))).toBe(20)
+    expect(m.readWord(stationary + mapAddress('Instance_xprev'))).toBe(30)
+    expect(m.readWord(stationary + mapAddress('Instance_yprev'))).toBe(40)
+    // Inactive keeps its stale previous position.
+    expect(m.readWord(inactive + mapAddress('Instance_xprev'))).toBe(50)
+    expect(m.readWord(inactive + mapAddress('Instance_yprev'))).toBe(60)
+
+    m.runFrom(mapAddress('instance_move'), 200_000)
+    expect(m.readWord(moving + mapAddress('Instance_x'))).toBe(13)
+    expect(m.readWord(moving + mapAddress('Instance_y'))).toBe(19)
+    expect(m.readWord(moving + mapAddress('Instance_displayed_sprite') + mapAddress('Sprite_x_pos'))).toBe(13)
+    expect(m.readWord(moving + mapAddress('Instance_displayed_sprite') + mapAddress('Sprite_y_pos'))).toBe(19)
+    expect(m.readByte(moving + flagsOff) & 4).toBe(4)
+    expect(m.readWord(stationary + mapAddress('Instance_x'))).toBe(30)
+    expect(m.readWord(stationary + mapAddress('Instance_y'))).toBe(40)
+    expect(m.readByte(stationary + flagsOff) & 4).toBe(0)
+    expect(m.readWord(inactive + mapAddress('Instance_x'))).toBe(51)
+    expect(m.readWord(inactive + mapAddress('Instance_y'))).toBe(60)
+  })
+
+  it('applies hspeed-only, vspeed-only, and negative velocities', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const hOnly = createInstance(m, 0xD000, 20, 20, 0)
+    const vOnly = createInstance(m, 0xD000, 20, 20, 0)
+    const neg = createInstance(m, 0xD000, 20, 20, 0)
+    m.writeWord(hOnly + mapAddress('Instance_hspeed'), 0xFFFE) // -2
+    m.writeWord(hOnly + mapAddress('Instance_vspeed'), 0)
+    m.writeWord(vOnly + mapAddress('Instance_hspeed'), 0)
+    m.writeWord(vOnly + mapAddress('Instance_vspeed'), 4)
+    m.writeWord(neg + mapAddress('Instance_hspeed'), 0xFFFF) // -1
+    m.writeWord(neg + mapAddress('Instance_vspeed'), 0xFFFE) // -2
+
+    m.runFrom(mapAddress('gml_step'), 300_000)
+
+    expect(m.readWord(hOnly + mapAddress('Instance_x'))).toBe(18)
+    expect(m.readWord(hOnly + mapAddress('Instance_y'))).toBe(20)
+    expect(m.readWord(vOnly + mapAddress('Instance_x'))).toBe(20)
+    expect(m.readWord(vOnly + mapAddress('Instance_y'))).toBe(24)
+    expect(m.readWord(neg + mapAddress('Instance_x'))).toBe(19)
+    expect(m.readWord(neg + mapAddress('Instance_y'))).toBe(18)
+  })
+
+  it('sweeps multiple destroyed instances and zeroes the pending counter', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const queue = mapAddress('object_render_queue')
+    const tailAddr = mapAddress('object_render_queue_tail')
+    const a = createInstance(m, 0xD000)
+    const b = createInstance(m, 0xD000)
+    const c = createInstance(m, 0xD000)
+    const idA = m.readWord(a + mapAddress('Instance_id'))
+    const idC = m.readWord(c + mapAddress('Instance_id'))
+
+    m.regs.hl = idA
+    m.runFrom(address('test_instance_destroy'))
+    m.regs.hl = idC
+    m.runFrom(address('test_instance_destroy'))
+    expect(m.readByte(mapAddress('instances_pending_destroy'))).toBe(2)
+    expect(m.readWord(tailAddr)).toBe(queue + 12)
+
+    m.runFrom(address('test_instance_sweep'), 300_000)
+
+    expect(m.readByte(mapAddress('instances_pending_destroy'))).toBe(0)
+    expect(m.readByte(a - 1)).toBe(1)
+    expect(m.readByte(b - 1)).toBe(0)
+    expect(m.readByte(c - 1)).toBe(1)
+    expect(m.readWord(tailAddr)).toBe(queue + 4)
+    expect(m.readWord(queue + 2)).toBe(b)
+
+    // A second sweep with nothing pending must leave the live queue alone.
+    m.runFrom(address('test_instance_sweep'), 200_000)
+    expect(m.readByte(mapAddress('instances_pending_destroy'))).toBe(0)
+    expect(m.readWord(tailAddr)).toBe(queue + 4)
+  })
+
+  it('runs pre_draw and post_draw only while visible', () => {
+    const m = machine()
+    m.runFrom(address('test_room_init'))
+    const object = 0xB600
+    m.writeWord(object + mapAddress('Object_pre_draw'), address('test_pre_draw_callback'))
+    m.writeWord(object + mapAddress('Object_post_draw'), address('test_post_draw_callback'))
+    const instance = createInstance(m, object)
+    m.writeWord(mapAddress('cur_camprevx'), 0)
+    m.writeWord(mapAddress('cur_camprevy'), 0)
+    m.writeByte(mapAddress('yield_raw'), 0x76)
+    m.writeByte(mapAddress('frame_pending'), 1)
+    m.runFrom(address('test_compositor_loop'), 500_000)
+    expect(m.readByte(0xA90A)).toBe(1)
+    expect(m.readByte(0xA90B)).toBe(2)
+
+    m.writeByte(instance + mapAddress('Instance_flags'), 1)
+    m.writeByte(mapAddress('frame_pending'), 1)
+    m.runFrom(address('test_compositor_loop'), 500_000)
+    expect(m.readByte(0xA906)).toBe(2)
   })
 
   it('copies previous position and applies velocity between Step and End Step', () => {

@@ -105,8 +105,9 @@ restore_sp_and_ret:
     ld sp, 0000h
     ret
 
-; Small helper function
+; Small helper function for indirect calls to hl
 PUBLIC __hl
+;#[PROFILE_ROUTINE]
 __hl: jp (hl)
 
 

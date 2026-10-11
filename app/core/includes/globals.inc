@@ -57,15 +57,6 @@ RDEF interupt_globals,            alt_phase2,      2
 RDEF interupt_globals,            alt_phase3,      2
 
 
-; Keeps track of what cols have been updated
-; Storage method: Highest bit (byte two) = first col
-; this ensures that, when loaded into hl, the `add hl, hl`
-; opcode makes the carry set when a col is diry
-RDEF interupt_globals,            dirty_cols,               2
-RDEF interupt_globals,            previous_dirty_cols,      2
-
-
-
 ; Map of user keys, see: https://web.archive.org/web/20240225131330/https://wikiti.brandonw.net/index.php?title=83Plus:Ports:01
 RDEF interupt_globals,            _current_keymap,  8
 RDEF interupt_globals,            _last_keymap,     8

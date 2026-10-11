@@ -12,15 +12,13 @@
 #endif
 
 // TODO: Expose keyboard / input scan helpers in engine/input.h
-// Port 1 Group 7 keys (active low: 0 = pressed, 1 = released)
+// Port 1 $FE row (active low: 0 = pressed, 1 = released)
 extern uint8_t current_keymap[8];
-#define KEY_GROUP_ARROWS 7
+#define KEY_GROUP_ARROWS 0
 #define KEY_MASK_DOWN    (1 << 0)
 #define KEY_MASK_LEFT    (1 << 1)
 #define KEY_MASK_RIGHT   (1 << 2)
 #define KEY_MASK_UP      (1 << 3)
-
-#define keyboard_check_arrow(mask) (!(current_keymap[KEY_GROUP_ARROWS] & (mask)))
 
 // TODO: Add proper GML naming alias set_alarm(idx, val) in engine.h
 extern void inst_update_alarms(uint16_t alarm_idx, int16_t value) __z88dk_callee;
@@ -54,44 +52,20 @@ void object_create(void) {
  * Step Event: Executed every frame (~30Hz) during gml_step.
  */
 void object_step(void) {
-    // 1. Interactive D-pad movement controls
-    int16_t dx = 0;
-    int16_t dy = 0;
+    // Read the matrix row once, then let the engine apply velocity after Step.
+    uint8_t arrows = current_keymap[KEY_GROUP_ARROWS];
+    self->hspeed = ((arrows >> 1) & 1) - ((arrows >> 2) & 1);
+    self->vspeed = ((arrows >> 3) & 1) - (arrows & 1);
 
-    if (keyboard_check_arrow(KEY_MASK_LEFT)) {
-        dx -= 1;
-    }
-    if (keyboard_check_arrow(KEY_MASK_RIGHT)) {
-        dx += 1;
-    }
-    if (keyboard_check_arrow(KEY_MASK_UP)) {
-        dy -= 1;
-    }
-    if (keyboard_check_arrow(KEY_MASK_DOWN)) {
-        dy += 1;
+    // Stop at the 96x64 screen boundary before velocity is integrated.
+    if ((self->x <= 0 && self->hspeed < 0) ||
+        (self->x >= (96 - 16) && self->hspeed > 0)) {
+        self->hspeed = 0;
     }
 
-    // Update position via engine macros
-    if (dx != 0 || dy != 0) {
-        set_x(self, self->x + dx);
-        set_y(self, self->y + dy);
-    }
-
-    // Keep within 96x64 screen boundaries (16x16 sprite)
-    if (self->x < 0) {
-        set_x(self, 0);
-        self->hspeed = -self->hspeed;
-    } else if (self->x > (96 - 16)) {
-        set_x(self, 96 - 16);
-        self->hspeed = -self->hspeed;
-    }
-
-    if (self->y < 0) {
-        set_y(self, 0);
-        self->vspeed = -self->vspeed;
-    } else if (self->y > (64 - 16)) {
-        set_y(self, 64 - 16);
-        self->vspeed = -self->vspeed;
+    if ((self->y <= 0 && self->vspeed < 0) ||
+        (self->y >= (64 - 16) && self->vspeed > 0)) {
+        self->vspeed = 0;
     }
 
     // TODO: Add instance_destroy(self->id) demonstration when off-screen or on specific key

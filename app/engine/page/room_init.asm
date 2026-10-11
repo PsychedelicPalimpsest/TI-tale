@@ -12,6 +12,12 @@ room_init:
     ld (_gmctx + GamemakerCTX_other), hl
     xor a
     ld (draw_in_progress), a
+    ld (instances_pending_destroy), a
+    ld (render_queue_pending), a
+    ; A new room needs a fresh background even when its camera position matches.
+    ld hl, $ffff
+    ld (cur_camprevx), hl
+    ld (cur_camprevy), hl
 
     ; Cleanup the callback lists
     REPTI name, begin_step, step, end_step, draw, pre_draw, post_draw, draw_begin, draw_end, draw_gui

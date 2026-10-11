@@ -4,17 +4,17 @@ MACRO for_each_and_call name, offset, required_flags
     LOCAL @scl_loop, @scl_loopend, @skip
     SCL_FOR name
 ; hl = sprite
-        push hl
-        ld de, Instance_flags
-        add hl, de
+        ; Direct HL walking is 31 T-states here. Saving HL and using an
+        ; offset add costs 49 before the load alone.
+        inc hl \ inc hl
         ld a, (hl)
+        dec hl \ dec hl
         IF required_flags=1
             and %00100001 ; Step callbacks ignore visibility
         ELSE
             and %00100011 ; Draw callbacks require visibility
         endif
         cp required_flags
-        pop hl
         jr nz, @skip
         ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
 
@@ -52,13 +52,11 @@ MACRO _callbacks
     ; All instances with an alarm pressed
     SCL_FOR alarm
     ; hl = sprite object
-        push hl
-        ld de, Instance_flags
-        add hl, de
+        inc hl \ inc hl
         ld a, (hl)
+        dec hl \ dec hl
         and %00100001
         cp 1
-        pop hl
         jp nz, @after_check
 
         ld (@sprite_origin+1), hl
@@ -152,20 +150,23 @@ instance_copy_previous:
     ld hl, fheap_addr(instances)
     fheap_foreach Instance_size
         inc hl
-        push hl \ pop ix
-        ld a, (ix+Instance_flags)
+        inc hl \ inc hl
+        ld a, (hl)
         and %00100001
         cp 1
         jp nz, @loop
 
-        ld a, (ix+Instance_x)
-        ld (ix+Instance_xprev), a
-        ld a, (ix+Instance_x+1)
-        ld (ix+Instance_xprev+1), a
-        ld a, (ix+Instance_y)
-        ld (ix+Instance_yprev), a
-        ld a, (ix+Instance_y+1)
-        ld (ix+Instance_yprev+1), a
+        ; HL is at flags. Four direct reads and writes cost 98 T-states;
+        ; the equivalent eight IX+d accesses cost 152 T-states.
+        inc hl \ inc hl \ inc hl
+        ld b, (hl) \ inc hl
+        ld c, (hl) \ inc hl
+        ld d, (hl) \ inc hl
+        ld e, (hl) \ inc hl
+        ld (hl), b \ inc hl
+        ld (hl), c \ inc hl
+        ld (hl), d \ inc hl
+        ld (hl), e
         jp @loop
     @end_of_loop:
         ret
@@ -175,23 +176,43 @@ instance_move:
     ld hl, fheap_addr(instances)
     fheap_foreach Instance_size
         inc hl
-        push hl \ pop ix
-        ld a, (ix+Instance_flags)
+        inc hl \ inc hl
+        ld a, (hl)
         and %00100001
         cp 1
         jp nz, @loop
 
-        ld a, (ix+Instance_hspeed)
-        or (ix+Instance_hspeed+1)
-        or (ix+Instance_vspeed)
-        or (ix+Instance_vspeed+1)
+        ; Most instances are stationary. OR the four velocity bytes directly:
+        ; 46 T-states versus 62 to load them into registers and OR them.
+        ld de, Instance_hspeed-Instance_flags
+        add hl, de
+        ld a, (hl) \ inc hl
+        or (hl) \ inc hl
+        or (hl) \ inc hl
+        or (hl)
         jp z, @loop
+
+        ; Reload velocity only on the moving path. The four reads above are
+        ; cheaper than keeping BC/DE live for every stationary instance.
+        dec hl \ dec hl \ dec hl
+        ld c, (hl) \ inc hl
+        ld b, (hl) \ inc hl
+        ld e, (hl) \ inc hl
+        ld d, (hl)
+
+        ; BC and DE hold velocity. IX is fastest from here because the same
+        ; base addresses x/y, the distant Sprite copy, and flags.
+        ld a, l
+        sub Instance_vspeed+1
+        ld l, a
+        jr nc, @instance_base
+            dec h
+    @instance_base:
+        push hl \ pop ix
 
         ld l, (ix+Instance_x)
         ld h, (ix+Instance_x+1)
-        ld e, (ix+Instance_hspeed)
-        ld d, (ix+Instance_hspeed+1)
-        add hl, de
+        add hl, bc
         ld (ix+Instance_x), l
         ld (ix+Instance_x+1), h
         ld (ix+Instance_displayed_sprite+Sprite_x_pos), l
@@ -199,8 +220,6 @@ instance_move:
 
         ld l, (ix+Instance_y)
         ld h, (ix+Instance_y+1)
-        ld e, (ix+Instance_vspeed)
-        ld d, (ix+Instance_vspeed+1)
         add hl, de
         ld (ix+Instance_y), l
         ld (ix+Instance_y+1), h
@@ -227,16 +246,20 @@ _instance_find_id:
     ld hl, fheap_addr(instances)
     fheap_foreach Instance_size
         inc hl
-        push hl \ pop ix
-        bit 5, (ix+Instance_flags)
+        inc hl \ inc hl
+        bit 5, (hl)
         jp nz, @loop
-        ld a, (ix+Instance_id)
+        ld de, Instance_id-Instance_flags
+        add hl, de
+        ld a, (hl)
         cp c
         jp nz, @loop
-        ld a, (ix+Instance_id+1)
+        inc hl
+        ld a, (hl)
         cp b
         jp nz, @loop
-        push ix \ pop hl
+        ld de, -(Instance_id+1)
+        add hl, de
         ret
     @end_of_loop:
         ld hl, 0
@@ -246,17 +269,25 @@ _instance_find_id:
 PUBLIC __allocate_instance_id
 __allocate_instance_id:
     ld hl, (next_instance_id)
-@next_id:
     inc hl
     ld a, h \ or l
-    jr nz, @check_id
-        inc hl
-@check_id:
+    jr nz, @store_id
+
+    ; Only a wrapped counter can collide with a live ID. Avoid an O(n)
+    ; heap scan for the first 65,535 allocations.
+    inc hl
+@next_wrapped_id:
     push hl
     call _instance_find_id
     ld a, h \ or l
     pop hl
-    jr nz, @next_id
+    jr z, @store_id
+    inc hl
+    ld a, h \ or l
+    jr nz, @next_wrapped_id
+        inc hl
+        jr @next_wrapped_id
+@store_id:
     ld (next_instance_id), hl
     ret
 
@@ -274,6 +305,8 @@ _instance_destroy:
     ret nz
     set 5, a
     ld (ix+Instance_flags), a
+    ld hl, instances_pending_destroy
+    inc (hl)
 
     ld hl, (_gmctx + GamemakerCTX_instance)
     push hl
@@ -306,6 +339,7 @@ _instance_destroy:
 ; Sweep only after an event pass. SCL_FOR cannot safely remove an entry
 ; other than the current one while it is iterating.
 PUBLIC instance_sweep
+;#[PROFILE_ROUTINE]
 instance_sweep:
     ld ix, fh_heap_instances+1
 @loop:
@@ -355,6 +389,9 @@ instance_sweep:
 
         push ix \ pop de
         fheap_free instances
+        ld hl, instances_pending_destroy
+        dec (hl)
+        jr z, @end_of_loop
 @next:
     ld de, Instance_size+1
     add ix, de
@@ -366,13 +403,23 @@ instance_sweep:
         ret
 
 PUBLIC instance_flush_render_queue
+;#[PROFILE_ROUTINE]
 instance_flush_render_queue:
+    xor a
+    ld (render_queue_pending), a
     ld hl, fheap_addr(instances)
     fheap_foreach Instance_size
         inc hl
-        push hl \ pop ix
-        bit 6, (ix+Instance_flags)
+        inc hl \ inc hl
+        ; Most entries have no pending queue change. One direct byte read and
+        ; mask costs 24 T-states including the branch, versus 44 for two BITs.
+        ld a, (hl)
+        and %11000000
+        jp z, @loop
+        bit 6, a
         jp z, @check_depth
+        dec hl \ dec hl
+        push hl \ pop ix
         res 6, (ix+Instance_flags)
         res 7, (ix+Instance_flags)
         ld l, (ix+Instance_depth)
@@ -383,8 +430,8 @@ instance_flush_render_queue:
         call __insert_render_queue
         jp @loop
     @check_depth:
-        bit 7, (ix+Instance_flags)
-        jp z, @loop
+        dec hl \ dec hl
+        push hl \ pop ix
         res 7, (ix+Instance_flags)
         ld l, (ix+Instance_queued_depth)
         ld h, (ix+Instance_queued_depth+1)
@@ -403,15 +450,21 @@ PUBLIC gml_step
 gml_step:
     call instance_copy_previous
     _callbacks
-    call instance_sweep
+    ld a, (instances_pending_destroy)
+    or a
+    call nz, instance_sweep
     ret
 
 PUBLIC _draw_self
 ;#[PROFILE_ROUTINE]
 _draw_self:
+    ld ix, (_gmctx + GamemakerCTX_instance)
+    ld a, (ix+Instance_sprite_index)
+    cp (ix+Instance_last_sprite_index)
+    call nz, sync_instance_sprite
+
     ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
-    ld bc, Instance_flags
-    add hl, bc
+    inc hl \ inc hl ; Instance_flags
 
     ld a, (hl)
     rra \ rra ; Bit 1: Is visible
@@ -420,18 +473,78 @@ _draw_self:
     rra ; Bit 2: Needs new RL
     jr c, @new_rl
 
-    ld bc, Instance_displayed_sprite+Sprite_rl_entry-Instance_flags
+    ld bc, Instance_displayed_sprite+Sprite_flags-Instance_flags
+    add hl, bc
+    bit 0, (hl)
+    ret z
+    ld bc, Sprite_rl_entry-Sprite_flags
     add hl, bc
 
     jp blit_rl_entry
 
 @new_rl:
-    ld bc, Instance_displayed_sprite-Instance_flags
-    add hl, bc
+    ; HL still points to Instance_flags; IX holds the instance pointer.
+    ld de, Instance_displayed_sprite+Sprite_flags-Instance_flags
+    add hl, de
 
+    bit 0, (hl)
+    ret z ; Keep the render-list request until the sprite is enabled.
+
+    push ix
     call calculate_rl
+    pop ix
+    res 2, (ix+Instance_flags)
     ret nc
     jp blit_rl_entry
+
+; Apply a sprite_index change before drawing. The index is a frame in the
+; object's sprite table; the copy must keep the instance's current position.
+sync_instance_sprite:
+    ld b, a
+    ld a, (ix+Instance_sprite_index_max)
+    cp b
+    ret z
+    ret c
+
+    ld l, (ix+Instance_obj)
+    ld h, (ix+Instance_obj+1)
+    ld de, Object_sprites
+    add hl, de
+    ld e, b
+    ld d, 0
+    sla e
+    rl d
+    add hl, de
+    ld e, (hl)
+    inc hl
+    ld d, (hl)
+    ld a, d
+    or e
+    ret z
+    ex de, hl
+
+    push hl
+    push ix
+    pop hl
+    ld de, Instance_displayed_sprite
+    add hl, de
+    ex de, hl
+    pop hl
+    ld bc, Sprite_size
+    ldir
+
+    ld a, (ix+Instance_x)
+    ld (ix+Instance_displayed_sprite+Sprite_x_pos), a
+    ld a, (ix+Instance_x+1)
+    ld (ix+Instance_displayed_sprite+Sprite_x_pos+1), a
+    ld a, (ix+Instance_y)
+    ld (ix+Instance_displayed_sprite+Sprite_y_pos), a
+    ld a, (ix+Instance_y+1)
+    ld (ix+Instance_displayed_sprite+Sprite_y_pos+1), a
+    ld a, (ix+Instance_sprite_index)
+    ld (ix+Instance_last_sprite_index), a
+    set 2, (ix+Instance_flags)
+    ret
 
 INCLUDE "core/includes/binary_insert.asm"
 

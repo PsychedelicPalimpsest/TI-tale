@@ -1,52 +1,5 @@
 ; Sprite rendering and screen operations.
 
-; KEEP ME FIRST
-ALIGN 256
-bitset_lookup:
-    REPTI val, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-    ; When the 0-ith col is dirty, the highest bit is set
-        DEFW (1 << (15-val + 1)) - 1
-    ENDR
-    DEFW 0
-
-; Mark an area on screen as being dirty
-; Inputs:
-; a - starting col
-; c - column count (exclusive end is a + c)
-;
-; Clobbers: b, hl, de, af
-; t-states: 135
-MACRO mark_region_dirty
-    add a
-    ld h, high(bitset_lookup)
-    ld l, a
-
-    add c \ add c
-    ld d, h
-    ld e, a
-
-
-    ld a, (de)
-    xor (hl)
-    ld b, a
-    ld a, (dirty_cols)
-    or b
-    ld (dirty_cols), a
-
-    inc e \ inc l    ; Safe since it it aligned
-
-    ld a, (de)
-    xor (hl)
-    ld b, a
-    ld a, (dirty_cols+1)
-    or b
-    ld (dirty_cols+1), a
-endm
-
-
-
-
-
 ; ==============================================================================
 ; Copies a sprite based on width and height
 ; Inputs:
@@ -595,35 +548,13 @@ sprite_truncation:
 ; @screen+1       - A ptr to the screen to display on
 ; @sprite_table+1 - A ptr to the sprite ptr table
 
-            MACRO _sprite_geometry do_dirty
+            MACRO _sprite_geometry
                 ex af, af' ; Save rotation for later
 
                 ld a, c
                 ld (@full_height+1), a
 
                 push bc ; Save for later
-
-                IF 1=do_dirty
-                    push hl
-
-                    exx
-                    pop hl
-
-                ; Safty for negative values
-                    xor a
-                    bit 7, h
-                    jr nz, @skip_shift
-                    ld a, l
-
-                    REPT 3
-                        srl h
-                        rra
-                    ENDR
-            @skip_shift:
-                    mark_region_dirty
-                    exx
-                endif
-
 
                 bit 7, h
     @style: ; SMC point for switching screen size
@@ -817,7 +748,7 @@ calculate_rl:
 @set_sp: ld sp, 0000h
     ; Now the stack is our output
 
-    _sprite_geometry 1
+    _sprite_geometry
 
 
     @restore_sp: ld sp, 0000h
@@ -832,8 +763,6 @@ calculate_rl:
 
 
 ; Render a sprite to the screen directly (no rl entry), used for background tiles.
-; NOTE: Does NOT set the screen as being dirty (for background blits, it is safest to assume everything is drawn over)
-;
 ; Input:
 ; hl - Sprite entry
 ; (render_sprite_screen) = screen to place sprite on
@@ -852,7 +781,7 @@ render_sprite:
 
     call sprite_truncation
     ret c ; Sprite is not on screen
-    _sprite_geometry 0
+    _sprite_geometry
     exx ; Round amount of shadow reg switches (minimize nuked shadows to bc)
 
     pop bc                  ; c = flags, b = vert_trunc (Height truncation)

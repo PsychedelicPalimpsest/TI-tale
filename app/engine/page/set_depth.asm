@@ -11,21 +11,31 @@ _set_depth:
     pop ix ; Instance
     push bc
 
-    ld hl, (ix+Instance_queued_depth)
+    ld a, (ix+Instance_depth)
+    cp e
+    jr nz, @changed
+    ld a, (ix+Instance_depth+1)
+    cp d
+    ret z
+@changed:
     ld (ix+Instance_depth), de
 
-    bit 5, (ix+Instance_flags)
-    ret nz ; Destruction will remove the old queue entry
-    bit 6, (ix+Instance_flags)
-    ret nz ; The pending insertion will use the new depth
+    ; Neither a destroyed instance nor a pending insertion needs a queue
+    ; change. One indexed read is cheaper than two indexed BIT tests.
+    ld a, (ix+Instance_flags)
+    and %01100000
+    ret nz
 
     ld a, (draw_in_progress)
     or a
     jr z, @change_now
         set 7, (ix+Instance_flags)
+        ld a, 1
+        ld (render_queue_pending), a
         ret
 
 @change_now:
+    ld hl, (ix+Instance_queued_depth)
     ld (ix+Instance_queued_depth), de
 
     push ix

@@ -36,11 +36,14 @@ TEST_ASM := routines.asm heap_routines.asm scl_routines.asm utils_routines.asm b
 	$(APP)/core/includes/utils.inc \
 	$(APP)/engine/scl.inc
 
-.PHONY: all test-binary clean
+.PHONY: all app-binary test-binary clean
 
 all: test-binary
 
-test-binary: $(TEST_CODE) $(TEST_CORE) $(TEST_ENGINE) $(TEST_MAP)
+test-binary: app-binary $(TEST_CODE) $(TEST_CORE) $(TEST_ENGINE) $(TEST_MAP)
+
+app-binary:
+	$(MAKE) -C $(APP) all
 
 $(CORE_LIB): $(APP)/Makefile $(CORE_ASM)
 	$(MAKE) -C $(APP) core.lib

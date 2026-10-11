@@ -156,7 +156,22 @@ def parse_file(path: Path) -> list[Region]:
             name = m.group(1)
             if name in pending:
                 raise SystemExit(f"{path}:{idx+1}: duplicate PROFILE_START {name} without STOP")
-            label, lline = next_label(path, lines, idx, f"#[PROFILE_START {name}]")
+            # Consecutive boundary markers share the next label.  This allows a
+            # region to start exactly where another one stops, for example:
+            #
+            #   ;#[PROFILE_START draw]
+            #   ;#[PROFILE_STOP draw_begin]
+            #   @draw:
+            #
+            # STOP markers already use this behavior below; START markers need
+            # it as well when they appear first at the shared boundary.
+            label, lline = next_label(
+                path,
+                lines,
+                idx,
+                f"#[PROFILE_START {name}]",
+                allow_marker_skip=True,
+            )
             pending[name] = (label, lline, idx + 1)
         elif STOP_MARKER.search(line):
             m = STOP_MARKER.search(line)

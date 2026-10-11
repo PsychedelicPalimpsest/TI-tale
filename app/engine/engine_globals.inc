@@ -29,6 +29,8 @@ RDEF engine_globals,    cur_camprevy,           2
 RDEF engine_globals,   _gmctx,             GamemakerCTX_size
 RDEF engine_globals,   next_instance_id,   2
 RDEF engine_globals,   draw_in_progress,    1
+RDEF engine_globals,   instances_pending_destroy, 1
+RDEF engine_globals,   render_queue_pending, 1
 
 
 RDEF engine_globals,    gameloop_stack,           2
@@ -131,10 +133,6 @@ RALIGN engine_globals, 0x1000
 RDEF engine_globals,              grey_phase1_altbuff, screen_size
 RDEF engine_globals,              grey_phase2_altbuff, screen_size
 RDEF engine_globals,              grey_phase3_altbuff, screen_size
-
-
-
-
 
 DEFC buffers_end  = engine_globals;
 DEFC engine_globals_end = engine_globals

@@ -136,11 +136,9 @@ MACRO _instance_create_unsafe_without_render
         add hl, de
         ex de, hl                       ; destination: displayed sprite x
         pop hl
-        ld bc, 2
-        ldir
+        ldi \ ldi
         inc de \ inc de \ inc de        ; destination: displayed sprite y
-        ld bc, 2
-        ldir
+        ldi \ ldi
         pop hl
         pop de
 
@@ -190,6 +188,8 @@ _instance_create_depth:
     jr z, @insert_render
         push bc \ pop ix
         set 6, (ix+Instance_flags)
+        ld a, 1
+        ld (render_queue_pending), a
         jr @after_render
 @insert_render:
     push bc
