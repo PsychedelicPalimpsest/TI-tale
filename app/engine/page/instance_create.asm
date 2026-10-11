@@ -26,28 +26,83 @@ MACRO _instance_create_unsafe_without_render
     ld (hl), b \ inc hl
 
     ; TODO: Where do flags come from?
-    ld (hl), 3 \ inc hl ; Active and visible
+    ld (hl), 7 \ inc hl ; Active, visible, needs rl
 
-    inc hl \ inc hl ; Skip depth
+    push hl ; Save ptr
+        ld de, Instance_alarm_count-3
+        add hl, de
+
+        ; No active alarms
+        ld (hl), 0 \ inc hl
+
+        ; Set all alarms to -1 (disabled)
+        REPT 12*2
+            ld (hl), $FF \ inc hl
+        endr
+
+        ex de, hl ; hl = *object, de=Instance as sprite_index_max
+        
+        ld hl, Object_sprite_count
+        add hl, bc
+        
+        ldi ; Copy sprite count to instance        
+
+        ; Zero out sprite_index and last_sprite_index
+        xor a
+        ld (de), a \ inc de
+        ld (de), a \ inc de
+
+        ; Deref the first sprite
+        ld a, (hl) \ inc hl
+        ld h, (hl)
+        ld l, a
+
+        ; Copy the displayed sprite into place
+        ; TODO: This is of known size, should it be optimized?
+        ld bc, Sprite_size
+        ldir
+    pop hl  ; Restore ptr at depth
+    
 
     pop bc ; y
     pop de ; x
 
-    ld (hl), e \ inc hl
-    ld (hl), d \ inc hl
+    push hl ; Save *depth
+    inc hl \ inc hl ; Skip depth
+        ; X
+        ld (hl), e \ inc hl
+        ld (hl), d \ inc hl
 
-    ld (hl), c \ inc hl
-    ld (hl), b
+        ; Y
+        ld (hl), c \ inc hl
+        ld (hl), b \ inc hl
 
-    dec hl \ dec hl \ dec hl
 
+        ; xprev
+        ld (hl), e \ inc hl
+        ld (hl), d \ inc hl
+
+        ; yprev
+        ld (hl), c \ inc hl
+        ld (hl), b \ inc hl
+
+        ; hspeed
+        ld (hl), 0 \ inc hl 
+        ld (hl), 0 \ inc hl 
+
+        ; vspeed
+        ld (hl), 0 \ inc hl 
+        ld (hl), 0 \ inc hl 
+    pop hl ; *depth
     pop de ; Depth
 
-    ld (hl), d \ dec hl
-    ld (hl), e \ dec hl
+    ld (hl), e \ inc hl
+    ld (hl), d 
 
     ; Get back to start
-    dec hl \ dec hl \ dec hl
+    REPT 4
+        dec hl
+    endr
 
     push de
     push hl

@@ -59,14 +59,15 @@ typedef struct {
     void* draw_gui;
     void* create;
 
-    
-    Sprite* sprite_cache_entries[16];
+    uint8_t sprite_count;
+    Sprite* sprites[16];
 
     void* user_events[16];
     void* alarm_callbacks[12];
 } Object;
 
 
+// DO NOT MODIFY, asm needs order
 //#[ASM_EXPOSED]
 typedef struct {
     Object*  obj;
@@ -106,6 +107,7 @@ typedef struct {
 
     uint8_t sprite_index_max;
     uint8_t sprite_index;    // An index into the sprite_cache_entries in obj
+    uint8_t last_sprite_index;
     Sprite displayed_sprite;
 } Instance;
 

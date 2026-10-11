@@ -22,6 +22,7 @@ MACRO _register_instance
         add hl, de
 
         ; Zero out the callback back ptrs
+        ; TODO: Optimize
         REPT Instance__alarms-Instance__begin_step
             ld (hl), 0 \ inc hl
         endr

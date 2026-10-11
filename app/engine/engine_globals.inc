@@ -14,11 +14,6 @@ DEFL engine_globals       = engine_globals_start
 
 
 ; DEFC loaded_sprite_size
-
-RDEF engine_globals,    cur_room_page,      1
-RDEF engine_globals,    cur_room_addr,      2
-
-
 RDEF engine_globals,    cur_camx,           2
 RDEF engine_globals,    cur_camy,           2
 

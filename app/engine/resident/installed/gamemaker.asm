@@ -116,6 +116,11 @@ MACRO _callbacks
     for_each_and_call end_step,   Object_end_step
 endm
 
+
+
+
+
+
 PUBLIC gml_step
 ;#[PROFILE_ROUTINE]
 gml_step:

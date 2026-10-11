@@ -34,10 +34,11 @@ DEFC Object_draw_begin = 12
 DEFC Object_draw_end = 14
 DEFC Object_draw_gui = 16
 DEFC Object_create = 18
-DEFC Object_sprite_cache_entries = 20
-DEFC Object_user_events = 52
-DEFC Object_alarm_callbacks = 84
-DEFC Object_size = 108
+DEFC Object_sprite_count = 20
+DEFC Object_sprites = 21
+DEFC Object_user_events = 53
+DEFC Object_alarm_callbacks = 85
+DEFC Object_size = 109
 
 ; Instance from engine/engine.h
 DEFC Instance_obj = 0
@@ -63,8 +64,9 @@ DEFC Instance_alarm_count = 37
 DEFC Instance_alarms = 38
 DEFC Instance_sprite_index_max = 62
 DEFC Instance_sprite_index = 63
-DEFC Instance_displayed_sprite = 64
-DEFC Instance_size = 97
+DEFC Instance_last_sprite_index = 64
+DEFC Instance_displayed_sprite = 65
+DEFC Instance_size = 98
 
 ; RoomObj from engine/engine.h
 DEFC RoomObj_create = 0
