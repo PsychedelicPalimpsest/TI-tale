@@ -25,6 +25,13 @@ MACRO for_each_and_call name, offset
 endm
 
 MACRO _callbacks
+    EXTERN calculate_rl_screen
+
+    ; Set the current display layer to the foreground
+    ld hl, layer_foreground
+    ld (calculate_rl_screen), hl
+
+
     ; Do all the begin steps
     for_each_and_call begin_step, Object_begin_step
 
@@ -229,12 +236,23 @@ _room_goto:
 
     ld (_gmctx + GamemakerCTX_current_room_obj), hl
 
+    ld e, (hl) \ inc hl
+    ld d, (hl)
 
-    ld a, (hl) \ inc hl
-    ld h, (hl)
-    ld l, a
+    push hl
+        ex de, hl
+        call __hl
+    pop hl
 
-    call __hl
+    ; Set background fill color
+    ld bc, RoomObj_bg_fill_color-1
+    add hl, bc
+    ld de, bg_fill_color
+    ldi \ ldi
+        
+    ; Don't return, instead go back to the game loop (exit)
+    ; TODO: Can this be done better? Gamemaker just disables creation
+    ;       of non-persistant objects, but but I fear a million edge cases 
     jp _return_to_loop
     
 

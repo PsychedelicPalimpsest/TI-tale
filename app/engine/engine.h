@@ -120,6 +120,7 @@ typedef uint16_t Room;
 typedef struct {
     void* create;
     uint16_t width, height;
+    uint16_t bg_fill_color; // What the background is filled to
 
     Room prev, next;
 } RoomObj;
@@ -145,7 +146,12 @@ typedef struct {
 
 extern GamemakerCTX gmctx;
 
+
 extern void return_to_loop();
+
+// These DO NOT RETURN if the room you are going to is valid.
+// But they do return if invalid, such as of no next or prev room
+// exists. (Not the same behavior as gamemaker)
 extern void room_goto(Room room) __z88dk_fastcall;
 extern void room_goto_next();
 extern void room_goto_prev();

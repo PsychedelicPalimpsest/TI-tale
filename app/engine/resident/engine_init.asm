@@ -16,6 +16,28 @@ engine_prepage_init:
 engine_init:
     call install_hooks
 
+    xor a
+    ld (cur_camx), a
+    ld (cur_camy), a
+
+    cpl ; Force redraw
+    ld (cur_camprevx), a
+    ld (cur_camprevy), a
+
+    ld a, 96
+    ld (cur_camx_plusw), a
+
+    EXTERN st_camera_width
+    ld (st_camera_width), a
+
+    ld a, 64
+    ld (cur_camy_plush), a
+
+    EXTERN st_camera_width
+    ld (st_camera_width), a
+
+    
+
     ; Mark that the game has not yet looped
     xor a
     ld (gameloop_stack), a

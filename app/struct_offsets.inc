@@ -72,9 +72,10 @@ DEFC Instance_size = 98
 DEFC RoomObj_create = 0
 DEFC RoomObj_width = 2
 DEFC RoomObj_height = 4
-DEFC RoomObj_prev = 6
-DEFC RoomObj_next = 8
-DEFC RoomObj_size = 10
+DEFC RoomObj_bg_fill_color = 6
+DEFC RoomObj_prev = 8
+DEFC RoomObj_next = 10
+DEFC RoomObj_size = 12
 
 ; GamemakerCTX from engine/engine.h
 DEFC GamemakerCTX_instance = 0

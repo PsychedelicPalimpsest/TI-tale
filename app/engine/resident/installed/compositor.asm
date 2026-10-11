@@ -7,6 +7,7 @@ EXTERN yield, yield_raw
 ; When this happens, it is best to assume a frame will be dropped
 ;#[PROFILE_START render_background]
 render_background:
+    EXTERN calculate_rl_screen
 
     ld hl, (cur_camx)
     ld (cur_camprevx), hl
@@ -86,10 +87,17 @@ compositor_loop:
 ;#[PROFILE_START compose_core]
 @rejoin:
     ld iy, layer_background ; Src
-    ld ix, _screen_buffer   ; Dst
+    ld ix, layer_foreground   ; Dst
     call scrcpy
 
 
+    EXTERN calculate_rl_screen
+
+    ; Set the current display layer to the foreground
+    ld hl, layer_foreground
+    ld (calculate_rl_screen), hl
+
+    
     ; Note: This is after the background to save a bit of time (move the big stuff down to use jr)
     ;       since tiles can have not callbacks, this is valid
     for_each_and_call pre_draw, Object_pre_draw ; Does NOT need any order

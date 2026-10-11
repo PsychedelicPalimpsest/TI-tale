@@ -22,6 +22,12 @@ room_init:
     ld hl, object_render_queue
     ld (object_render_queue_tail), hl
 
+    ld hl, tile_render_queue
+    ld (tile_render_queue_tail), hl
+
+    ld hl, gui_render_queue
+    ld (gui_render_queue_tail), hl
+
 
     ld a, (room_init_done)
     or a
