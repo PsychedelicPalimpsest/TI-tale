@@ -11,3 +11,12 @@ to `true` in the room JSON to call it after placed instances are created.
 The first room on page 0 starts at boot. Secondary pages are linked and packed
 into the same flash app, with their room code and referenced objects and
 sprites. Runtime room switching between pages is not wired up yet.
+
+Each page starts with a 16 byte aligned room table. A record contains the
+`RoomObj` create pointer, width, height, previous room ID, and next room ID,
+then six padding bytes. Page 0's app header occupies the start of ROM, so its
+table is fixed at `$4100`; the build fails if the header reaches that address.
+Secondary page tables start at `$4000`. Room IDs encode
+the page in the high byte and the table index in the low byte. The first and
+last rooms use `0xffff` for a missing previous or next room. A room JSON can
+override either link with a `prev` or `next` room ID name.

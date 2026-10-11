@@ -3,6 +3,8 @@ INCLUDE "engine/engine_globals.inc"
 INCLUDE "engine/gamemaker_register.inc"
 
 PUBLIC room_init
+PUBLIC _room_init
+DEFC _room_init = room_init
 ;#[PROFILE_ROUTINE]
 room_init:
     ; Cleanup the callback lists

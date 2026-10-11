@@ -2,5 +2,5 @@
 IFNDEF ROOMS_INC
 DEFINE ROOMS_INC
     DEFC room_test = 0
-    DEFC room_second = 512
+    DEFC room_second = 256
 ENDIF

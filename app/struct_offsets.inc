@@ -33,10 +33,11 @@ DEFC Object_post_draw = 10
 DEFC Object_draw_begin = 12
 DEFC Object_draw_end = 14
 DEFC Object_draw_gui = 16
-DEFC Object_sprite_cache_entries = 18
-DEFC Object_user_events = 50
-DEFC Object_alarm_callbacks = 82
-DEFC Object_size = 106
+DEFC Object_create = 18
+DEFC Object_sprite_cache_entries = 20
+DEFC Object_user_events = 52
+DEFC Object_alarm_callbacks = 84
+DEFC Object_size = 108
 
 ; Instance from engine/engine.h
 DEFC Instance_obj = 0
@@ -65,11 +66,21 @@ DEFC Instance_sprite_index = 63
 DEFC Instance_displayed_sprite = 64
 DEFC Instance_size = 97
 
+; RoomObj from engine/engine.h
+DEFC RoomObj_create = 0
+DEFC RoomObj_width = 2
+DEFC RoomObj_height = 4
+DEFC RoomObj_prev = 6
+DEFC RoomObj_next = 8
+DEFC RoomObj_size = 10
+
 ; GamemakerCTX from engine/engine.h
 DEFC GamemakerCTX_instance = 0
 DEFC GamemakerCTX_other = 2
-DEFC GamemakerCTX_old_history = 4
-DEFC GamemakerCTX_with_history = 6
-DEFC GamemakerCTX_size = 22
+DEFC GamemakerCTX_current_room = 4
+DEFC GamemakerCTX_current_room_obj = 6
+DEFC GamemakerCTX_old_history = 8
+DEFC GamemakerCTX_with_history = 10
+DEFC GamemakerCTX_size = 26
 
 ENDIF

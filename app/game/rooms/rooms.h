@@ -3,6 +3,6 @@
 #define ROOMS_H
 typedef enum {
     room_test = 0,
-    room_second = 512,
+    room_second = 256,
 } Room;
 #endif

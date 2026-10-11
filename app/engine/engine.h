@@ -31,7 +31,7 @@ typedef struct {
     uint8_t width_cols;
     uint16_t width_px;
 
-    
+
     int16_t y_pos;
     uint8_t height_px;
 
@@ -57,6 +57,7 @@ typedef struct {
     void* draw_begin;
     void* draw_end;
     void* draw_gui;
+    void* create;
 
     
     Sprite* sprite_cache_entries[16];
@@ -109,10 +110,29 @@ typedef struct {
 } Instance;
 
 
+// The high byte contains the page,
+// the low byte is the room number
+typedef uint16_t Room;
+
+//#[ASM_EXPOSED]
+typedef struct {
+    void* create;
+    uint16_t width, height;
+
+    Room prev, next;
+} RoomObj;
+
+
+
+
 //#[ASM_EXPOSED]
 typedef struct {
     Instance* instance;
     Instance* other;
+
+    Room current_room;
+    RoomObj* current_room_obj;
+
     
     Instance** old_history; // A pointer WITHIN with_history
 

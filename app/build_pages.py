@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import shlex
 import subprocess
 from pathlib import Path
@@ -11,6 +12,7 @@ import gm_comp
 
 ROOT = Path(__file__).resolve().parent
 CRT = "core/custom_ti83papp_crt0.asm"
+PAGE0_ROOM_TABLE_ADDR = 0x4100
 
 
 def run(*args):
@@ -69,10 +71,16 @@ def main():
         run("zcc", "+ti83p", "-L.", "-lcore", "-lengine_resident",
             "-lengine_page", "-o", output, *source_files, *deps,
             f"-crt0={CRT}", f"-startup={0 if page == 0 else 9}",
-            *multipage_flags, *cflags)
+            f"-pragma-define:ROOM_TABLE_PAGE={page}", *multipage_flags, *cflags, "-m")
         binary = ROOT / f"{output}_CODE.bin"
         if binary.stat().st_size > 16384:
             raise ValueError(f"page {page} is larger than 16 KiB")
+        mapping = (ROOT / f"{output}.map").read_text()
+        match = re.search(r"^room_table\s+= \$([0-9A-Fa-f]+)", mapping, re.MULTILINE)
+        address = int(match.group(1), 16) if match else None
+        expected = PAGE0_ROOM_TABLE_ADDR if page == 0 else 0x4000
+        if address != expected:
+            raise ValueError(f"page {page} room table must start at ${expected:04X}; got {address}")
         binaries.append(output)
 
     if len(binaries) == 1:

@@ -34,6 +34,10 @@ RDEF engine_globals,    cur_camprevy,           2
 RDEF engine_globals,   _gmctx,             GamemakerCTX_size
 
 
+RDEF engine_globals,    gameloop_stack,           2
+
+
+
 
 ; Dynamically sized elements
 ; bg_sprites  - comes first, after engine globals

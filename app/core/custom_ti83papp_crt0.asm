@@ -148,7 +148,6 @@ start_branch_table:
     ; End of branch table, begin of startup stuff
     ;--------------------------------------------
 
-
 SECTION code_crt_init
 start:
     bcall    _ForceFullScreen
@@ -244,10 +243,26 @@ ENDIF
 IF (startup!=0 && startup!=1)
     ; The interrupt library references this symbol even on secondary pages.
     ; Interrupt execution stays on page zero; this satisfies that link only.
+    SECTION code_crt_init
     PUBLIC __Exit
 __Exit:
     ret
 ENDIF
+
+SECTION CODE
+IF DEFINED_ROOM_TABLE_PAGE
+    IF ROOM_TABLE_PAGE = 0
+        ; Page zero has the app header and branch table before room data.
+        ; Keep the room table address stable as that header changes.
+        ; In a relocatable section, $ is the offset from CODE's $4000 base.
+        IF $ > $100
+            ERROR Page zero header overlaps the room table
+        ENDIF
+        DEFS $100-$, 0
+    ENDIF
+    INCLUDE "game/rooms/room_tables.inc"
+ENDIF
+SECTION code_crt_init
 
     l_dcal:
         jp	(hl)		; used as "call (hl)"

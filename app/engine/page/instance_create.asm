@@ -57,6 +57,31 @@ __instance_create_without_render:
     push hl
         _register_instance
 
+    ; Call on create
+    pop hl \ push hl
+
+    ld de, (_gmctx + GamemakerCTX_instance)
+    push de
+    ld (_gmctx + GamemakerCTX_instance), hl
+        ld a, (hl) \ inc hl
+        ld h, (hl)
+        ld l, a
+
+        ld de, Object_create
+        add hl, de
+
+        ld a, (hl) \ inc hl
+        ld h, (hl)
+        ld l, a
+
+        EXTERN __hl
+        or h ; Only call if not null
+        call nz, __hl
+    pop hl
+    ld (_gmctx + GamemakerCTX_instance), hl
+
+
+
     exx \ jp (hl)
 
 ; Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;

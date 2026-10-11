@@ -30,6 +30,7 @@ _init_game:
 
 PUBLIC _game_loop
 _game_loop:
+    ld (gameloop_stack), sp
 
 ; This is where the game loop takes place: ~30Hz
 @loop:
@@ -51,5 +52,10 @@ check_frame:
     ld (@count+1), a
 
     ret
-
-
+    
+; Forcably return to the game loop, regardless of
+; what we were doing 
+PUBLIC _return_to_loop
+_return_to_loop:
+    ld sp, (gameloop_stack)
+    jp _game_loop@loop
