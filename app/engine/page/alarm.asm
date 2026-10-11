@@ -5,12 +5,16 @@ INCLUDE "engine/engine_globals.inc"
 PUBLIC  _inst_update_alarms
 ;#[PROFILE_ROUTINE]
 _inst_update_alarms:
-    ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
-    ld bc, Instance_alarms
-    add hl, bc
+    pop hl ; Return address
+        pop bc ; value
+        pop de ; alarm index
+    push hl
 
-    pop bc ; value
-    pop de ; alarm index
+    ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
+    push de
+        ld de, Instance_alarms
+        add hl, de
+    pop de
 
     ; Seek to that current alarm
     add hl, de ; *2 for uint16_t

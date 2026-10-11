@@ -1,28 +1,28 @@
 INCLUDE "engine/gamemaker_register.inc"
 
-        MACRO for_each_and_call name, offset
-            LOCAL @scl_loop, @scl_loopend
-            SCL_FOR name
-    ; hl = sprite
-                ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
+MACRO for_each_and_call name, offset
+    LOCAL @scl_loop, @scl_loopend
+    SCL_FOR name
+; hl = sprite
+        ld (_gmctx + GamemakerCTX_instance), hl ; Set the context for the callback
 
-                ld e, (hl) \ inc hl
-                ld d, (hl)
+        ld e, (hl) \ inc hl
+        ld d, (hl)
 
 
-                ex de, hl
-                IF offset>0
-                    ld bc, offset
-                    add hl, bc
-                endif
+        ex de, hl
+        IF offset>0
+            ld bc, offset
+            add hl, bc
+        endif
 
-                ld a, (hl) \ inc hl
-                ld h, (hl)
-                ld l, a
+        ld a, (hl) \ inc hl
+        ld h, (hl)
+        ld l, a
 
-                call __hl
-            SCL_ENDFOR name
-        endm
+        call __hl
+    SCL_ENDFOR name
+endm
 
 MACRO _callbacks
     ; Do all the begin steps
@@ -147,88 +147,6 @@ _draw_self:
     ret nc
     jp blit_rl_entry
 
-; void set_alarm(uint16_t alarm_idx, int16_t value) __z88dk_callee
-PUBLIC  _inst_update_alarms
-;#[PROFILE_ROUTINE]
-_inst_update_alarms:
-    ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
-    ld bc, Instance_alarms
-    add hl, bc
-
-    pop bc ; value
-    pop de ; alarm index
-
-    ; Seek to that current alarm
-    add hl, de ; *2 for uint16_t
-    add hl, de
-
-    ld (hl), c \ inc hl
-    ld (hl), b
-
-    ; Negative numbers do not tick
-    bit 7, b
-    ret nz
-        ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
-        scl_append alarm ; Handles for us alarms what are already set
-    ret
-
-
-; Allocate a new instance
-; Output: hl = allocated object
-_allocate_instance:
-    ld hl, fheap_addr(instances)
-    fheap_alloc Instance_size
-
-
-; Arguments should be on the stack in the z88dk order,
-; then the return values are put on the stack.
-; They are push in order:
-; * Depth
-; * Sprite
-;
-; Note: Nukes the shadow registers (but only hl is nuked in the regular registers)
-; _instance_create_without_render(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
-;#[PROFILE_ROUTINE]
-__instance_create_without_render:
-    pop hl \ exx ; Return value
-
-    call _allocate_instance
-
-    pop bc ; obj
-
-    ld (hl), c \ inc hl
-    ld (hl), b \ inc hl
-
-    ; TODO: Where do flags come from?
-    ld (hl), 1 \ inc hl ; Is visible
-
-    inc hl \ inc hl ; Skip depth
-
-    pop bc ; y
-    pop de ; x
-
-    ld (hl), e \ inc hl
-    ld (hl), d \ inc hl
-
-    ld (hl), c \ inc hl
-    ld (hl), b
-
-    dec hl \ dec hl \ dec hl
-
-    pop de ; Depth
-
-    ld (hl), d \ dec hl
-    ld (hl), e \ dec hl
-
-    ; Get back to start
-    dec hl \ dec hl \ dec hl
-
-    push de
-    push hl
-        _register_instance
-
-    exx \ jp (hl)
-
 INCLUDE "core/includes/binary_insert.asm"
 
 
@@ -240,6 +158,7 @@ __bsearch_render_queue: sorted_array_bsearch object_render_queue, object_render_
 ; Inputs:
 ; HL - key
 ; BC - value
+PUBLIC __insert_render_queue
 ;#[PROFILE_ROUTINE]
 __insert_render_queue: sorted_array_insert object_render_queue, object_render_queue_tail, __bsearch_render_queue
 
@@ -247,42 +166,9 @@ __insert_render_queue: sorted_array_insert object_render_queue, object_render_qu
 ; HL - old key
 ; DE - new key
 ; BC - value
+PUBLIC __change_render_queue
 ;#[PROFILE_ROUTINE]
 __change_render_queue: sorted_array_change_depth object_render_queue, object_render_queue_tail, __bsearch_render_queue
-
-
-; Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
-PUBLIC _instance_create_depth
-_instance_create_depth:
-    call __instance_create_without_render
-
-    pop bc ; Sprite
-    pop hl ; Depth
-
-    push bc
-        call __insert_render_queue
-    pop hl
-    ret
-
-
-; void set_depth(Instance* ins, int16_t depth) __z88dk_callee;
-PUBLIC _set_depth
-_set_depth:
-    pop de ; New depth
-
-    pop ix ; Instance
-
-    ld hl, (ix+Instance_depth)
-    ld (ix+Instance_depth), de
-    
-    push ix
-    pop bc
-    jp __change_render_queue
-
-
-
-
-
 
 PUBLIC _room_goto_prev
 _room_goto_prev:
@@ -310,6 +196,10 @@ _room_goto_next:
 ; void room_goto(Room room) __z88dk_fastcall
 PUBLIC _room_goto
 _room_goto:
+    ; Return for invalid rooms
+    ld a, $FF
+    cp h \ ret z
+
     ld (_gmctx + GamemakerCTX_current_room), hl
 
     ; Set the rom page

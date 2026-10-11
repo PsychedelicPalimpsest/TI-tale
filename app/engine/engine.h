@@ -143,6 +143,10 @@ typedef struct {
 
 extern GamemakerCTX gmctx;
 
+extern void return_to_loop();
+extern void room_goto(Room room) __z88dk_fastcall;
+extern void room_goto_next();
+extern void room_goto_prev();
 
 extern Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
 

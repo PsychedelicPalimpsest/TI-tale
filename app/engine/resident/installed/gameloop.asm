@@ -3,8 +3,6 @@ EXTERN _grey_count
 
 
 
-
-
 _init_game:
     ; Setup the game loop task
     EXTERN task1
@@ -57,5 +55,11 @@ check_frame:
 ; what we were doing 
 PUBLIC _return_to_loop
 _return_to_loop:
+    ld a, (gameloop_stack) 
+    or a
+    jp z, _init_game
+    
+    
+
     ld sp, (gameloop_stack)
     jp _game_loop@loop

@@ -7,10 +7,5 @@ extern void init_first_room(void);
 extern void greyscale_swap();
 
 int main(){
-  init_first_room();
-  #asm
-  ei
-  #endasm
-  greyscale_swap();
-  while (1);
+  room_goto(0);
 }

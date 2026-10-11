@@ -11,17 +11,13 @@ _allocate_instance:
 
 
 ; Arguments should be on the stack in the z88dk order,
-; then the return values are put on the stack.
+; then the return values are put on the stack. On create is NOT called
 ; They are push in order:
 ; * Depth
 ; * Sprite
 ;
-; Note: Nukes the shadow registers (but only hl is nuked in the regular registers)
-; _instance_create_without_render(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
-;#[PROFILE_ROUTINE]
-__instance_create_without_render:
-    pop hl \ exx ; Return value
-
+; _instance_create_unsafe_without_render(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
+MACRO _instance_create_unsafe_without_render
     call _allocate_instance
 
     pop bc ; obj
@@ -56,13 +52,30 @@ __instance_create_without_render:
     push de
     push hl
         _register_instance
+endm
 
-    ; Call on create
-    pop hl \ push hl
+; Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
+PUBLIC _instance_create_depth
+;#[PROFILE_ROUTINE]
+_instance_create_depth:
+    pop de ; Return ptr
+    exx
+        _instance_create_unsafe_without_render
+    exx
+
+    pop bc ; Sprite
+    pop hl ; Depth
+
+    push de ; Return ptr
+
+    push bc
+        call __insert_render_queue
+    pop hl \ push hl ; Instance*
 
     ld de, (_gmctx + GamemakerCTX_instance)
-    push de
     ld (_gmctx + GamemakerCTX_instance), hl
+    push de
+        ; hl = Object*
         ld a, (hl) \ inc hl
         ld h, (hl)
         ld l, a
@@ -75,24 +88,13 @@ __instance_create_without_render:
         ld l, a
 
         EXTERN __hl
-        or h ; Only call if not null
+
+        or h
         call nz, __hl
-    pop hl
+    pop hl ; Old current instance
     ld (_gmctx + GamemakerCTX_instance), hl
 
+    pop hl ; Instance*
+    
 
-
-    exx \ jp (hl)
-
-; Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
-PUBLIC _instance_create_depth
-_instance_create_depth:
-    call __instance_create_without_render
-
-    pop bc ; Sprite
-    pop hl ; Depth
-
-    push bc
-        call __insert_render_queue
-    pop hl
     ret

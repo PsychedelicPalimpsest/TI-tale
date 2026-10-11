@@ -16,6 +16,10 @@ engine_prepage_init:
 engine_init:
     call install_hooks
 
+    ; Mark that the game has not yet looped
+    xor a
+    ld (gameloop_stack), a
+
 ; Zero out core global vars for safety (first two bytes are already being used)
     ld hl, _globals_start + 2
     ld (hl), $00
