@@ -99,6 +99,24 @@ MACRO _instance_create_unsafe_without_render
     ld (hl), e \ inc hl
     ld (hl), d 
 
+        ; The ROM sprite template starts at (0,0). Match its copy to the
+        ; instance coordinates before the first draw.
+        push de                         ; Preserve depth for render queue insertion
+        push hl                         ; instance + Instance_depth + 1
+        inc hl                          ; source: instance x
+        push hl
+        ld de, Instance_displayed_sprite+Sprite_x_pos-Instance_x
+        add hl, de
+        ex de, hl                       ; destination: displayed sprite x
+        pop hl
+        ld bc, 2
+        ldir
+        inc de \ inc de \ inc de        ; destination: displayed sprite y
+        ld bc, 2
+        ldir
+        pop hl
+        pop de
+
     ; Get back to start
     REPT 4
         dec hl

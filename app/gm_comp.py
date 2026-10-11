@@ -467,7 +467,7 @@ def emit_sprite_asm(sprite_id, frames_info):
                    f"{cache_cols} cols ({cache_cols * 8}px) x {h}{saved}")
         out.append(f"    PUBLIC {base_label}")
         out.append(f"{base_label}:")
-        out.append("    DEFB 0x00 ; flags (not displayed)")
+        out.append("    DEFB 0x01 ; flags (enabled)")
         out.append("    DEFW 0x0000 ; x_pos")
         out.append(f"    DEFB 0x{cache_cols:02X} ; width_cols")
         out.append(f"    DEFW 0x{cache_cols * 8:04X} ; width_px")
@@ -820,6 +820,7 @@ def _compile_object(json_path, jso):
     frames = list(frames)
     if len(frames) > 16:
         raise ValueError(f"{oid}: at most 16 sprite frames are supported")
+    out.append(f"    {len(frames)},")
     out.append("    {" + ", ".join(
         f"&{sprite}_{i}" if i < len(frames) else "0" for i in range(16)) + "},")
     out.append("    {" + ", ".join(
@@ -955,7 +956,7 @@ def generate_room_index():
         pages.setdefault(page, []).append(jso)
     c_lines = ["#ifndef ROOMS_H", "#define ROOMS_H", "typedef enum {"]
     asm_lines = ["IFNDEF ROOMS_INC", "DEFINE ROOMS_INC"]
-    table_lines = ["; Each RoomObj is ten bytes followed by six bytes of padding."]
+    table_lines = ["; Each RoomObj is twelve bytes followed by four bytes of padding."]
     ordered_rooms = [(page, room) for page, rooms in sorted(pages.items())
                      for room in sorted(rooms, key=lambda r: r["id"])]
     room_ids = {room["id"]: index + (page << 8)
@@ -979,6 +980,7 @@ def generate_room_index():
             asm_lines.append(f"    DEFC {rid} = {value}")
             width = _room_u16(room["width"], f"{rid}: width")
             height = _room_u16(room["height"], f"{rid}: height")
+            bg_fill_color = _room_u16(room.get("bg_fill_color", 0), f"{rid}: bg_fill_color")
             prev, next_room = navigation[rid]
             for target in (prev, next_room):
                 if target is not None and target not in room_ids:
@@ -986,8 +988,8 @@ def generate_room_index():
             prev_id = room_ids[prev] if prev is not None else 65535
             next_id = room_ids[next_room] if next_room is not None else 65535
             table_lines += [f"    EXTERN _ROOM_init_{rid}", f"    ; {rid}",
-                            f"    DEFW _ROOM_init_{rid}, {width}, {height}, {prev_id}, {next_id}",
-                            "    DEFS 6, 0"]
+                            f"    DEFW _ROOM_init_{rid}, {width}, {height}, {bg_fill_color}, {prev_id}, {next_id}",
+                            "    DEFS 4, 0"]
         table_lines.append("ENDIF")
     c_lines += ["} Room;", "#endif"]
     asm_lines.append("ENDIF")

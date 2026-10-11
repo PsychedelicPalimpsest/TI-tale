@@ -16,25 +16,29 @@ engine_prepage_init:
 engine_init:
     call install_hooks
 
+    ; Reset camera and game context, not just screen buffers.
     xor a
-    ld (cur_camx), a
-    ld (cur_camy), a
+    ld hl, engine_globals_start
+    ld (hl), a
+    ld de, engine_globals_start+1
+    ld bc, gameloop_stack+2-engine_globals_start-1
+    ldir
 
-    cpl ; Force redraw
-    ld (cur_camprevx), a
-    ld (cur_camprevy), a
+    ld hl, $ffff ; Force redraw on the first composed frame
+    ld (cur_camprevx), hl
+    ld (cur_camprevy), hl
 
-    ld a, 96
-    ld (cur_camx_plusw), a
-
-    EXTERN st_camera_width
-    ld (st_camera_width), a
-
-    ld a, 64
-    ld (cur_camy_plush), a
+    ld hl, 96
+    ld (cur_camx_plusw), hl
 
     EXTERN st_camera_width
-    ld (st_camera_width), a
+    ld (st_camera_width), hl
+
+    ld hl, 64
+    ld (cur_camy_plush), hl
+
+    EXTERN st_camera_height
+    ld (st_camera_height), hl
 
     
 
@@ -109,8 +113,6 @@ _set_grey_timing:
     add hl, hl
     ld (grey_timingX6), hl
     ret
-
-
 
 
 

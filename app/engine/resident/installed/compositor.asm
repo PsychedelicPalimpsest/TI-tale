@@ -1,5 +1,6 @@
 INCLUDE "engine/engine_globals.inc"
 
+PUBLIC frame_pending
 DEFC frame_pending = compositor_loop+1
 
 EXTERN yield, yield_raw
@@ -158,6 +159,10 @@ compositor_loop:
 
     _event_until_tail gui_render_queue_tail, gui_render_queue, Object_draw_gui, 0
 
+    ; Full column conversion keeps the previous sprite footprint clean while
+    ; the position-based dirty region API is still being developed.
+    ld hl, $ffff
+    ld (dirty_cols), hl
     call _greyscale_swap
 
 

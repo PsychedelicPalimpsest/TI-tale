@@ -65,14 +65,13 @@ MACRO _callbacks
         ld (hl), d \ dec hl
         dec hl
 
-        ld a, d
-        or e
-
         inc ixl ; Increment the alarm count
                 ; Also note: This means we wait until the NEXT step to remove
                 ; the object until the alarm list, this avoids a bug where the
                 ; alarm goes to 0, the callback sets the alarm, and then we remove
                 ; the object from the list.
+        ld a, d
+        or e
         jr z, @zero
             djnz @alarm_loop
             jp @end_of_loop
@@ -98,7 +97,9 @@ MACRO _callbacks
             ; hl = &alarms[i] - sprite_ptr - offset_of_alarms + object_ptr + offset_of_alarm_callbacks
                 sbc hl, de ; NOTE: Carry is reset by `or e` above
                 add hl, bc
-                ld bc, Object_alarm_callbacks-Instance_alarms -1
+                ; DE points at instance+1, so compensate when translating the
+                ; alarm slot address into the object's callback table.
+                ld bc, Object_alarm_callbacks-Instance_alarms +1
                 add hl, bc
 
                 ld a, (hl) \ inc hl
@@ -138,6 +139,8 @@ PUBLIC _draw_self
 ;#[PROFILE_ROUTINE]
 _draw_self:
     ld hl, (_gmctx + GamemakerCTX_instance) ; Current sprite instance
+    ld bc, Instance_flags
+    add hl, bc
 
     ld a, (hl)
     rra \ rra ; Bit 1: Is visible
@@ -146,13 +149,13 @@ _draw_self:
     rra ; Bit 2: Needs new RL
     jr c, @new_rl
 
-    ld bc, Instance_displayed_sprite+Sprite_rl_entry
+    ld bc, Instance_displayed_sprite+Sprite_rl_entry-Instance_flags
     add hl, bc
 
     jp blit_rl_entry
 
 @new_rl:
-    ld bc, Instance_displayed_sprite
+    ld bc, Instance_displayed_sprite-Instance_flags
     add hl, bc
 
     call calculate_rl

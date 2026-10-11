@@ -168,8 +168,14 @@ extern Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Ob
 #define END_WITH() \
     gmctx.instance = *(--gmctx.old_history)
 
-#define set_x(__OBJ, __X) (__OBJ)->x = (__OBJ)->displayed_sprite.x_pos = (__X)
-#define set_y(__OBJ, __Y) (__OBJ)->y = (__OBJ)->displayed_sprite.y_pos = (__Y)
+#define set_x(__OBJ, __X) do { \
+    (__OBJ)->x = (__OBJ)->displayed_sprite.x_pos = (__X); \
+    (__OBJ)->flags |= 0x04; \
+} while (0)
+#define set_y(__OBJ, __Y) do { \
+    (__OBJ)->y = (__OBJ)->displayed_sprite.y_pos = (__Y); \
+    (__OBJ)->flags |= 0x04; \
+} while (0)
 
 
 extern void set_depth(Instance* ins, int16_t depth) __z88dk_callee;

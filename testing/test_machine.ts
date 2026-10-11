@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Z80TestMachine, Z88dkSymbols } from 'z80-testing-library'
+import { Z80TestMachine, Z88dkSymbols, type PcHook } from 'z80-testing-library'
 
 const root = dirname(fileURLToPath(import.meta.url))
 const mapPath = resolve(root, 'build/routines.map')
@@ -25,7 +25,7 @@ const installOrigin = mapAddress('install_location')
 const installedSize = mapAddress('end_of_install') - installOrigin
 
 export const CODE_ORIGIN = codeOrigin
-export const machine = () =>
+export const machine = (hooks?: Map<number, PcHook>) =>
   new Z80TestMachine({
     regions: [
       [codeOrigin, code],
@@ -34,6 +34,7 @@ export const machine = () =>
       [installOrigin, engine.subarray(enginePhaseOffset, enginePhaseOffset + installedSize)],
     ],
     stackPointer: 0xF000,
+    hooks,
   })
 
 export const address = (name: string): number => symbols.get(name)

@@ -18,7 +18,7 @@ endm
 
 MACRO _register_instance
     ex de, hl
-        ld hl, Instance__step
+        ld hl, Instance__begin_step
         add hl, de
 
         ; Zero out the callback back ptrs

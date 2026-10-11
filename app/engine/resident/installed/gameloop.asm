@@ -26,6 +26,11 @@ _init_game:
     ld hl, compositor_loop
     ld ($FE80), hl
 
+    ; The first game-loop yield must save its stack in task 1.
+    EXTERN __current_task
+    ld hl, task1
+    ld (__current_task), hl
+
 PUBLIC _game_loop
 _game_loop:
     ld (gameloop_stack), sp
@@ -35,15 +40,21 @@ _game_loop:
     EXTERN gml_step
     call gml_step
 
+    EXTERN frame_pending
+    ld a, 1
+    ld (frame_pending), a
+
     EXTERN yield
     call yield
     jp @loop
 
+PUBLIC check_frame
 check_frame:
     ld a, (_grey_count)
 @count:
     xor 00h ; SMC: Low byte of grey count LAST TIME this fired
     rra
+    rra ; Bit 1 changes every other greyscale tick (~30 Hz).
     ret nc
 
     ld a, (_grey_count)

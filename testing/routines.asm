@@ -14,6 +14,11 @@ EXTERN engine_init
 EXTERN _inst_update_alarms
 EXTERN _instance_create_depth
 EXTERN _set_depth
+EXTERN _draw_self
+EXTERN compositor_loop
+EXTERN _game_loop
+EXTERN check_frame
+EXTERN _return_to_loop
 
 PUBLIC _test_mul_16_16x8_fast
 _test_mul_16_16x8_fast:
@@ -62,3 +67,29 @@ _test_instance_create_depth:
 PUBLIC _test_set_depth
 _test_set_depth:
     jp _set_depth
+
+PUBLIC _test_draw_self
+_test_draw_self:
+    jp _draw_self
+
+PUBLIC _test_compositor_loop
+_test_compositor_loop:
+    jp compositor_loop
+
+PUBLIC _test_game_loop
+_test_game_loop:
+    jp _game_loop
+
+PUBLIC _test_check_frame
+_test_check_frame:
+    jp check_frame
+
+PUBLIC _test_return_to_loop
+_test_return_to_loop:
+    jp _return_to_loop
+
+PUBLIC _test_alarm_callback
+_test_alarm_callback:
+    ld a, 42
+    ld ($A900), a
+    ret

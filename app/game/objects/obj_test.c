@@ -2,6 +2,7 @@
 #define OBJECTID obj_test
 
 #include "engine/engine.h"
+#include <string.h>
 #include "game/sprites/spr_test.h"
 #include "game/objects/obj_test.h"
 
@@ -114,14 +115,12 @@ void object_alarm0(void) {
     // Toggle between frame 0 and frame 1 (winking animation)
     self->sprite_index ^= 1;
 
-    // TODO: Implement set_sprite_frame(self, frame_idx) in engine to copy
-    // rotation pointers from obj->sprite_cache_entries[frame] into displayed_sprite
-    if (self->sprite_index == 0) {
-        // Switch to frame 0
-        // memcpy(&self->displayed_sprite, &_spr_test_0, sizeof(Sprite));
-    } else {
-        // Switch to frame 1
-        // memcpy(&self->displayed_sprite, &_spr_test_1, sizeof(Sprite));
+    if (self->sprite_index < self->sprite_index_max) {
+        memcpy(&self->displayed_sprite,
+               self->obj->sprites[self->sprite_index], sizeof(Sprite));
+        self->displayed_sprite.x_pos = self->x;
+        self->displayed_sprite.y_pos = self->y;
+        self->last_sprite_index = self->sprite_index;
     }
     self->flags |= 0x04; // Mark dirty: needs new RL calculation
 
