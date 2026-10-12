@@ -488,6 +488,132 @@ class TestAudioEmulator(unittest.TestCase):
             self.assertEqual(wf.getsampwidth(), 2)
             self.assertEqual(wf.getframerate(), 22050)
 
+    def test_sweep_bytecode_emission(self):
+        """Verify BytecodeCompiler emits sweep instructions when ChannelSound.is_sweep is True."""
+        from midi_to_audio import OP_CH1_SQUARE_SWEEP, OP_CH2_SQUARE_SWEEP, OP_CH1_SAW_SWEEP
+        s1 = ChannelSound(
+            channel=1,
+            is_active=True,
+            voice=VoiceType.SQUARE,
+            square_high=35,
+            square_low=35,
+            is_sweep=True,
+            sweep_mask=0x03,
+            sweep_param1=1,
+            sweep_param2=1
+        )
+        s2 = ChannelSound(
+            channel=2,
+            is_active=True,
+            voice=VoiceType.SQUARE,
+            square_high=60,
+            square_low=60,
+            is_sweep=True,
+            sweep_mask=0x07,
+            sweep_param1=1,
+            sweep_param2=1
+        )
+        slice_obj = TimeSlice(time=0.0, duration=1.0, ch1=s1, ch2=s2)
+        compiler = BytecodeCompiler()
+        instructions = compiler.compile([slice_obj])
+
+        opcodes = [instr.opcode for instr in instructions]
+        self.assertIn(OP_CH1_SQUARE, opcodes)
+        self.assertIn(OP_CH1_SQUARE_SWEEP, opcodes)
+        self.assertIn(OP_CH2_SQUARE, opcodes)
+        self.assertIn(OP_CH2_SQUARE_SWEEP, opcodes)
+
+        # Check operands of sweep instruction
+        ch1_sweep = next(instr for instr in instructions if instr.opcode == OP_CH1_SQUARE_SWEEP)
+        self.assertEqual(ch1_sweep.operands, [0x03, 1, 1])
+
+    def test_pitch_decay_allocation(self):
+        """Verify SmartVoiceAllocator marks sustained notes for pitch sweep decay."""
+        note = NoteEvent(pitch=60, start_time=0.0, end_time=3.0, velocity=80, channel=0, track_idx=0, program=0)
+        summary = TrackSummary(0, "Piano", 0, 0, "Piano", 1, 60, 60, 60.0, False, "melody")
+        allocator = SmartVoiceAllocator(
+            notes=[note],
+            track_summaries=[summary],
+            decay_mode="sweep",
+            decay_threshold=0.5,
+            decay_rate="medium"
+        )
+        slices = allocator.allocate()
+        self.assertTrue(len(slices) > 0)
+        sound = slices[0].ch1
+        self.assertIsNotNone(sound)
+        self.assertTrue(sound.is_sweep)
+        self.assertEqual(sound.sweep_mask, 0x03)
+        self.assertEqual(sound.sweep_param1, 1)
+        self.assertEqual(sound.sweep_param2, 1)
+
+    def test_emulator_pitch_sweep_frequency_descent(self):
+        """Verify AudioEngineEmulator produces a continuously decreasing frequency during pitch sweep."""
+        from audio_emulator import AudioEngineEmulator
+        import numpy as np
+        # Ch1: square hi=35, lo=35, followed by sweep mask=0x00 (+1, +1 per frame)
+        # 60 frames = 1.0 second, period increases from 70 to 70 + 120 = 190.
+        bytecode = bytes([
+            0x03, 0x05,             # Slow mode
+            0x08, 35, 35,           # Square hi=35, lo=35 (468 Hz)
+            0x10, 0x00, 0x01, 0x01, # Square sweep mask=0, +1, +1
+            0x01, 0x00, 0x01,       # Wait 256 ticks (1.0s)
+            0x00                    # Stop
+        ])
+        emu = AudioEngineEmulator(sample_rate=44100)
+        emu.load_bytecode(bytecode)
+        ch1, ch2, _ = emu.render(max_duration_sec=1.5)
+
+        # Divide into early and late windows
+        win_size = int(44100 * 0.2)
+        early = ch1[:win_size]
+        late = ch1[int(44100 * 0.7):int(44100 * 0.9)]
+        zc_early = np.count_nonzero((early[:-1] <= 0) & (early[1:] > 0)) / 0.2
+        zc_late = np.count_nonzero((late[:-1] <= 0) & (late[1:] > 0)) / 0.2
+
+        # Frequency must decrease significantly
+        self.assertGreater(zc_early, zc_late + 100.0)
+
+    def test_auto_decay_duty_cycling_no_pitch_sweep(self):
+        """Verify decay_mode='auto' applies duty cycle volume decay WITHOUT pitch sweep."""
+        note = NoteEvent(pitch=60, start_time=0.0, end_time=4.0, velocity=80, channel=0, track_idx=0, program=0)
+        summary = TrackSummary(0, "Piano", 0, 0, "Piano", 1, 60, 60, 60.0, False, "melody")
+        allocator = SmartVoiceAllocator(
+            notes=[note],
+            track_summaries=[summary],
+            decay_mode="auto",
+            decay_threshold=0.75
+        )
+        slices = allocator.allocate()
+        self.assertGreater(len(slices), 1)
+
+        # None of the slices should have is_sweep=True
+        for s in slices:
+            if s.ch1 and s.ch1.is_active:
+                self.assertFalse(s.ch1.is_sweep, "auto decay must never apply pitch frequency sweeps to tonal notes")
+
+        # Check duty cycle stepping: starts near 0.5, steps down, and ends with release
+        active_slices = [s for s in slices if s.ch1 and s.ch1.is_active]
+        first_duty = active_slices[0].ch1.square_high / (active_slices[0].ch1.square_high + active_slices[0].ch1.square_low)
+        last_duty = active_slices[-1].ch1.square_high / (active_slices[-1].ch1.square_high + active_slices[-1].ch1.square_low)
+        self.assertAlmostEqual(first_duty, 0.5, delta=0.05)
+        self.assertLess(last_duty, first_duty)
+
+        # The final slice before 4.0s should be released (inactive)
+        self.assertFalse(slices[-1].ch1.is_active)
+
+    def test_bass_folding_under_range(self):
+        """Verify notes below pitch 36 are folded up by octave into valid hardware range."""
+        low_note = NoteEvent(pitch=29, start_time=0.0, end_time=1.0, velocity=80, channel=0, track_idx=0)
+        summary = TrackSummary(0, "Bass", 0, 32, "Bass", 1, 29, 29, 29.0, False, "bass")
+        allocator = SmartVoiceAllocator(
+            notes=[low_note],
+            track_summaries=[summary]
+        )
+        self.assertGreaterEqual(low_note.pitch, 36)
+        self.assertEqual(low_note.pitch, 41) # 29 + 12
+
 
 if __name__ == "__main__":
     unittest.main()
+

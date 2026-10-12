@@ -58,8 +58,12 @@
     - When disabled (default): restricts output to standard position-independent synth opcodes.
 - **Percussion (MIDI Channel 10)**:
   - `--percussion synth|custom|none`: Synthesizes pitch-swept kick drums, saw noise snares, and metallic hi-hat ticks; temporarily preempts Channel 2 and seamlessly restores background notes.
-- **Tuning, timing & articulation**:
+- **Tuning, timing, articulation & envelopes**:
   - `--transpose auto|<semitones>`: Automatic whole-octave transposition to calculator sweet spot (~65 Hz to 2000 Hz).
+  - `--decay auto|sweep|duty|both|none`: Musical envelope and pitch sweep decay on sustained notes/chords (prevents long static buzzy drones on 1-bit hardware).
+  - `--decay-threshold <sec>`: Minimum note duration (default 0.75s) to trigger decay modulation.
+  - `--decay-rate slow|medium|fast`: Pitch decrease sweep rate (`slow`=7.5Hz, `medium`=15Hz, `fast`=30Hz).
+  - `--arpeggio-sustained`: Intelligently arpeggiates sustained multi-note chords so all inner chord tones ring out.
   - `--articulation <frames>`: Inserts crisp note rests between repeated identical notes (default 1 frame ~16ms).
   - `--loop`: Seamless song looping via `note_jump` opcode.
   - `--tempo-scale <mult>`: Global playback speed adjustment.
@@ -72,9 +76,10 @@
 - Cycle-accurate software simulation of the TI-Tale 1-bit dual-channel sound system.
 - **Hardware emulation**:
   - Timer 3 (Channel 1, port `$36`) and Timer 2 (Channel 2, port `$33`) at 32,768 Hz / 234,375 Hz.
+  - Phase-continuous synthesis across 60 Hz frame boundaries (eliminates frame-reset buzzing artifacts).
   - Square wave duty cycles (50%, 25%, 12.5%).
   - Additive Saw (Style 1), Exponential Saw (Style 2 & 3).
-  - Frequency sweeps (`note_chX_square_sweep`, `note_chX_saw_sweep`) hooked to 60 Hz greyscale counter.
+  - Hardware frequency pitch sweeps (`note_chX_square_sweep`, `note_chX_saw_sweep`) hooked to 60 Hz greyscale counter with seamless pitch slides.
   - 1-bit custom instrument pulse table playback (`note_ch1_instr`, `note_ch2_instr`).
   - Bytecode interpreter and state machine (`OP_WAIT`, `OP_STOP_SONG`, `OP_JUMP`).
 - **Comparative analysis**:

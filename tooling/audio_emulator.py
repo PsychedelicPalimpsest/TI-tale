@@ -81,8 +81,10 @@ from midi_to_audio import (
     midi_pitch_to_freq,
     midi_pitch_to_name,
     parse_midi_file,
+    detect_optimal_transposition,
     emit_binary,
 )
+
 
 
 @dataclass
@@ -764,6 +766,16 @@ def main():
     parser.add_argument("--sample-rate", type=int, default=44100, help="Audio sample rate (Hz)")
     parser.add_argument("--strategy", choices=["smart", "melody-bass", "arpeggio"], default="smart",
                         help="Converter strategy when input is MIDI")
+    parser.add_argument("--transpose", default="auto",
+                        help="Semitone pitch transposition ('auto' or integer e.g. 0, +12, -12)")
+    parser.add_argument("--decay", choices=["auto", "sweep", "duty", "both", "none"], default="auto",
+                        help="Note decay & pitch sweep mode for sustained notes")
+    parser.add_argument("--decay-threshold", type=float, default=0.75,
+                        help="Minimum note duration (in seconds) to trigger decay or pitch sweeps")
+    parser.add_argument("--decay-rate", choices=["slow", "medium", "fast"], default="medium",
+                        help="Rate of pitch decrease during sweeps (slow=7.5Hz, medium=15Hz, fast=30Hz)")
+    parser.add_argument("--arpeggio-sustained", action="store_true",
+                        help="Enable chord arpeggiation on sustained multi-note chords")
     parser.add_argument("--custom-instruments", choices=["allow", "disable"], default="disable",
                         help="Allow or disable custom instruments")
     parser.add_argument("--percussion", choices=["synth", "custom", "none"], default="synth",
@@ -788,6 +800,20 @@ def main():
         notes, track_summaries, total_sec = parse_midi_file(args.input)
         allow_custom = (args.custom_instruments == "allow")
 
+        # Pitch transposition
+        if args.transpose == "auto":
+            transposition = detect_optimal_transposition(notes)
+        else:
+            try:
+                transposition = int(args.transpose)
+            except ValueError:
+                transposition = 0
+
+        if transposition != 0:
+            for n in notes:
+                if not n.is_percussion:
+                    n.pitch += transposition
+
         if args.strategy == "melody-bass":
             alloc_cls = MelodyBassVoiceAllocator
         elif args.strategy == "arpeggio":
@@ -799,8 +825,13 @@ def main():
             notes=notes,
             track_summaries=track_summaries,
             percussion_mode=args.percussion,
-            allow_custom=allow_custom
+            allow_custom=allow_custom,
+            decay_mode=args.decay,
+            decay_threshold=args.decay_threshold,
+            decay_rate=args.decay_rate,
+            arpeggio_sustained=args.arpeggio_sustained
         )
+
         slices = allocator.allocate()
         compiler = BytecodeCompiler(allow_custom=allow_custom)
         instructions = compiler.compile(slices)

@@ -399,7 +399,24 @@ def parse_midi_file(filepath: Path) -> Tuple[List[NoteEvent], List[TrackSummary]
                     tpos += 2
                     bend_val = ((bend_msb << 7) | bend_lsb) - 8192
                     # Normalized semitone bend (+/- 2 semitones standard range)
-                    channel_pitch_bends[chan] = (bend_val / 8192.0) * 2.0
+                    new_bend = (bend_val / 8192.0) * 2.0
+                    channel_pitch_bends[chan] = new_bend
+                    sec = tempo_map.tick_to_seconds(tick)
+                    for (k_chan, k_pitch), (start_sec, vel, prev_bend) in list(active_notes.items()):
+                        if k_chan == chan and (sec - start_sec) >= 0.02 and abs(new_bend - prev_bend) >= 0.05:
+                            prog = track_channel_programs.get((trk_idx, chan), 0)
+                            notes.append(NoteEvent(
+                                pitch=k_pitch,
+                                start_time=start_sec,
+                                end_time=sec,
+                                velocity=vel,
+                                channel=chan,
+                                track_idx=trk_idx,
+                                program=prog,
+                                pitch_bend=prev_bend,
+                                is_percussion=(chan == 9)
+                            ))
+                            active_notes[(k_chan, k_pitch)] = (sec, vel, new_bend)
                 elif msg_type in (0xA0, 0xB0):
                     tpos += 2
                 elif msg_type == 0xD0:
@@ -627,18 +644,19 @@ def detect_optimal_transposition(notes: Sequence[NoteEvent]) -> int:
 
     sorted_p = sorted(pitches)
     median_pitch = sorted_p[len(sorted_p) // 2]
-    min_pitch = sorted_p[0]
 
-    # If lowest note is below C2 (36 = ~65.4 Hz), standard square wave period overflows 255.
+    # Transposition is based on the song's overall tessitura (median pitch).
+    # Deep individual bass notes below C2 (36) are folded up by octave independently,
+    # avoiding transposing the entire piece into a shrill upper register.
     transpose = 0
-    if min_pitch < 36:
-        # Shift up by 1 or 2 octaves
-        needed_octaves = math.ceil((36 - min_pitch) / 12.0)
+    if median_pitch < 36:
+        needed_octaves = math.ceil((36 - median_pitch) / 12.0)
         transpose = needed_octaves * 12
-    elif median_pitch > 90: # Very high register > F#6
+    elif median_pitch > 90:
         transpose = -12
 
     return transpose
+
 
 
 # ---------------------------------------------------------------------------
@@ -748,7 +766,11 @@ class VoiceAllocator:
                  articulation_frames: int = 1,
                  staccato_ratio: float = 1.0,
                  arpeggio_speed_frames: int = 1,
-                 enable_arpeggio: bool = False):
+                 enable_arpeggio: bool = False,
+                 decay_mode: str = "auto",
+                 decay_threshold: float = 0.75,
+                 decay_rate: str = "medium",
+                 arpeggio_sustained: bool = False):
         self.notes = notes
         self.track_summaries = track_summaries
         self.ch1_voice = ch1_voice
@@ -762,9 +784,23 @@ class VoiceAllocator:
         self.staccato_ratio = max(0.1, min(1.0, staccato_ratio))
         self.arpeggio_speed_frames = max(1, arpeggio_speed_frames)
         self.enable_arpeggio = enable_arpeggio
+        self.decay_mode = decay_mode
+        self.decay_threshold = decay_threshold
+        self.decay_rate = decay_rate
+        self.arpeggio_sustained = arpeggio_sustained
+
+        # Ensure all tonal notes fall within physical hardware frequency capabilities (C2=36 to B7=107)
+        # Fold individual notes by octaves into the playable hardware range
+        for n in self.notes:
+            if not n.is_percussion:
+                while n.pitch < 36:
+                    n.pitch += 12
+                while n.pitch > 107:
+                    n.pitch -= 12
 
     def allocate(self) -> List[TimeSlice]:
         raise NotImplementedError
+
 
 
 class SmartVoiceAllocator(VoiceAllocator):
@@ -822,33 +858,35 @@ class SmartVoiceAllocator(VoiceAllocator):
             if len(active) == 1:
                 single = active[0]
                 role = track_roles.get(single.track_idx, "auto")
-                if role == "bass" or (cur_ch2_pitch == single.pitch) or single.pitch < 52:
+                if role == "bass" or (cur_ch2_pitch == single.pitch) or single.pitch < 50:
                     note_ch2 = single
                 else:
                     note_ch1 = single
             elif len(active) >= 2:
-                # Group by role if available
-                bass_cand = [n for n in active if track_roles.get(n.track_idx) == "bass" or n.pitch < 52]
-                mel_cand = [n for n in active if track_roles.get(n.track_idx) in ("melody", "harmony") or n.pitch >= 52]
-
-                if bass_cand and mel_cand:
+                # 1. Identify bass note for Channel 2
+                bass_cand = [n for n in active if track_roles.get(n.track_idx) == "bass"]
+                if bass_cand:
                     note_ch2 = min(bass_cand, key=lambda x: x.pitch)
-                    if self.enable_arpeggio and len(mel_cand) > 1:
-                        sorted_mel = sorted(mel_cand, key=lambda x: x.pitch)
-                        arp_idx = (frame_idx // self.arpeggio_speed_frames) % len(sorted_mel)
-                        note_ch1 = sorted_mel[arp_idx]
-                    else:
-                        note_ch1 = max(mel_cand, key=lambda x: x.pitch)
                 else:
-                    # Fallback to pitch sorting
-                    sorted_by_pitch = sorted(active, key=lambda x: x.pitch)
-                    note_ch2 = sorted_by_pitch[0]   # Bass root note
-                    upper = sorted_by_pitch[1:]
-                    if self.enable_arpeggio and len(upper) > 1:
-                        arp_idx = (frame_idx // self.arpeggio_speed_frames) % len(upper)
-                        note_ch1 = upper[arp_idx]
+                    note_ch2 = min(active, key=lambda x: x.pitch)
+
+                # 2. Identify upper notes for Channel 1
+                upper = [n for n in active if n != note_ch2]
+                if not upper:
+                    upper = [note_ch2]
+
+                mel_cand = [n for n in upper if track_roles.get(n.track_idx) == "melody"]
+                if mel_cand:
+                    note_ch1 = max(mel_cand, key=lambda x: x.pitch)
+                else:
+                    do_arp = self.enable_arpeggio or (self.arpeggio_sustained and len(upper) > 1 and max(n.duration for n in upper) >= 0.5)
+                    if do_arp and len(upper) > 1:
+                        sorted_up = sorted(upper, key=lambda x: x.pitch)
+                        arp_idx = (frame_idx // self.arpeggio_speed_frames) % len(sorted_up)
+                        note_ch1 = sorted_up[arp_idx]
                     else:
-                        note_ch1 = sorted_by_pitch[-1]  # Highest melody note
+                        note_ch1 = max(upper, key=lambda x: x.pitch)
+
 
             # 2. Check for Percussion trigger on Channel 2
             if self.percussion_mode != "none" and frame_idx in frame_perc:
@@ -857,12 +895,14 @@ class SmartVoiceAllocator(VoiceAllocator):
                 perc_active_until_frame = frame_idx + perc_dur_frames
                 perc_sound = self._build_drum_sound(perc_event.pitch, 2)
 
-            # Build ChannelSound objects
-            ch1_sound = self._build_tonal_sound(note_ch1, 1) if note_ch1 else ChannelSound(1, False)
+            # Build ChannelSound objects with elapsed duration
+            elapsed1 = (t - note_ch1.start_time) if note_ch1 else 0.0
+            elapsed2 = (t - note_ch2.start_time) if note_ch2 else 0.0
+            ch1_sound = self._build_tonal_sound(note_ch1, 1, elapsed1) if note_ch1 else ChannelSound(1, False)
             if frame_idx < perc_active_until_frame and perc_sound:
                 ch2_sound = perc_sound
             else:
-                ch2_sound = self._build_tonal_sound(note_ch2, 2) if note_ch2 else ChannelSound(2, False)
+                ch2_sound = self._build_tonal_sound(note_ch2, 2, elapsed2) if note_ch2 else ChannelSound(2, False)
 
             # Insert articulation gap if same pitch repeats consecutively
             if self.articulation_frames > 0:
@@ -952,7 +992,7 @@ class SmartVoiceAllocator(VoiceAllocator):
                 note_name="Hi-Hat (Tick)"
             )
 
-    def _build_tonal_sound(self, note: NoteEvent, channel: int) -> ChannelSound:
+    def _build_tonal_sound(self, note: NoteEvent, channel: int, elapsed_sec: float = 0.0) -> ChannelSound:
         pitch = note.pitch + note.pitch_bend
         freq = midi_pitch_to_freq(pitch)
         note_str = midi_pitch_to_name(note.pitch)
@@ -971,6 +1011,65 @@ class SmartVoiceAllocator(VoiceAllocator):
         else:
             voice = req_voice
 
+        # Check for pitch decay sweep (strictly for explicit sweep mode, never auto)
+        is_sweep = False
+        sweep_mask = 0
+        sweep_p1 = 0
+        sweep_p2 = 0
+
+        apply_sweep = False
+        if self.decay_mode in ("sweep", "both"):
+            apply_sweep = (note.duration >= self.decay_threshold)
+
+        if apply_sweep and voice in (VoiceType.SQUARE, VoiceType.SAW1):
+            is_sweep = True
+            if self.decay_rate == "slow":
+                sweep_mask = 0x07 if channel == 1 else 0x0F
+                sweep_p1 = 1
+                sweep_p2 = 1
+            elif self.decay_rate == "fast":
+                sweep_mask = 0x01 if channel == 1 else 0x03
+                sweep_p1 = 1
+                sweep_p2 = 1
+            else: # medium
+                sweep_mask = 0x03 if channel == 1 else 0x07
+                sweep_p1 = 1
+                sweep_p2 = 1
+
+        # Check for natural amplitude / duty cycle decay and acoustic note release
+        effective_duty = self.duty_ratio
+        if self.decay_mode in ("auto", "duty", "both") and note.duration >= self.decay_threshold:
+            d = note.duration
+            if d >= 3.0:
+                # Long sustained chord notes (e.g. 4.8s intro chords)
+                if elapsed_sec >= 3.5:
+                    return ChannelSound(channel=channel, is_active=False, note_name="Rest (Decay)")
+                elif elapsed_sec >= 2.2:
+                    effective_duty = 0.0625
+                elif elapsed_sec >= 1.2:
+                    effective_duty = 0.125
+                elif elapsed_sec >= 0.5:
+                    effective_duty = 0.25
+                else:
+                    effective_duty = self.duty_ratio
+            elif d >= 1.5:
+                if elapsed_sec >= 0.85 * d:
+                    return ChannelSound(channel=channel, is_active=False, note_name="Rest (Decay)")
+                elif elapsed_sec >= 0.6 * d:
+                    effective_duty = 0.125
+                elif elapsed_sec >= 0.3 * d:
+                    effective_duty = 0.25
+                else:
+                    effective_duty = self.duty_ratio
+            else: # 0.75 .. 1.5s
+                if elapsed_sec >= 0.85 * d:
+                    return ChannelSound(channel=channel, is_active=False, note_name="Rest (Decay)")
+                elif elapsed_sec >= 0.4 * d:
+                    effective_duty = 0.25
+                else:
+                    effective_duty = self.duty_ratio
+
+
         # Compute wave parameters
         if voice == VoiceType.SAW1:
             saw = calc_saw1_params(freq, CLOCK_SLOW_HZ)
@@ -982,7 +1081,11 @@ class SmartVoiceAllocator(VoiceAllocator):
                 freq=freq,
                 saw_k=saw.k_const,
                 saw_m=saw.m_max,
-                note_name=f"{note_str} (saw1 K={saw.k_const} M={saw.m_max})"
+                is_sweep=is_sweep,
+                sweep_mask=sweep_mask,
+                sweep_param1=sweep_p1,
+                sweep_param2=sweep_p2,
+                note_name=f"{note_str} (saw1 K={saw.k_const} M={saw.m_max}{' sweep' if is_sweep else ''})"
             )
         elif voice == VoiceType.SAW2:
             saw2 = calc_saw2_params(freq, CLOCK_SLOW_HZ)
@@ -1007,7 +1110,7 @@ class SmartVoiceAllocator(VoiceAllocator):
                 note_name=f"{note_str} (saw3 M={saw3.m_max})"
             )
         else: # SQUARE
-            sq = calc_square_params(freq, CLOCK_SLOW_HZ, self.duty_ratio)
+            sq = calc_square_params(freq, CLOCK_SLOW_HZ, effective_duty)
             return ChannelSound(
                 channel=channel,
                 is_active=True,
@@ -1016,7 +1119,11 @@ class SmartVoiceAllocator(VoiceAllocator):
                 freq=freq,
                 square_high=sq.high_ticks,
                 square_low=sq.low_ticks,
-                note_name=f"{note_str} (sq hi={sq.high_ticks} lo={sq.low_ticks})"
+                is_sweep=is_sweep,
+                sweep_mask=sweep_mask,
+                sweep_param1=sweep_p1,
+                sweep_param2=sweep_p2,
+                note_name=f"{note_str} (sq hi={sq.high_ticks} lo={sq.low_ticks}{' sweep' if is_sweep else ''})"
             )
 
     def _compress_slices(self, raw_slices: List[TimeSlice]) -> List[TimeSlice]:
@@ -1051,6 +1158,9 @@ class SmartVoiceAllocator(VoiceAllocator):
                 a.saw_k == b.saw_k and
                 a.saw_m == b.saw_m and
                 a.is_sweep == b.is_sweep and
+                a.sweep_mask == b.sweep_mask and
+                a.sweep_param1 == b.sweep_param1 and
+                a.sweep_param2 == b.sweep_param2 and
                 a.custom_inst_name == b.custom_inst_name)
 
 
@@ -1068,7 +1178,11 @@ class MelodyBassVoiceAllocator(VoiceAllocator):
             quantize_fps=self.quantize_fps,
             articulation_frames=self.articulation_frames,
             staccato_ratio=self.staccato_ratio,
-            arpeggio_speed_frames=self.arpeggio_speed_frames
+            arpeggio_speed_frames=self.arpeggio_speed_frames,
+            decay_mode=self.decay_mode,
+            decay_threshold=self.decay_threshold,
+            decay_rate=self.decay_rate,
+            arpeggio_sustained=self.arpeggio_sustained
         )
         return smart.allocate()
 
@@ -1091,7 +1205,11 @@ class ArpeggioVoiceAllocator(VoiceAllocator):
             articulation_frames=self.articulation_frames,
             staccato_ratio=self.staccato_ratio,
             arpeggio_speed_frames=self.arpeggio_speed_frames,
-            enable_arpeggio=True
+            enable_arpeggio=True,
+            decay_mode=self.decay_mode,
+            decay_threshold=self.decay_threshold,
+            decay_rate=self.decay_rate,
+            arpeggio_sustained=self.arpeggio_sustained
         )
         return smart.allocate()
 
@@ -1116,7 +1234,11 @@ class TrackRoutingVoiceAllocator(VoiceAllocator):
             quantize_fps=self.quantize_fps,
             articulation_frames=self.articulation_frames,
             staccato_ratio=self.staccato_ratio,
-            arpeggio_speed_frames=self.arpeggio_speed_frames
+            arpeggio_speed_frames=self.arpeggio_speed_frames,
+            decay_mode=self.decay_mode,
+            decay_threshold=self.decay_threshold,
+            decay_rate=self.decay_rate,
+            arpeggio_sustained=self.arpeggio_sustained
         )
         return smart.allocate()
 
@@ -1165,8 +1287,8 @@ class BytecodeCompiler:
             # Channel 1 state update
             if not self._sounds_equal(prev_ch1, s.ch1):
                 if s.ch1 and s.ch1.is_active:
-                    instr = self._compile_channel_sound(s.ch1, 1)
-                    instructions.append(instr)
+                    instrs = self._compile_channel_sound(s.ch1, 1)
+                    instructions.extend(instrs)
                     step_comments.append(f"Ch1: {s.ch1.note_name}")
                 else:
                     instructions.append(CompiledInstruction(OP_CH1_STOP, [], comment="Ch1: Stop/Rest"))
@@ -1176,8 +1298,8 @@ class BytecodeCompiler:
             # Channel 2 state update
             if not self._sounds_equal(prev_ch2, s.ch2):
                 if s.ch2 and s.ch2.is_active:
-                    instr = self._compile_channel_sound(s.ch2, 2)
-                    instructions.append(instr)
+                    instrs = self._compile_channel_sound(s.ch2, 2)
+                    instructions.extend(instrs)
                     step_comments.append(f"Ch2: {s.ch2.note_name}")
                 else:
                     instructions.append(CompiledInstruction(OP_CH2_STOP, [], comment="Ch2: Stop/Rest"))
@@ -1202,52 +1324,68 @@ class BytecodeCompiler:
 
         return instructions
 
-    def _compile_channel_sound(self, sound: ChannelSound, chan: int) -> CompiledInstruction:
+    def _compile_channel_sound(self, sound: ChannelSound, chan: int) -> List[CompiledInstruction]:
+        res: List[CompiledInstruction] = []
         if sound.custom_inst_name:
             op = OP_CH1_INSTR if chan == 1 else OP_CH2_INSTR
-            return CompiledInstruction(
+            res.append(CompiledInstruction(
                 op,
                 [],
                 symbol_ref=sound.custom_inst_name,
                 comment=f"Ch{chan} custom instrument: {sound.custom_inst_name}"
-            )
+            ))
+            return res
 
         if sound.voice == VoiceType.SQUARE:
             op = OP_CH1_SQUARE if chan == 1 else OP_CH2_SQUARE
-            instr = CompiledInstruction(
+            res.append(CompiledInstruction(
                 op,
                 [sound.square_high, sound.square_low],
                 comment=f"Ch{chan} square (hi={sound.square_high}, lo={sound.square_low})"
-            )
-            return instr
+            ))
+            if sound.is_sweep:
+                sweep_op = OP_CH1_SQUARE_SWEEP if chan == 1 else OP_CH2_SQUARE_SWEEP
+                res.append(CompiledInstruction(
+                    sweep_op,
+                    [sound.sweep_mask, sound.sweep_param1, sound.sweep_param2],
+                    comment=f"Ch{chan} square sweep (mask=${sound.sweep_mask:02X}, up_add={sound.sweep_param1}, down_add={sound.sweep_param2})"
+                ))
         elif sound.voice == VoiceType.SAW1:
             op = OP_CH1_SAW1 if chan == 1 else OP_CH2_SAW1
-            return CompiledInstruction(
+            res.append(CompiledInstruction(
                 op,
                 [sound.saw_k, sound.saw_m],
                 comment=f"Ch{chan} additive saw1 (K={sound.saw_k}, M={sound.saw_m})"
-            )
+            ))
+            if sound.is_sweep:
+                sweep_op = OP_CH1_SAW_SWEEP if chan == 1 else OP_CH2_SAW_SWEEP
+                res.append(CompiledInstruction(
+                    sweep_op,
+                    [sound.sweep_mask, sound.sweep_param1, sound.sweep_param2],
+                    comment=f"Ch{chan} saw sweep (mask=${sound.sweep_mask:02X}, max_add={sound.sweep_param1}, const_add={sound.sweep_param2})"
+                ))
         elif sound.voice == VoiceType.SAW2:
             op = OP_CH1_SAW2 if chan == 1 else OP_CH2_SAW2
-            return CompiledInstruction(
+            res.append(CompiledInstruction(
                 op,
                 [sound.saw_m],
                 comment=f"Ch{chan} exponential saw2 (M={sound.saw_m})"
-            )
+            ))
         elif sound.voice == VoiceType.SAW3:
             op = OP_CH1_SAW3 if chan == 1 else OP_CH2_SAW3
-            return CompiledInstruction(
+            res.append(CompiledInstruction(
                 op,
                 [sound.saw_m],
                 comment=f"Ch{chan} exponential+1 saw3 (M={sound.saw_m})"
-            )
+            ))
         else:
             op = OP_CH1_SQUARE if chan == 1 else OP_CH2_SQUARE
-            return CompiledInstruction(
+            res.append(CompiledInstruction(
                 op,
                 [sound.square_high, sound.square_low],
                 comment=f"Ch{chan} square fallback"
-            )
+            ))
+        return res
 
     def _emit_wait(self, instructions: List[CompiledInstruction], wait_ticks: int, comment: str):
         # Maximum signed wait per instruction is 32767 ticks (~128 seconds)
@@ -1280,6 +1418,9 @@ class BytecodeCompiler:
                 a.saw_k == b.saw_k and
                 a.saw_m == b.saw_m and
                 a.is_sweep == b.is_sweep and
+                a.sweep_mask == b.sweep_mask and
+                a.sweep_param1 == b.sweep_param1 and
+                a.sweep_param2 == b.sweep_param2 and
                 a.custom_inst_name == b.custom_inst_name)
 
 
@@ -1417,6 +1558,14 @@ def create_arg_parser() -> argparse.ArgumentParser:
                         help="Semitone pitch transposition ('auto' or integer e.g. 0, +12, -12)")
     parser.add_argument("--tempo-scale", type=float, default=1.0,
                         help="Playback tempo speed multiplier (e.g. 1.2 = 20%% faster)")
+    parser.add_argument("--decay", choices=["auto", "sweep", "duty", "both", "none"], default="auto",
+                        help="Note decay & pitch sweep mode for sustained notes (auto enables sweeps on long chords/notes)")
+    parser.add_argument("--decay-threshold", type=float, default=0.75,
+                        help="Minimum note duration (in seconds) to trigger decay or pitch sweeps")
+    parser.add_argument("--decay-rate", choices=["slow", "medium", "fast"], default="medium",
+                        help="Rate of pitch decrease during sweeps (slow=7.5Hz, medium=15Hz, fast=30Hz)")
+    parser.add_argument("--arpeggio-sustained", action="store_true",
+                        help="Enable chord arpeggiation on sustained multi-note chords")
     parser.add_argument("--articulation", type=int, default=1,
                         help="Frames of rest inserted between repeated identical notes (0 to disable)")
     parser.add_argument("--staccato", type=float, default=1.0,
@@ -1518,7 +1667,11 @@ def main():
             allow_custom=allow_custom,
             quantize_fps=args.quantize,
             articulation_frames=args.articulation,
-            staccato_ratio=args.staccato
+            staccato_ratio=args.staccato,
+            decay_mode=args.decay,
+            decay_threshold=args.decay_threshold,
+            decay_rate=args.decay_rate,
+            arpeggio_sustained=args.arpeggio_sustained
         )
     elif args.strategy == "melody-bass":
         allocator = MelodyBassVoiceAllocator(
@@ -1531,7 +1684,11 @@ def main():
             allow_custom=allow_custom,
             quantize_fps=args.quantize,
             articulation_frames=args.articulation,
-            staccato_ratio=args.staccato
+            staccato_ratio=args.staccato,
+            decay_mode=args.decay,
+            decay_threshold=args.decay_threshold,
+            decay_rate=args.decay_rate,
+            arpeggio_sustained=args.arpeggio_sustained
         )
     elif args.strategy == "arpeggio":
         allocator = ArpeggioVoiceAllocator(
@@ -1544,7 +1701,11 @@ def main():
             allow_custom=allow_custom,
             quantize_fps=args.quantize,
             articulation_frames=args.articulation,
-            staccato_ratio=args.staccato
+            staccato_ratio=args.staccato,
+            decay_mode=args.decay,
+            decay_threshold=args.decay_threshold,
+            decay_rate=args.decay_rate,
+            arpeggio_sustained=args.arpeggio_sustained
         )
     else:
         allocator = SmartVoiceAllocator(
@@ -1557,7 +1718,11 @@ def main():
             allow_custom=allow_custom,
             quantize_fps=args.quantize,
             articulation_frames=args.articulation,
-            staccato_ratio=args.staccato
+            staccato_ratio=args.staccato,
+            decay_mode=args.decay,
+            decay_threshold=args.decay_threshold,
+            decay_rate=args.decay_rate,
+            arpeggio_sustained=args.arpeggio_sustained
         )
 
     slices = allocator.allocate()
