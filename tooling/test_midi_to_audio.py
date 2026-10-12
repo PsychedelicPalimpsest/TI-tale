@@ -36,6 +36,7 @@ from midi_to_audio import (
     CustomInstrument,
     MelodyBassVoiceAllocator,
     NoteEvent,
+    RetroArranger,
     SquareParams,
     SmartVoiceAllocator,
     TempoMap,
@@ -55,6 +56,7 @@ from midi_to_audio import (
     midi_pitch_to_freq,
     midi_pitch_to_name,
     parse_midi_file,
+    select_sections,
     OP_CH1_FAST,
     OP_CH1_INSTR,
     OP_CH1_SAW1,
@@ -213,6 +215,59 @@ class TestMidiParser(unittest.TestCase):
         self.assertAlmostEqual(total_sec, 0.75, places=3)
 
 
+class TestRetroArrangement(unittest.TestCase):
+    def test_held_melody_survives_new_harmony_notes(self):
+        notes = [
+            NoteEvent(72, 0, 1.0, 90, 0, 1),
+            NoteEvent(48, 0, 1.0, 75, 1, 2),
+            NoteEvent(64, 0.5, 1.0, 85, 2, 3),
+            NoteEvent(67, 0.5, 1.0, 85, 2, 3),
+        ]
+        summaries = [
+            TrackSummary(1, "lead", 0, 0, "Piano", 1, 72, 72, 72, False, "melody"),
+            TrackSummary(2, "bass", 1, 32, "Bass", 1, 48, 48, 48, False, "bass"),
+            TrackSummary(3, "chord", 2, 0, "Piano", 2, 64, 67, 65.5, False, "harmony"),
+        ]
+        slices = RetroArranger(notes, summaries).allocate()
+        at_half = next(s for s in slices if s.time <= 0.55 < s.time + s.duration)
+        self.assertEqual(at_half.ch1.pitch, 72)
+        self.assertTrue(any(s.ch2.is_active and s.ch2.pitch == 48 for s in slices))
+
+    def test_sustained_chord_becomes_measured_arpeggio(self):
+        notes = [NoteEvent(p, 0, 3.0, 80, 0, 1) for p in (48, 51, 55, 58)]
+        summary = TrackSummary(1, "piano", 0, 0, "Piano", 4, 48, 58, 53, False, "harmony")
+        slices = RetroArranger(notes, [summary]).allocate()
+        pitches = {s.ch1.pitch for s in slices if s.ch1.is_active}
+        self.assertGreaterEqual(len(pitches), 3)
+        self.assertTrue(any(s.ch2.is_active for s in slices))
+
+    def test_quick_melody_turn_is_kept_separate_from_rolled_chords(self):
+        notes = [NoteEvent(72, 0, 0.14, 90, 0, 1),
+                 NoteEvent(74, 0.15, 0.29, 90, 0, 1)]
+        summary = TrackSummary(1, "lead", 0, 0, "Piano", 2, 72, 74, 73, False, "melody")
+        slices = RetroArranger(notes, [summary]).allocate()
+        pitches = {s.ch1.pitch for s in slices if s.ch1.is_active}
+        self.assertEqual(pitches, {72, 74})
+
+    def test_loop_gap_releases_both_channels_before_restart(self):
+        notes = [NoteEvent(72, 0, 1, 80, 0, 1),
+                 NoteEvent(48, 0, 1, 80, 1, 2)]
+        summaries = [TrackSummary(1, "lead", 0, 0, "Piano", 1, 72, 72, 72, False, "melody"),
+                     TrackSummary(2, "bass", 1, 32, "Bass", 1, 48, 48, 48, False, "bass")]
+        slices = RetroArranger(notes, summaries, song_length=1, loop_gap=0.08).allocate()
+        self.assertFalse(slices[-1].ch1.is_active)
+        self.assertFalse(slices[-1].ch2.is_active)
+
+    def test_sections_join_at_new_bar_without_mutating_input(self):
+        notes = [NoteEvent(60, 0, 2, 80, 0, 1),
+                 NoteEvent(64, 4, 6, 80, 0, 1)]
+        arranged, length = select_sections(notes, "0:1,5:6", 6)
+        self.assertEqual(length, 2)
+        self.assertEqual([(n.start_time, n.end_time) for n in arranged],
+                         [(0, 1), (1, 2)])
+        self.assertEqual(notes[1].start_time, 4)
+
+
 class TestVoiceAllocation(unittest.TestCase):
     def test_smart_allocation_polyphony(self):
         # 3 notes playing simultaneously: C3 (48), E4 (64), G4 (67)
@@ -333,6 +388,15 @@ class TestCompilerAndEmitters(unittest.TestCase):
         raw_bin = emit_binary(instructions)
         self.assertIsInstance(raw_bin, bytes)
         self.assertGreater(len(raw_bin), 5)
+
+    def test_non_asm_output_rejects_unresolved_loop_address(self):
+        loop = [BytecodeCompiler(loop=True).compile([TimeSlice(
+            time=0, duration=0.5,
+            ch1=ChannelSound(1, False), ch2=ChannelSound(2, False))])[-1]]
+        with self.assertRaisesRegex(ValueError, "use ASM"):
+            emit_binary(loop)
+        with self.assertRaisesRegex(ValueError, "use ASM"):
+            emit_c(loop, "loop_song", loop=True)
 
 
 class TestAssemblerIntegration(unittest.TestCase):
@@ -616,4 +680,3 @@ class TestAudioEmulator(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

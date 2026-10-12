@@ -3,7 +3,9 @@
 midi_to_audio.py - Intelligent MIDI to TI-Tale Audio Engine Converter.
 
 Converts standard MIDI files (.mid) into native bytecode streams playable by
-the TI-Tale dual-channel audio engine on TI-83+ SE / TI-84+ hardware.
+the TI-Tale dual-channel audio engine on TI-83+ SE / TI-84+ hardware. The
+default arranger reinterprets a score as a deliberate two-voice retro piece:
+a phrase-stable lead, measured chord arpeggios, and a regular bass pulse.
 
 Features:
 - Pure Python 3 standard library implementation (no external dependencies required).
@@ -47,7 +49,7 @@ import math
 import os
 import struct
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set, Tuple
@@ -1243,6 +1245,212 @@ class TrackRoutingVoiceAllocator(VoiceAllocator):
         return smart.allocate()
 
 
+class RetroArranger(SmartVoiceAllocator):
+    """Turn a polyphonic MIDI score into a two-voice pulse arrangement.
+
+    Melody is chosen at note onsets, so accompaniment chords cannot replace a
+    held lead note. The second channel plays a regular bass pattern derived
+    from the current harmony. MIDI drum hits do not interrupt either voice.
+    """
+
+    def __init__(self, *args, bass_stride: int = 1, lead_spacing: float = 0.14,
+                 song_length: Optional[float] = None, loop_gap: float = 0.0,
+                 **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bass_stride = bass_stride
+        self.lead_spacing = lead_spacing
+        self.song_length = song_length
+        self.loop_gap = loop_gap
+
+    @staticmethod
+    def _fold_pitch(pitch: int, low: int, high: int) -> int:
+        while pitch < low:
+            pitch += 12
+        while pitch > high:
+            pitch -= 12
+        return pitch
+
+    @staticmethod
+    def _beat_length(notes: List[NoteEvent]) -> float:
+        # The most common onset spacing is usually an eighth or quarter note.
+        # Measure within tracks so simultaneous chords do not dominate it.
+        counts: Dict[int, int] = {}
+        by_track: Dict[int, Set[int]] = {}
+        for note in notes:
+            by_track.setdefault(note.track_idx, set()).add(round(note.start_time * 100))
+        for onsets in by_track.values():
+            ordered = sorted(onsets)
+            for earlier, later in zip(ordered, ordered[1:]):
+                delta = later - earlier
+                if 20 <= delta <= 80:
+                    bucket = round(delta / 2) * 2
+                    counts[bucket] = counts.get(bucket, 0) + 1
+        if not counts:
+            return 0.5
+        spacing = max(counts, key=lambda x: (counts[x], -x)) / 100.0
+        return spacing * 2 if spacing < 0.42 else spacing
+
+    def _pulse(self, pitch: int, channel: int, duty: float) -> ChannelSound:
+        freq = midi_pitch_to_freq(pitch)
+        square = calc_square_params(freq, CLOCK_SLOW_HZ, duty)
+        return ChannelSound(
+            channel=channel, is_active=True, voice=VoiceType.SQUARE,
+            pitch=pitch, freq=freq, square_high=square.high_ticks,
+            square_low=square.low_ticks, note_name=midi_pitch_to_name(pitch)
+        )
+
+    def _lead_events(self, tonal: List[NoteEvent], beat: float,
+                     total_time: float
+                     ) -> List[Tuple[float, float, int]]:
+        roles = {s.track_idx: s.role for s in self.track_summaries}
+        ordered = sorted(tonal, key=lambda n: n.start_time)
+        groups: List[List[NoteEvent]] = []
+        for note in ordered:
+            anchor = groups[-1][0] if groups else None
+            rolled_chord = (anchor is not None and note.track_idx == anchor.track_idx
+                            and roles.get(note.track_idx) == "harmony"
+                            and note.duration > beat * 2
+                            and anchor.duration > beat * 2)
+            window = min(0.18, beat * 0.32) if rolled_chord else 0.04
+            if anchor is not None and note.start_time - anchor.start_time < window:
+                groups[-1].append(note)
+            else:
+                groups.append([note])
+
+        events: List[Tuple[float, float, int]] = []
+        previous_pitch: Optional[int] = None
+        for group in groups:
+            time = group[0].start_time
+            if events and time - events[-1][0] < self.lead_spacing:
+                continue
+
+            foreground = [n for n in group if roles.get(n.track_idx) == "melody"]
+            if not foreground:
+                # Keep a melodic phrase intact while its source note is held.
+                held_melody = any(roles.get(n.track_idx) == "melody" and
+                                  n.start_time < time - 0.04 and n.end_time > time
+                                  for n in tonal)
+                if held_melody:
+                    continue
+                foreground = [n for n in group if roles.get(n.track_idx) != "bass"]
+            if not foreground:
+                continue
+
+            def quality(note: NoteEvent) -> float:
+                pitch = self._fold_pitch(note.pitch, 60, 84)
+                leap = abs(pitch - previous_pitch) if previous_pitch is not None else 0
+                return (3.0 if roles.get(note.track_idx) == "melody" else 0.0) + \
+                    0.15 * (pitch - 60) + note.velocity / 80.0 - \
+                    max(0, leap - 7) * 0.13
+
+            chosen = max(foreground, key=quality)
+            pitch = self._fold_pitch(chosen.pitch, 60, 84)
+            length = max(0.12, min(chosen.duration * 0.88, beat * 1.75))
+            if events:
+                start, end, old_pitch = events[-1]
+                events[-1] = (start, min(end, time - self.frame_sec), old_pitch)
+            events.append((time, time + length, pitch))
+            previous_pitch = pitch
+        # Sustained harmony becomes a measured arpeggio where the score has no
+        # lead phrase. This gives long pad chords motion without rapid note
+        # cycling or taking the bass channel away.
+        fills: List[Tuple[float, float, int]] = []
+        beat_number = 1
+        while beat_number * beat < total_time:
+            time = beat_number * beat
+            beat_number += 1
+            if any(start - 0.06 <= time < end + 0.08 for start, end, _ in events):
+                continue
+            if any(n.start_time <= time < n.end_time and
+                   roles.get(n.track_idx) == "melody" for n in tonal):
+                continue
+            chord = sorted({n.pitch for n in tonal if n.start_time <= time < n.end_time
+                            and roles.get(n.track_idx) != "bass"})
+            if len(chord) < 2:
+                continue
+            pattern = (len(chord) - 1, max(0, len(chord) - 2),
+                       max(0, len(chord) - 3), max(0, len(chord) - 2))
+            pitch = self._fold_pitch(chord[pattern[(beat_number - 1) % 4]], 60, 84)
+            fills.append((time, min(total_time, time + beat * 0.74), pitch))
+
+        combined = sorted(events + fills)
+        for i in range(len(combined) - 1):
+            start, end, pitch = combined[i]
+            combined[i] = (start, min(end, combined[i + 1][0] - self.frame_sec), pitch)
+        return combined
+
+    def _bass_events(self, tonal: List[NoteEvent], beat: float,
+                     total_time: float) -> List[Tuple[float, float, int]]:
+        roles = {s.track_idx: s.role for s in self.track_summaries}
+        events: List[Tuple[float, float, int]] = []
+        beat_number = 0
+        while beat_number * beat < total_time:
+            time = beat_number * beat
+            beat_number += 1
+            if (beat_number - 1) % self.bass_stride:
+                continue
+            sounding = [n for n in tonal if n.start_time <= time + 0.08 and
+                        n.end_time >= time - 0.10]
+            bass = [n for n in sounding if roles.get(n.track_idx) == "bass"]
+            harmony = [n for n in sounding if roles.get(n.track_idx) != "melody"]
+            candidates = bass or harmony
+            if not candidates:
+                continue
+            root = min(candidates, key=lambda n: n.pitch).pitch
+            pitch = self._fold_pitch(root, 36, 52)
+
+            # In sections without a written bass, use a chord fifth as a
+            # measured response every fourth beat when the chord contains it.
+            if not bass and (beat_number - 1) % 4 == 3:
+                fifth = (root + 7) % 12
+                if any(n.pitch % 12 == fifth for n in harmony):
+                    pitch = self._fold_pitch(root + 7, 43, 60)
+
+            length = min(beat * 0.78, total_time - time)
+            if length > 0:
+                events.append((time, time + length, pitch))
+        return events
+
+    def allocate(self) -> List[TimeSlice]:
+        tonal = [n for n in self.notes if not n.is_percussion and n.duration > 0]
+        if not tonal:
+            return []
+        total_time = max(max(n.end_time for n in tonal), self.song_length or 0)
+        beat = self._beat_length(tonal)
+        frames = int(math.ceil(total_time / self.frame_sec)) + 1
+        lead: List[Optional[ChannelSound]] = [None] * frames
+        bass: List[Optional[ChannelSound]] = [None] * frames
+
+        for start, end, pitch in self._lead_events(tonal, beat, total_time):
+            if end <= start:
+                continue
+            first = max(0, round(start / self.frame_sec))
+            last = min(frames, max(first + 1, round(end / self.frame_sec)))
+            sound = self._pulse(pitch, 1, 0.25)
+            lead[first:last] = [sound] * (last - first)
+            if end - start > beat * 1.1:
+                fade_at = first + round((last - first) * 0.65)
+                soft = self._pulse(pitch, 1, 0.125)
+                lead[fade_at:last] = [soft] * (last - fade_at)
+
+        for start, end, pitch in self._bass_events(tonal, beat, total_time):
+            first = max(0, round(start / self.frame_sec))
+            last = min(frames, max(first + 1, round(end / self.frame_sec)))
+            sound = self._pulse(pitch, 2, 0.5)
+            bass[first:last] = [sound] * (last - first)
+
+        if self.loop_gap > 0:
+            gap_start = max(0, round((total_time - self.loop_gap) / self.frame_sec))
+            lead[gap_start:] = [None] * (frames - gap_start)
+            bass[gap_start:] = [None] * (frames - gap_start)
+
+        raw = [TimeSlice(i * self.frame_sec, self.frame_sec,
+                         lead[i] or ChannelSound(1, False),
+                         bass[i] or ChannelSound(2, False))
+               for i in range(frames)]
+        return self._compress_slices(raw)
+
+
 # ---------------------------------------------------------------------------
 # Bytecode Compiler & Optimizers
 # ---------------------------------------------------------------------------
@@ -1477,6 +1685,8 @@ def emit_asm(instructions: List[CompiledInstruction],
 
 def emit_c(instructions: List[CompiledInstruction], song_name: str, loop: bool = False) -> str:
     """Generates C source / header content."""
+    if any(instr.symbol_ref for instr in instructions):
+        raise ValueError("C output cannot encode song jumps or instrument pointers; use ASM")
     lines: List[str] = [
         "/* ===========================================================================",
         f" * Auto-generated TI-Tale Audio Bytecode: {song_name}",
@@ -1489,12 +1699,9 @@ def emit_c(instructions: List[CompiledInstruction], song_name: str, loop: bool =
 
     for instr in instructions:
         cmt = f" // {instr.comment}" if instr.comment else ""
-        if instr.symbol_ref:
-            lines.append(f"    0x{instr.opcode:02X}, 0x00, 0x00,{cmt} /* unresolved symbol {instr.symbol_ref} */")
-        else:
-            bytes_list = [f"0x{instr.opcode:02X}"] + [f"0x{b:02X}" for b in instr.operands]
-            bytes_str = ", ".join(bytes_list) + ","
-            lines.append(f"    {bytes_str}{cmt}")
+        bytes_list = [f"0x{instr.opcode:02X}"] + [f"0x{b:02X}" for b in instr.operands]
+        bytes_str = ", ".join(bytes_list) + ","
+        lines.append(f"    {bytes_str}{cmt}")
 
     lines.append("};")
     lines.append("")
@@ -1503,21 +1710,44 @@ def emit_c(instructions: List[CompiledInstruction], song_name: str, loop: bool =
 
 def emit_binary(instructions: List[CompiledInstruction]) -> bytes:
     """Emits raw binary bytes for instructions without unresolved symbols."""
+    if any(instr.symbol_ref for instr in instructions):
+        raise ValueError("Binary output cannot encode song jumps or instrument pointers; use ASM")
     buf = bytearray()
     for instr in instructions:
-        if instr.symbol_ref:
-            # Placeholder 0x0000 for unresolved symbols in raw binary
-            buf.append(instr.opcode)
-            buf.extend([0x00, 0x00])
-        else:
-            buf.append(instr.opcode)
-            buf.extend(instr.operands)
+        buf.append(instr.opcode)
+        buf.extend(instr.operands)
     return bytes(buf)
 
 
 # ---------------------------------------------------------------------------
 # CLI Argument Parser & Application Driver
 # ---------------------------------------------------------------------------
+
+def select_sections(notes: List[NoteEvent], spec: str,
+                    duration: float) -> Tuple[List[NoteEvent], float]:
+    """Join source time ranges into a new score while retaining note roles."""
+    arranged: List[NoteEvent] = []
+    offset = 0.0
+    for part in spec.split(","):
+        try:
+            start_text, end_text = part.strip().split(":")
+            start, end = float(start_text), float(end_text)
+        except ValueError as exc:
+            raise ValueError("sections must be START:END ranges separated by commas") from exc
+        if not (0 <= start < end <= duration + 0.02):
+            raise ValueError(f"invalid section {part!r} for a {duration:.2f}s MIDI")
+        for note in notes:
+            if note.start_time < end and note.end_time > start:
+                clipped_start = max(note.start_time, start)
+                clipped_end = min(note.end_time, end)
+                arranged.append(replace(note,
+                                        start_time=offset + clipped_start - start,
+                                        end_time=offset + clipped_end - start))
+        offset += end - start
+    if not arranged:
+        raise ValueError("selected sections contain no notes")
+    return arranged, offset
+
 
 def create_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
@@ -1530,8 +1760,8 @@ def create_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--name", type=str, default=None, help="Symbol/label name in output code")
 
     # Voice & Channel Strategy Settings
-    parser.add_argument("--strategy", choices=["smart", "melody-bass", "arpeggio", "tracks"], default="smart",
-                        help="Polyphony reduction and channel assignment strategy")
+    parser.add_argument("--strategy", choices=["arranged", "smart", "melody-bass", "arpeggio", "tracks"], default="arranged",
+                        help="Arrangement style; arranged creates a coherent retro lead and bass part")
     parser.add_argument("--ch1-track", type=int, default=None, help="Explicit track index for Channel 1 (when strategy=tracks)")
     parser.add_argument("--ch2-track", type=int, default=None, help="Explicit track index for Channel 2 (when strategy=tracks)")
     parser.add_argument("--ch1-voice", choices=["auto", "square", "saw1", "saw2", "saw3"], default="auto",
@@ -1574,6 +1804,10 @@ def create_arg_parser() -> argparse.ArgumentParser:
                         help="Loop the song seamlessly with a jump instruction")
     parser.add_argument("--quantize", type=float, default=60.0,
                         help="Note timing quantization rate in Hz (default 60 Hz for greyscale sync)")
+    parser.add_argument("--max-bytes", type=int, default=None,
+                        help="For arranged mode, simplify the arrangement to fit this bytecode budget")
+    parser.add_argument("--sections", type=str, default=None,
+                        help="Join MIDI time ranges, e.g. 0:10,40:80, into a new song")
 
     # Diagnostics
     parser.add_argument("--info", action="store_true", help="Print detailed MIDI track and musical analysis and exit")
@@ -1640,6 +1874,12 @@ def main():
             n.end_time *= scale
         total_duration *= scale
 
+    if args.sections:
+        try:
+            notes, total_duration = select_sections(notes, args.sections, total_duration)
+        except ValueError as exc:
+            parser.error(str(exc))
+
     # Duty ratio
     duty_map = {"50%": 0.5, "25%": 0.25, "12.5%": 0.125}
     duty_ratio = duty_map.get(args.duty_cycle, 0.5)
@@ -1654,7 +1894,31 @@ def main():
     voice2 = VoiceType(args.ch2_voice)
 
     # Voice Allocator selection
-    if args.strategy == "tracks" and args.ch1_track is not None and args.ch2_track is not None:
+    if args.strategy == "arranged":
+        # Search from the fullest arrangement toward sparser bass and lead
+        # patterns when the destination ROM page has a size limit.
+        candidates = [(1, 0.14), (2, 0.14), (2, 0.20), (3, 0.20),
+                      (4, 0.20), (2, 0.40), (3, 0.40), (4, 0.40),
+                      (6, 0.40), (8, 0.40)]
+        selected = None
+        for bass_stride, lead_spacing in candidates:
+            candidate = RetroArranger(
+                notes=notes, track_summaries=track_summaries,
+                quantize_fps=args.quantize, bass_stride=bass_stride,
+                lead_spacing=lead_spacing, song_length=total_duration,
+                loop_gap=0.08 if args.loop else 0.0
+            )
+            candidate_slices = candidate.allocate()
+            candidate_instructions = BytecodeCompiler(loop=args.loop).compile(candidate_slices)
+            size = sum(instr.byte_length() for instr in candidate_instructions)
+            if args.max_bytes is None or size <= args.max_bytes:
+                selected = (candidate_slices, candidate_instructions)
+                break
+        if selected is None:
+            parser.error(f"arrangement cannot fit in {args.max_bytes} bytes")
+        slices, instructions = selected
+        allocator = None
+    elif args.strategy == "tracks" and args.ch1_track is not None and args.ch2_track is not None:
         allocator = TrackRoutingVoiceAllocator(
             ch1_track=args.ch1_track,
             ch2_track=args.ch2_track,
@@ -1725,11 +1989,10 @@ def main():
             arpeggio_sustained=args.arpeggio_sustained
         )
 
-    slices = allocator.allocate()
-
-    # Compile bytecode
-    compiler = BytecodeCompiler(loop=args.loop, allow_custom=allow_custom)
-    instructions = compiler.compile(slices)
+    if allocator is not None:
+        slices = allocator.allocate()
+        compiler = BytecodeCompiler(loop=args.loop, allow_custom=allow_custom)
+        instructions = compiler.compile(slices)
 
     # Prepare custom instruments if used
     custom_instruments: Dict[str, CustomInstrument] = {}
@@ -1749,6 +2012,8 @@ def main():
 
     # Output emission
     total_bytes = sum(instr.byte_length() for instr in instructions)
+    if args.format != "asm" and any(instr.symbol_ref for instr in instructions):
+        parser.error("C and binary output cannot encode song jumps or instrument pointers; use --format asm")
 
     if args.format == "asm" or args.format == "all":
         asm_content = emit_asm(instructions, song_name, custom_instruments, loop=args.loop)
@@ -1776,7 +2041,10 @@ def main():
     print(f"Duration: {total_duration:.2f}s | Instructions: {len(instructions)} | Bytecode size: {total_bytes} bytes")
     if trans_semitones != 0:
         print(f"Transposition applied: {trans_semitones:+d} semitones")
-    print(f"Settings: strategy={args.strategy}, custom_instruments={args.custom_instruments}, percussion={perc_mode}, loop={args.loop}")
+    if args.strategy == "arranged":
+        print(f"Settings: strategy=arranged, bass_stride={bass_stride}, lead_spacing={lead_spacing}, loop={args.loop}")
+    else:
+        print(f"Settings: strategy={args.strategy}, custom_instruments={args.custom_instruments}, percussion={perc_mode}, loop={args.loop}")
 
 
 if __name__ == "__main__":

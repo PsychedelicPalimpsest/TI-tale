@@ -33,7 +33,7 @@ out.prof: $(shell python profile_gen.py --list) out.map
 	python profile_gen.py --gen-regions --map out.map > $@ || rm -f $@
 
 
-out.8xk out.map &: first_page.c build_pages.py gm_comp.py $(wildcard game/rooms/*.json game/rooms/*.c game/objects/*.json game/objects/*.c game/sprites/*.json game/sprites/images/*.png) Makefile engine_resident.lib engine_page.lib core.lib core/custom_ti83papp_crt0.asm struct_offsets.inc $(CORE_INCLUDES)
+out.8xk out.map &: first_page.c build_pages.py gm_comp.py $(wildcard game/audio/*.asm game/rooms/*.json game/rooms/*.c game/objects/*.json game/objects/*.c game/sprites/*.json game/sprites/images/*.png) Makefile engine_resident.lib engine_page.lib core.lib core/custom_ti83papp_crt0.asm struct_offsets.inc $(CORE_INCLUDES)
 	python build_pages.py
 clean:
 	rm -f out.8xk *.bin out *.lib **/*.o **/**.lis *.lis *.map struct_offsets.inc out.prof regions.txt page_[0-9]*

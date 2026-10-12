@@ -43,6 +43,9 @@
 
 ## `tooling/midi_to_audio.py` — MIDI to Audio Engine Converter
 - Converts standard MIDI songs (`.mid`/`.midi`) into TI-Tale dual-channel audio engine bytecode.
+- The default `--strategy arranged` builds a retro piece from the MIDI: a stable melody, chord arpeggios in open phrases, and a beat-based bass line. It uses a fixed pulse-wave palette and leaves out MIDI drums so they do not interrupt these two voices. The voice, percussion, and decay options below apply to the other strategies.
+- `--sections START:END,...` joins selected passages into a new song; `--max-bytes N` searches simpler arrangements when the ROM page has a size limit.
+- Looping songs with symbolic jump addresses require `--format asm`; C and raw binary output reject unresolved addresses.
 - **Voice allocation & polyphony reduction**:
   - `--strategy smart` (default): Melodic line separation with bass tracking, continuity smoothing, and dynamic voice allocation.
   - `--strategy melody-bass`: Direct top-line melody to Channel 1, bass root to Channel 2.

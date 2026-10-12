@@ -31,7 +31,13 @@ void room_entry(void) {
     // cur_camx = 0;
     // cur_camy = 0;
 
-    // 4. Audio / Music trigger:
-    // TODO: Connect audio engine track trigger:
-    // audio_play_music(track_overworld);
+    // Start the looping background track from page 0, where its bytecode lives.
+    #asm
+        EXTERN song_raining_somewhere_else
+        EXTERN set_song
+        di
+        ld hl, song_raining_somewhere_else
+        call set_song
+        ei
+    #endasm
 }

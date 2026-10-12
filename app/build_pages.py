@@ -66,7 +66,8 @@ def main():
         deps += [f"game/objects/{oid}.o" for oid in sorted(objects)]
         deps += [f"game/sprites/{sid}.o" for sid in sorted(sprites)]
         output = "out" if page == 0 else f"page_{page}"
-        source_files = (["first_page.c"] if page == 0 else []) + [source.name]
+        source_files = (["first_page.c", "game/audio/song_raining_somewhere_else.asm"]
+                        if page == 0 else []) + [source.name]
         multipage_flags = ["-pragma-define:MULTI_PAGE_CALLS=1"] if len(pages) > 1 and page == 0 else []
         run("zcc", "+ti83p", "-L.", "-lcore", "-lengine_resident",
             "-lengine_page", "-o", output, *source_files, *deps,
