@@ -2,9 +2,9 @@ SECTION code_engine
 INCLUDE "engine/engine_globals.inc"
 
 ; void set_alarm(uint16_t alarm_idx, int16_t value) __z88dk_callee
-PUBLIC  _inst_update_alarms
+PUBLIC  _set_alarm
 ;#[PROFILE_ROUTINE]
-_inst_update_alarms:
+_set_alarm:
     pop hl ; Return address
         pop bc ; value
         pop de ; alarm index

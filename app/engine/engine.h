@@ -162,14 +162,16 @@ extern void return_to_loop();
 // But they do return if invalid, such as of no next or prev room
 // exists. (Not the same behavior as gamemaker)
 extern void room_goto(Room room) __z88dk_fastcall;
-extern void room_goto_next();
-extern void room_goto_prev();
+extern void room_goto_next(void);
+extern void room_goto_prev(void);
 
 extern Instance* instance_create_depth(int16_t depth, uint16_t x, uint16_t y, Object* obj) __z88dk_callee;
 extern Instance* instance_find_id(uint16_t id) __z88dk_fastcall;
 extern void instance_destroy(uint16_t id) __z88dk_fastcall;
 extern void event_perform_user(uint8_t index) __z88dk_fastcall;
-extern void inst_update_alarms(uint16_t alarm_idx, int16_t value) __z88dk_callee;
+extern void set_alarm(uint16_t alarm_idx, int16_t value) __z88dk_callee;
+
+
 
 #define instance_create(x, y, obj) \
     instance_create_depth(gmctx.instance ? gmctx.instance->depth : 0, (x), (y), (obj))
@@ -184,8 +186,7 @@ extern void inst_update_alarms(uint16_t alarm_idx, int16_t value) __z88dk_callee
 #define set_x(__OBJ, __X) do { \
     Instance* _set_x_instance = (__OBJ); \
     int16_t _set_x_value = (__X); \
-    if (_set_x_instance->x != _set_x_value || \
-        _set_x_instance->displayed_sprite.x_pos != _set_x_value) { \
+    if (_set_x_instance->x != _set_x_value) { \
         _set_x_instance->x = _set_x_instance->displayed_sprite.x_pos = _set_x_value; \
         _set_x_instance->flags |= 0x04; \
     } \
@@ -193,8 +194,7 @@ extern void inst_update_alarms(uint16_t alarm_idx, int16_t value) __z88dk_callee
 #define set_y(__OBJ, __Y) do { \
     Instance* _set_y_instance = (__OBJ); \
     int16_t _set_y_value = (__Y); \
-    if (_set_y_instance->y != _set_y_value || \
-        _set_y_instance->displayed_sprite.y_pos != _set_y_value) { \
+    if (_set_y_instance->y != _set_y_value) { \
         _set_y_instance->y = _set_y_instance->displayed_sprite.y_pos = _set_y_value; \
         _set_y_instance->flags |= 0x04; \
     } \
@@ -202,5 +202,16 @@ extern void inst_update_alarms(uint16_t alarm_idx, int16_t value) __z88dk_callee
 
 
 extern void set_depth(Instance* ins, int16_t depth) __z88dk_callee;
+
+extern void draw_self(void);
+
+
+
+#ifdef OBJECT
+#define self (gmctx.instance)
+#endif
+
+
+
 
 #endif

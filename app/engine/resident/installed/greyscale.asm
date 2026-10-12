@@ -61,6 +61,7 @@ defc _grey_count=greyscale_tick+1
         jp after_grey_count
 
 ; GREYSCALE ENTRY POINT:
+;#[PROFILE_ROUTINE]
 greyscale_tick:
     ld hl, 0
     inc hl

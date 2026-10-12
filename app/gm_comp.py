@@ -113,16 +113,18 @@ def _compile_transient_asm(path):
         path,
     ]
 
-def _compile_object_c(path):
+def _compile_object_c(path, objid):
     return [
         "zcc","+ti83p", "-c",
+        "-DOBJECT", "-DOBJECTID=" + objid,
         *_env_flags("CFLAGS"),
         path,
     ]
 
-def _compile_room_c(path):
+def _compile_room_c(path, rmid):
     return [
         "zcc","+ti83p", "-c",
+        "-DROOM", "-DROOMID="+rmid,
         *_env_flags("CFLAGS"),
         path,
     ]
@@ -847,7 +849,7 @@ def _compile_object(json_path, jso):
     with open(h_file, "w") as f:
         f.write("\n".join(out))
 
-    return _compile_object_c(c_file)
+    return _compile_object_c(c_file, oid)
 
     
 
@@ -884,7 +886,7 @@ def compile_transients(gpl_path=GPL_PATH):
             # recompile the .c without regenerating.
             print(f"compiling object (.o stale): {jso}")
             c_file, _h_file = object_paths(jso)
-            yield _compile_object_c(c_file)
+            yield _compile_object_c(c_file, _load_json(jso)["id"])
 
 # ==== Rooms ====
 
@@ -951,8 +953,8 @@ def _compile_room(json_path):
         f.write("\n".join(lines) + "\n")
     if not exists(c_file):
         with open(c_file, "w") as f:
-            f.write(f'#define ROOM\n#include "game/rooms/{basename(h_file)}"\n')
-    return _compile_room_c(c_file)
+            f.write(f'#include "game/rooms/{basename(h_file)}"\n')
+    return _compile_room_c(c_file, rid)
 
 
 def generate_room_index():
@@ -1031,7 +1033,7 @@ def compile_rooms():
             yield _compile_room(room)
         elif not exists(o_file) or getmtime(o_file) < max(getmtime(c_file), getmtime(h_file)):
             print(f"compiling room: {room}")
-            yield _compile_room_c(c_file)
+            yield _compile_room_c(c_file, _room_identifier(room_json["id"], f"{room}: id"))
 
 
 def main():

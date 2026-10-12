@@ -1,0 +1,12 @@
+{
+  "id": "obj_chara",
+  "sprite": "spr_charar",
+  "visible": true,
+  "solid": false,
+  "persistent": false,
+  "depth": 0,
+  "events": [
+    "create",
+    "step"
+  ]
+}

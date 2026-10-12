@@ -1,6 +1,3 @@
-#define ROOM
-#define ROOMID room_test
-
 #include "engine/engine.h"
 void room_entry(void);
 #include "game/rooms/room_test.h"

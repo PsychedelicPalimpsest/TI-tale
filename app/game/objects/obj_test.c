@@ -1,15 +1,7 @@
-#define OBJECT
-#define OBJECTID obj_test
-
 #include "engine/engine.h"
 #include <string.h>
 #include "game/sprites/spr_test.h"
 #include "game/objects/obj_test.h"
-
-// TODO: Move this ergonomic alias into engine/engine.h
-#ifndef self
-#define self (gmctx.instance)
-#endif
 
 // TODO: Expose keyboard / input scan helpers in engine/input.h
 // Port 1 $FE row (active low: 0 = pressed, 1 = released)
@@ -19,14 +11,6 @@ extern uint8_t current_keymap[8];
 #define KEY_MASK_LEFT    (1 << 1)
 #define KEY_MASK_RIGHT   (1 << 2)
 #define KEY_MASK_UP      (1 << 3)
-
-// TODO: Add proper GML naming alias set_alarm(idx, val) in engine.h
-extern void inst_update_alarms(uint16_t alarm_idx, int16_t value) __z88dk_callee;
-#define set_alarm(idx, val) inst_update_alarms((idx), (val))
-
-// TODO: Add draw_self() alias in engine.h
-extern void draw_self(void);
-
 
 /*
  * Create Event: Executed once when this instance is spawned.

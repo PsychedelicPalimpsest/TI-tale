@@ -94,6 +94,13 @@ note_lookup:
     defw note_ch1_saw_sweep ; 12 n n n  : activation mask, maximum ticks added, addative constant added (ignored if in anything other then saw mode 1)
     defw note_ch2_saw_sweep ; 13 n n n
 
+; Custom instrument: 16-bit instrument sample table pointer
+    defw note_ch1_instr     ; 14 nn
+    defw note_ch2_instr     ; 15 nn
+
+; Jump / loop: 16-bit destination pointer
+    defw note_jump          ; 16 nn
+
 
 
 ; The on/off port for timer for each channel.
@@ -578,3 +585,41 @@ endm
 
 note_ch1_saw_sweep: _saw_sweep 1
 note_ch2_saw_sweep: _saw_sweep 2
+
+
+macro _instrument channel
+    call channel == 1 ? cleanup_ch1 : cleanup_ch2
+
+    ex de, hl
+
+    ld e, (hl) \ inc hl
+    ld d, (hl) \ inc hl
+
+    di
+    defl val_ptr = (channel == 1 ? ch1_instrument_val_ptr : ch2_instrument_val_ptr)
+    defl low_ptr = (channel == 1 ? ch1_instrument_low_ptr : ch2_instrument_low_ptr)
+    ld (val_ptr), de
+    ld a, e
+    ld (low_ptr), a
+
+    ld a, (de)
+    set_timer channel, a
+
+    set_ch_state channel, instr_state
+    ei
+
+    ex de, hl
+    jp astate_next_note
+endm
+
+EXTERN ch1_instrument_val_ptr, ch1_instrument_low_ptr
+EXTERN ch2_instrument_val_ptr, ch2_instrument_low_ptr
+note_ch1_instr: _instrument 1
+note_ch2_instr: _instrument 2
+
+note_jump:
+    ex de, hl
+    ld e, (hl) \ inc hl
+    ld d, (hl)
+    ex de, hl
+    jp astate_next_note

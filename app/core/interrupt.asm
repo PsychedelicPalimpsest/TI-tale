@@ -72,6 +72,9 @@ INCLUDE "audio.inc"
 ;  Keep in mind: this is the single hottest path of this codebase. (espicially audio)
 interupt:
 PHASE interupt_vector
+
+;#[PROFILE_ROUTINE]
+__in_interupt:
     di       ;  4
     push	af ;  11
 
